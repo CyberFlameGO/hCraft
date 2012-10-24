@@ -29,6 +29,12 @@ To build hCraft, you will need a C++11-compatible compiler and a copy of
 hCraft, and type `scons`. That will compile and link the source code into
 an executable (can be found in the created "build" directory).
 
+### Dependencies
+*  [libevent](http://libevent.org/)
+*  [sqlite3](http://www.sqlite.org/)
+*  [zlib](http://www.zlib.net/)
+*  [yaml-cpp](http://code.google.com/p/yaml-cpp/)
+
 IRC
 ---
 
