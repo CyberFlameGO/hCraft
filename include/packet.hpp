@@ -66,7 +66,7 @@ namespace hCraft {
 		void put_long (uint64_t val);
 		void put_float (float val);
 		void put_double (double val);
-		void put_string (const char *str);
+		void put_string (const char *str, bool sanitize = true);
 		void put_bytes (const unsigned char *val, unsigned int len);
 		void put_bool (bool val)
 			{ put_byte (val ? 1 : 0); }
@@ -134,6 +134,7 @@ namespace hCraft {
 			short ping_ms);
 		
 		static packet* make_kick (const char *str);
+		static packet* make_ping_kick (const char *str);
 	};
 	
 	

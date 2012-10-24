@@ -277,11 +277,14 @@ namespace hCraft {
 			}
 	}
 	
+	
+	
 	/* 
 	 * Kicks the player with the given message.
+	 * @{slp}: Server list ping
 	 */
 	void
-	player::kick (const char *msg, const char *log_msg)
+	player::kick (const char *msg, const char *log_msg, bool sanitize)
 	{
 		if (log_msg)
 			std::strcpy (this->kick_msg, log_msg);
@@ -289,7 +292,10 @@ namespace hCraft {
 			std::strcpy (this->kick_msg, msg);
 		
 		this->kicked = true;
-		this->send (packet::make_kick (msg));
+		if (sanitize)
+			this->send (packet::make_kick (msg));
+		else
+			this->send (packet::make_ping_kick (msg));
 	}
 	
 	
@@ -811,7 +817,6 @@ namespace hCraft {
 		std::vector<std::string> lines;
 		
 		wordwrap::wrap_prefix (lines, msg, 64, prefix, first_line);
-		
 		for (auto& line : lines)
 			{
 				this->send (packet::make_message (line.c_str ()));
@@ -830,7 +835,6 @@ namespace hCraft {
 		std::vector<std::string> lines;
 		
 		wordwrap::wrap_spaced (lines, msg, 64, remove_from_first);
-		
 		for (auto& line : lines)
 			{
 				this->send (packet::make_message (line.c_str ()));
@@ -1358,7 +1362,7 @@ namespace hCraft {
 		auto& players = pl->get_server ().get_players ();
 		
 		ss << cfg.srv_motd << "§" << players.count () << "§" << cfg.max_players;
-		pl->kick (ss.str ().c_str (), "server list ping");
+		pl->kick (ss.str ().c_str (), "server list ping", false);
 	}
 	
 	void

@@ -79,6 +79,20 @@ namespace hCraft {
 		{ 0x26, "rose", 0.0f, 0, 0, 64 },
 		{ 0x27, "brown-mushroom", 0.0f, 0, 0, 64 },
 		{ 0x28, "red-mushroom", 0.0f, 0, 0, 64 },
+		{ 0x29, "gold-block", 30.0f, 15, 0, 64 },
+		{ 0x2A, "iron-block", 30.0f, 15, 0, 64 },
+		{ 0x2B, "dslab", 30.0f, 15, 0, 64 },
+		{ 0x2C, "slab", 30.0f, 15, 0, 64 },
+		{ 0x2D, "bricks", 30.0f, 15, 0, 64 },
+		{ 0x2E, "tnt", 0.0f, 15, 0, 64 },
+		{ 0x2F, "bookshelf", 7.5f, 15, 0, 64 },
+		{ 0x30, "mossy-cobble", 30.0f, 15, 0, 64 },
+		{ 0x31, "obsidian", 6000.0f, 15, 0, 64 },
+		{ 0x32, "torch", 0.0f, 0, 14, 64 },
+		{ 0x33, "fire", 0.0f, 0, 15, 64 },
+		{ 0x34, "monster-spawner", 25.0f, 15, 0, 64 },
+		{ 0x35, "stairs", 30.0f, 15, 0, 64 },
+		{ 0x36, "chest", 12.5f, 15, 0, 64 },
 	};
 	
 	

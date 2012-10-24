@@ -21,6 +21,8 @@
 #include <cctype>
 #include <cstring>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	

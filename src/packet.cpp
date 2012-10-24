@@ -118,9 +118,77 @@ namespace hCraft {
 		this->put_long (*((uint64_t *)&val));
 	}
 	
-	void
-	packet::put_string (const char *str)
+	
+	
+	static void
+	sanitize_string (const char *str, std::string& out)
 	{
+		out.clear ();
+		
+		int in_len = std::strlen (str);
+		out.reserve (in_len + 1);
+		
+		int col_start = -1;
+		char col_code = 'f';
+		int space_count = 0;
+		int i;
+		for (i = 0; i < in_len; ++i)
+			{
+				if ((i + 1) < in_len && (str[i] & 0xFF) == 0xC2 &&
+					(str[i + 1] & 0xFF) == 0xA7)
+					{
+						if ((i + 2) < in_len)
+							{
+								if (!std::isxdigit (str[i + 2]))
+									//goto not_color_code;
+									continue;
+								
+								col_start = i;
+								col_code = str[i + 2];
+								i += 2;
+							}
+						else
+							{
+								break;
+							}
+					}
+				else
+					{
+			//not_color_code:
+						if (str[i] == ' ')
+							{
+								++ space_count;
+							}
+						else
+							{
+								if (col_start != -1)
+									{
+										out.append ("§");
+										out.push_back (col_code);
+										col_start = -1;
+									}
+								
+								while (space_count-- > 0)
+										out.push_back (' ');
+								space_count = 0;
+								out.push_back (str[i]);
+							}
+					}
+			}
+	}
+	
+	
+	
+	void
+	packet::put_string (const char *in, bool sanitize)
+	{
+		std::string str;
+		
+		if (sanitize)
+			sanitize_string (in, str);
+		else
+			str.assign (in);
+		
 		// don't emit the length of the string, we will do that after we convert
 		// the string from UTF-8 to the format used by Minecraft.
 		int len_pos = this->pos;
@@ -129,7 +197,7 @@ namespace hCraft {
 		/* 
 		 * Convert UTF-8 to UCS-2:
 		 */
-		int str_len = std::strlen (str);
+		int str_len = str.size ();
 		int real_len = 0;
 		int i, c, o;
 		for (i = 0; i < str_len; ++i)
@@ -861,6 +929,17 @@ namespace hCraft {
 		
 		pack->put_byte (0xFF);
 		pack->put_string (str);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_ping_kick (const char *str)
+	{
+		packet *pack = new packet (3 + (std::strlen (str) * 2));
+		
+		pack->put_byte (0xFF);
+		pack->put_string (str, false); // not sanitized
 		
 		return pack;
 	}

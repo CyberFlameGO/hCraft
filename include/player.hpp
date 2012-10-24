@@ -200,7 +200,7 @@ namespace hCraft {
 		/* 
 		 * Kicks the player with the given message.
 		 */
-		void kick (const char *msg, const char *log_msg = nullptr);
+		void kick (const char *msg, const char *log_msg = nullptr, bool sanitize = true);
 		
 		
 		
