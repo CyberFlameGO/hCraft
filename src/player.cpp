@@ -61,6 +61,10 @@ namespace hCraft {
 		this->kicked = false;
 		this->handshake = false;
 		
+		this->disconnecting = false;
+		this->reading = false;
+		this->writing = false;
+		this->handlers_scheduled = 0;
 		this->total_read = 0;
 		this->read_rem = 1;
 		
@@ -101,6 +105,9 @@ namespace hCraft {
 	{
 		this->disconnect ();
 		
+		while (this->is_disconnecting ())
+			std::this_thread::sleep_for (std::chrono::milliseconds (1));
+		
 		{
 			std::lock_guard<std::mutex> guard {this->out_lock};
 			while (!this->out_queue.empty ())
@@ -122,18 +129,19 @@ namespace hCraft {
 	void
 	player::handle_read (struct bufferevent *bufev, void *ctx)
 	{
-		struct evbuffer *buf = bufferevent_get_input (bufev);
 		player *pl = static_cast<player *> (ctx);
+		if (pl->bad ())	return;
+		pl->reading = true;
+		
+		struct evbuffer *buf = bufferevent_get_input (bufev);
 		size_t buf_size;
 		int n;
-		
-		if (pl->bad ())	return;
 		
 		while ((buf_size = evbuffer_get_length (buf)) > 0)
 			{
 				n = evbuffer_remove (buf, pl->rdbuf + pl->total_read, pl->read_rem);
 				if (n <= 0)
-					{ pl->disconnect (); return; }
+					{ pl->reading = false; pl->disconnect (); return; }
 				
 				// a small check...
 				if (!pl->handshake && (pl->total_read == 0))
@@ -141,6 +149,7 @@ namespace hCraft {
 						if (pl->rdbuf[0] != 0x02 && pl->rdbuf[0] != 0xFE)
 							{
 								pl->log (LT_WARNING) << "Expected handshake from @" << pl->get_ip () << std::endl;
+								pl->reading = false; 
 								pl->disconnect ();
 								return;
 							}
@@ -154,6 +163,7 @@ namespace hCraft {
 							<< pl->get_ip () << " (opcode: " << std::hex << std::setfill ('0')
 							<< std::setw (2) << (pl->rdbuf[0] & 0xFF) << ")" << std::setfill (' ')
 							<< std::endl;
+						pl->reading = false; 
 						pl->disconnect ();
 						return;
 					}
@@ -162,6 +172,7 @@ namespace hCraft {
 						/* finished reading packet */
 						unsigned char *data = new unsigned char [pl->total_read];
 						std::memcpy (data, pl->rdbuf, pl->total_read);
+						++ pl->handlers_scheduled;
 						pl->get_server ().get_thread_pool ().enqueue (
 							[pl] (void *ctx)
 								{
@@ -169,7 +180,15 @@ namespace hCraft {
 									
 									try
 										{
-											pl->handle (data.get ());
+											int err = pl->handle (data.get ());
+											-- pl->handlers_scheduled;
+											if (pl->is_disconnecting ())
+												return;
+											else if (err != 0)
+												{
+													pl->disconnect ();
+													return;
+												}
 										}
 									catch (const std::exception& ex)
 										{
@@ -182,6 +201,8 @@ namespace hCraft {
 						pl->read_rem = 1;
 					}
 			}
+		
+		pl->reading = false; 
 	}
 	
 	void
@@ -189,6 +210,7 @@ namespace hCraft {
 	{
 		player *pl = static_cast<player *> (ctx);
 		if (pl->bad ()) return;
+		pl->writing = true;
 		
 		int opcode;
 		
@@ -215,6 +237,7 @@ namespace hCraft {
 								pl->out_queue.pop ();
 							}
 						
+						pl->writing = false;
 						pl->disconnect (true);
 						return;
 					}
@@ -226,6 +249,8 @@ namespace hCraft {
 						bufferevent_write (bufev, pack->data, pack->size);
 					}
 			}
+		
+		pl->writing = false;
 	}
 	
 	void
@@ -250,6 +275,16 @@ namespace hCraft {
 	{
 		if (this->bad ()) return;
 		this->fail = true;
+		this->disconnecting = true;
+		
+		bufferevent_disable (this->bufev, EV_READ | EV_WRITE);
+		bufferevent_setcb (this->bufev, nullptr, nullptr, nullptr, nullptr);
+		
+		// wait for the I/O to stop.
+		while (this->is_reading () || this->is_writing () || this->handlers_scheduled.load () > 0)
+			{
+				std::this_thread::sleep_for (std::chrono::milliseconds (1));
+			}
 		
 		if (!silent)
 			log () << this->get_username () << " has disconnected." << std::endl;
@@ -285,6 +320,7 @@ namespace hCraft {
 		// and finally
 		if (this->logged_in)
 			this->get_server ().schedule_destruction (this);
+		this->disconnecting = false;
 	}
 	
 	
@@ -994,28 +1030,30 @@ namespace hCraft {
 	
 	/* 
 	 * Packet handlers:
+	 * NOTE: These return 0 on success (any other value will disconnect the
+	 *       player).
 	 */
 	
 	// dummy handler, doesn't do anything.
-	void
+	int
 	handle_packet_xx (player *pl, packet_reader reader)
-		{ return; }
+		{ return 0; }
 	
 	
-	void
+	int
 	player::handle_packet_00 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }		
+			{ return -1; }		
 		int id = reader.read_byte ();
 		
 		if (!pl->ping_waiting)
-			return;
+			return 0;
 		
 		if ((id != 0) && id != pl->ping_id)
 			{
 				pl->kick ("§cPing timeout");
-				return;
+				return 0;
 			}
 		
 		pl->ping_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (
@@ -1038,9 +1076,11 @@ namespace hCraft {
 						ping_name);
 					//pl->send (packet::make_player_list_item (ping_name, true, me->ping_time_ms));
 				});
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
 		int protocol_version = reader.read_byte ();
@@ -1050,7 +1090,7 @@ namespace hCraft {
 					pl->kick ("§cOutdated client", "outdated protocol version");
 				else
 					pl->kick ("§ahCraft has not been updated yet", "newer protocol version");
-				return;
+				return 0;
 			}
 		
 		char username[17];
@@ -1059,8 +1099,7 @@ namespace hCraft {
 		if (username_len < 2)
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
-				pl->disconnect ();
-				return;
+				return -1;
 			}
 		//*/
 		/*
@@ -1096,7 +1135,7 @@ namespace hCraft {
 				? 64 : (pl->get_server ().get_config ().max_players)));
 		pl->logged_in = true;
 		if (!pl->get_server ().done_connecting (pl))
-			return;
+			return 0;
 		
 		// insert self into player list ping
 		{
@@ -1113,13 +1152,15 @@ namespace hCraft {
 			pl->get_server ().get_players ().message_nowrap (ss.str ());
 		}
 		pl->join_world (pl->get_server ().get_main_world ());
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_03 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		bool is_global_message = false;
 		
@@ -1128,8 +1169,7 @@ namespace hCraft {
 		if (text_len <= 0)
 			{
 				pl->log (LT_WARNING) << "Received an invalid string from player " << pl->get_username () << std::endl;
-				pl->disconnect ();
-				return;
+				return -1;
 			}
 		
 		std::string msg {text};
@@ -1142,7 +1182,7 @@ namespace hCraft {
 				
 				pl->msgbuf << msg;
 				pl->message_nowrap ("§7 * §8Message appended to buffer§7.");
-				return;
+				return 0;
 			}
 		
 		if (pl->msgbuf.tellp () > 0)
@@ -1161,7 +1201,7 @@ namespace hCraft {
 				if (cname.empty ())
 					{
 						pl->message_nowrap ("§c * §ePlease enter a command§f.");
-						return;
+						return 0;
 					}
 				
 				command *cmd = pl->get_server ().get_commands ().find (cname.c_str ());
@@ -1171,11 +1211,11 @@ namespace hCraft {
 							pl->message_nowrap ("§c * §eNo such command§f.");
 						else
 							pl->message (("§c * §eNo such command§f: §c" + cname + "§f.").c_str ());
-						return;
+						return 0;
 					}
 				
 				cmd->execute (pl, cread);
-				return;
+				return 0;
 			}
 		
 		// handle chat modes
@@ -1231,13 +1271,15 @@ namespace hCraft {
 				{
 					pl->message (out.c_str ());
 				});
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_0a (player *pl, packet_reader reader)
 	{
 		if (!pl->handshake)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		bool on_ground;
 		
@@ -1249,13 +1291,15 @@ namespace hCraft {
 		pl->move_to (new_pos);
 		
 		pl->try_ping (5000);
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_0b (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		double x, y, z, stance;
 		bool on_ground;
@@ -1271,13 +1315,15 @@ namespace hCraft {
 		pl->move_to (new_pos);
 		
 		pl->try_ping (5000);
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_0c (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		float r, l;
 		bool on_ground;
@@ -1291,13 +1337,15 @@ namespace hCraft {
 		pl->move_to (new_pos);
 		
 		pl->try_ping (5000);
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_0d (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		double x, y, z, stance;
 		float r, l;
@@ -1316,13 +1364,15 @@ namespace hCraft {
 		pl->move_to (new_pos);
 		
 		pl->try_ping (5000);
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_0e (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		char status;
 		int x;
@@ -1345,17 +1395,19 @@ namespace hCraft {
 					x, y, z,
 					pl->get_world ()->get_id (x, y, z),
 					pl->get_world ()->get_meta (x, y, z)));
-				return;
+				return 0;
 			}
 		
 		pl->get_world ()->queue_update (x, y, z, 0, 0, pl);
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_12 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 		
 		int eid = reader.read_int ();
 		char animation = reader.read_byte ();
@@ -1365,16 +1417,18 @@ namespace hCraft {
 				pl->get_world ()->get_players ().send_to_all (
 					packet::make_animation (pl->get_eid (), animation), pl);
 			}
+		
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_13 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
+			{ return -1; }
 	}
 	
-	void
+	int
 	player::handle_packet_fe (player *pl, packet_reader reader)
 	{
 		int magic = reader.read_byte ();
@@ -1382,27 +1436,27 @@ namespace hCraft {
 			{
 				pl->log (LT_WARNING) << "Received an invalid server list ping packet from @"
 					<< pl->get_ip () << std::endl;
-				pl->disconnect ();
-				return;
+				return -1;
 			}
 		
 		pl->kick ("", "server list ping", false);
+		return 0;
 	}
 	
-	void
+	int
 	player::handle_packet_ff (player *pl, packet_reader reader)
 	{
-		pl->disconnect ();
+		return -1;
 	}
 	
 	/* 
 	 * Executes the packet handler for the most recently read packet
 	 * (stored in `rdbuf').
 	 */
-	void
+	int
 	player::handle (const unsigned char *data)
 	{
-		static void (*handlers[0x100]) (player *, packet_reader) =
+		static int (*handlers[0x100]) (player *, packet_reader) =
 			{
 				handle_packet_00, handle_packet_xx, handle_packet_02, handle_packet_03, // 0x03
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x07
@@ -1485,8 +1539,9 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_fe, handle_packet_ff, // 0xFF
 			};
 		
+		if (this->bad ()) return 0;
 		packet_reader reader {data};
-		handlers[reader.read_byte ()] (this, reader);
+		return handlers[reader.read_byte ()] (this, reader);
 	}
 }
 

@@ -106,6 +106,10 @@ namespace hCraft {
 			std::bind (std::mem_fn (&hCraft::server::init_listener), this),
 			std::bind (std::mem_fn (&hCraft::server::destroy_listener), this)));
 		
+		this->inits.push_back (initializer (
+			_noop,
+			std::bind (std::mem_fn (&hCraft::server::initial_cleanup), this)));
+		
 		this->running = false;
 	}
 	
@@ -208,6 +212,8 @@ namespace hCraft {
 	server::cleanup_players (scheduler_task& task)
 	{
 		server &srv = *(static_cast<server *> (task.get_context ()));
+		if (!srv.is_running () || srv.is_shutting_down ())
+			return;
 		
 		// check list of logged-in players.
 		srv.get_players ().remove_if (
@@ -726,31 +732,6 @@ namespace hCraft {
 		this->tpool.stop ();
 		this->sched.stop ();
 		
-		std::vector<player *> cleanup_vec;
-		{
-			std::lock_guard<std::mutex> guard {this->player_lock};
-		
-			this->get_players ().remove_if (
-				[&cleanup_vec] (player *pl)
-					{
-						cleanup_vec.push_back (pl);
-						return true;
-					});
-			
-			for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
-				cleanup_vec.push_back (*itr);
-			this->connecting.clear ();
-			
-			for (auto itr = std::begin (this->to_destroy);
-					 itr != std::end (this->to_destroy);
-					 ++itr)
-				cleanup_vec.push_back (*itr);
-			this->to_destroy.clear ();
-		}
-		for (player *pl : cleanup_vec)
-			delete pl;
-			
-		this->players->clear (true);
 		delete this->players;
 	}
 	
@@ -1367,12 +1348,54 @@ namespace hCraft {
 	
 	
 //----
-	// final_cleanup ():
+	// final_cleanup (), initial_cleanup ():
+	
+	/* 
+	 * Performs cleanup on resources that can be only done before all other
+	 * <init, destory> pairs have been executed.
+	 */
+	void
+	server::initial_cleanup ()
+	{
+		/* 
+		 * Kick all connected players.
+		 */
+		{
+			std::vector<player *> remove_vec;
+			
+			log (LT_SYSTEM) << "Counting connected players..." << std::endl;
+			{
+				std::lock_guard<std::mutex> guard {this->player_lock};
+		
+				this->get_players ().remove_if (
+					[&remove_vec] (player *pl)
+						{
+							remove_vec.push_back (pl);
+							return true;
+						});
+			
+				for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
+					remove_vec.push_back (*itr);
+				this->connecting.clear ();
+			
+				for (auto itr = std::begin (this->to_destroy);
+						 itr != std::end (this->to_destroy);
+						 ++itr)
+					remove_vec.push_back (*itr);
+				this->to_destroy.clear ();
+			}
+			
+			log (LT_INFO) << "  - " << remove_vec.size () << " connected player(s)." << std::endl;
+			for (player *pl : remove_vec)
+				delete pl;
+			log (LT_INFO) << "  - All players have been disconnected." << std::endl;
+		}
+	}
+	
 	/* 
 	 * Performs cleanup on resources that can only be done after all other
 	 * <init, destory> pairs have been executed.
 	 */
-	
 	void
 	server::final_cleanup ()
 	{

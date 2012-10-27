@@ -164,6 +164,12 @@ namespace hCraft {
 		// <init, destroy> functions:
 		
 		/* 
+		 * Performs cleanup on resources that can be only done before all other
+		 * <init, destory> pairs have been executed.
+		 */
+		void initial_cleanup ();
+		
+		/* 
 		 * Performs cleanup on resources that can only be done after all other
 		 * <init, destory> pairs have been executed.
 		 */

@@ -26,6 +26,7 @@
 #include "rank.hpp"
 #include "messages.hpp"
 
+#include <atomic>
 #include <queue>
 #include <unordered_set>
 #include <mutex>
@@ -63,18 +64,22 @@ namespace hCraft {
 		
 		char kick_msg[384];
 		bool kicked;
+		bool disconnecting;
 		
+		bool reading;
 		unsigned char rdbuf[384];
 		int total_read;
 		int read_rem;
+		std::atomic_int handlers_scheduled;
+		
+		bool writing;
+		std::queue<packet *> out_queue;
+		std::mutex out_lock;
 		
 		bool ping_waiting;
 		std::chrono::time_point<std::chrono::system_clock> last_ping;
 		int ping_id;
 		int ping_time_ms;
-		
-		std::queue<packet *> out_queue;
-		std::mutex out_lock;
 		
 		world *curr_world;
 		chunk_pos curr_chunk;
@@ -96,25 +101,27 @@ namespace hCraft {
 		
 		/* 
 		 * Packet handlers:
+		 * NOTE: These return 0 on success (any other value will disconnect the
+		 *       player).
 		 */
-		static void handle_packet_00 (player *pl, packet_reader reader);
-		static void handle_packet_02 (player *pl, packet_reader reader);
-		static void handle_packet_03 (player *pl, packet_reader reader);
-		static void handle_packet_0a (player *pl, packet_reader reader);
-		static void handle_packet_0b (player *pl, packet_reader reader);
-		static void handle_packet_0c (player *pl, packet_reader reader);
-		static void handle_packet_0d (player *pl, packet_reader reader);
-		static void handle_packet_0e (player *pl, packet_reader reader);
-		static void handle_packet_12 (player *pl, packet_reader reader);
-		static void handle_packet_13 (player *pl, packet_reader reader);
-		static void handle_packet_fe (player *pl, packet_reader reader);
-		static void handle_packet_ff (player *pl, packet_reader reader);
+		static int handle_packet_00 (player *pl, packet_reader reader);
+		static int handle_packet_02 (player *pl, packet_reader reader);
+		static int handle_packet_03 (player *pl, packet_reader reader);
+		static int handle_packet_0a (player *pl, packet_reader reader);
+		static int handle_packet_0b (player *pl, packet_reader reader);
+		static int handle_packet_0c (player *pl, packet_reader reader);
+		static int handle_packet_0d (player *pl, packet_reader reader);
+		static int handle_packet_0e (player *pl, packet_reader reader);
+		static int handle_packet_12 (player *pl, packet_reader reader);
+		static int handle_packet_13 (player *pl, packet_reader reader);
+		static int handle_packet_fe (player *pl, packet_reader reader);
+		static int handle_packet_ff (player *pl, packet_reader reader);
 		
 		/* 
 		 * Executes the packet handler for the most recently read packet
 		 * (stored in `rdbuf').
 		 */
-		void handle (const unsigned char *data);
+		int handle (const unsigned char *data);
 		
 	//----
 		
@@ -164,13 +171,17 @@ namespace hCraft {
 		inline const char* get_colored_nickname () { return this->colored_nick; }
 		inline const rank& get_rank () { return this->rnk; }
 		
+		inline bool is_reading () { return this->reading; }
+		inline bool is_writing () { return this->writing; }
+		inline bool is_disconnecting () { return this->disconnecting; }
+		
 		inline world* get_world () { return this->curr_world; }
 		static constexpr int chunk_radius () { return 10; }
 		
 		inline int get_ping () { return this->ping_time_ms; }
 		
 		// whether the player isn't valid anymore, and should be destroyed.
-		inline bool bad () { return this->fail; }
+		inline bool bad () { return this->fail || this->disconnecting; }
 		
 		virtual entity_type get_type () { return ET_PLAYER; }
 		
