@@ -22,6 +22,8 @@
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
+#include <sstream>
+#include <string>
 
 
 namespace hCraft {
@@ -179,8 +181,8 @@ namespace hCraft {
 	
 	
 	
-	void
-	packet::put_string (const char *in, bool sanitize)
+	int
+	packet::put_string (const char *in, bool sanitize, bool encode_length)
 	{
 		std::string str;
 		
@@ -192,7 +194,10 @@ namespace hCraft {
 		// don't emit the length of the string, we will do that after we convert
 		// the string from UTF-8 to the format used by Minecraft.
 		int len_pos = this->pos;
-		this->pos += 2;
+		if (encode_length)
+			{
+				this->pos += 2;
+			}
 		
 		/* 
 		 * Convert UTF-8 to UCS-2:
@@ -233,10 +238,15 @@ namespace hCraft {
 			}
 		
 		// now that we went over the string, we can safely emit its length.
-		int cur_pos = this->pos;
-		this->pos = len_pos;
-		this->put_short (real_len);
-		this->pos = cur_pos;
+		if (encode_length)
+			{
+				int cur_pos = this->pos;
+				this->pos = len_pos;
+				this->put_short (real_len);
+				this->pos = cur_pos;
+			}
+		
+		return real_len;
 	}
 	
 	void
@@ -317,7 +327,7 @@ namespace hCraft {
 				""           , ""           , ""           , ""           , // 0x5F
 				
 				""           , ""           , ""           , ""           , // 0x63
-				""           , "ob"         , "obs?s?q"    , ""           , // 0x67
+				""           , "ob"         , "obsbsbq"    , ""           , // 0x67
 				""           , ""           , "obs?"       , "osq"        , // 0x6B
 				"obb"        , ""           , ""           , ""           , // 0x6F
 				
@@ -327,7 +337,7 @@ namespace hCraft {
 				""           , ""           , ""           , ""           , // 0x7F
 				
 				""           , ""           , "oisizzzz"   , ""           , // 0x83
-				""           , ""          , ""           , ""           , // 0x87
+				""           , ""           , ""           , ""           , // 0x87
 				""           , ""           , ""           , ""           , // 0x8B
 				""           , ""           , ""           , ""           , // 0x8F
 				
@@ -349,7 +359,7 @@ namespace hCraft {
 				""           , ""           , ""           , ""           , // 0xC3
 				""           , ""           , ""           , ""           , // 0xC7
 				""           , ""           , "obbb"       , "oz"         , // 0xCB
-				"ozbbb"      , "ob"         , ""           , ""           , // 0xCF
+				"ozbbb?"     , "ob"         , ""           , ""           , // 0xCF
 				
 				""           , ""           , ""           , ""           , // 0xD3
 				""           , ""           , ""           , ""           , // 0xD7
@@ -364,7 +374,7 @@ namespace hCraft {
 				""           , ""           , ""           , ""           , // 0xF3
 				""           , ""           , ""           , ""           , // 0xF7
 				""           , ""           , "oza"        , ""           , // 0xFB
-				""           , ""           , "o"          , "oz"         , // 0xFF
+				""           , ""           , "ob"         , "oz"         , // 0xFF
 			};
 		
 		const char *str = rem_table[(*data) & 0xFF];
@@ -912,7 +922,7 @@ namespace hCraft {
 	packet::make_player_list_item (const char *name, bool online,
 		short ping_ms)
 	{
-		packet *pack = new packet (6 + (std::strlen (name) * 2));
+		packet *pack = new packet (6 + (std::strlen (name) * 2) * 5);
 		
 		pack->put_byte (0xC9);
 		pack->put_string (name);
@@ -934,12 +944,51 @@ namespace hCraft {
 	}
 	
 	packet*
-	packet::make_ping_kick (const char *str)
+	packet::make_ping_kick (const char *motd, int player_count, int max_players)
 	{
-		packet *pack = new packet (3 + (std::strlen (str) * 2));
+		packet *pack = new packet ((std::strlen (motd) * 2)
+			+ ((std::log10 (player_count + 1) + 1) * 2)
+			+ ((std::log10 (max_players + 1) + 1) * 2)
+			+ 64);
+		
+		std::ostringstream ss;
+		
+		ss << player_count;
+		std::string player_count_str {ss.str ()};
+		
+		ss.clear (); ss.str (std::string ());
+		ss << max_players;
+		std::string max_players_str {ss.str ()};
 		
 		pack->put_byte (0xFF);
-		pack->put_string (str, false); // not sanitized
+		
+		// we encode length later
+		int str_len_pos = pack->pos;
+		pack->pos += 2;
+		
+		pack->put_string ("§1", false, false);
+		
+		pack->put_short (0); // delimiter
+		pack->put_string ("47", false, false);
+		
+		pack->put_short (0); // delimiter
+		pack->put_string ("1.4.2", false, false);
+		
+		pack->put_short (0); // delimiter
+		pack->put_string (motd, true, false);
+		
+		pack->put_short (0); // delimiter
+		pack->put_string (player_count_str.c_str (), false, false);
+		
+		pack->put_short (0); // delimiter
+		pack->put_string (max_players_str.c_str (), false, false);
+		
+		// encode length
+		int curr_pos = pack->pos;
+		int str_len  = (curr_pos - (str_len_pos + 2)) / 2;
+		pack->pos = str_len_pos;
+		pack->put_short (str_len);
+		pack->pos = curr_pos;
 		
 		return pack;
 	}

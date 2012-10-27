@@ -40,6 +40,7 @@
 #include <thread>
 #include <event2/event.h>
 #include <event2/listener.h>
+#include <unordered_set>
 
 
 namespace hCraft {
@@ -134,6 +135,7 @@ namespace hCraft {
 		
 		std::vector<initializer> inits; // <init, destroy> pairs
 		bool running;
+		bool shutting_down;
 		
 		std::vector<worker> workers;
 		int worker_count;
@@ -143,8 +145,9 @@ namespace hCraft {
 		struct evconnlistener *listener;
 		
 		playerlist *players;
-		std::vector<player *> connecting;
-		std::mutex connecting_lock;
+		std::unordered_set<player *> connecting;
+		std::unordered_set<player *> to_destroy;
+		std::mutex player_lock;
 		int id_counter;
 		std::mutex id_lock;
 		
@@ -159,6 +162,12 @@ namespace hCraft {
 		
 	private:
 		// <init, destroy> functions:
+		
+		/* 
+		 * Performs cleanup on resources that can only be done after all other
+		 * <init, destory> pairs have been executed.
+		 */
+		void final_cleanup ();
 		
 		/* 
 		 * Loads settings from the configuration file ("config.yaml",
@@ -246,6 +255,8 @@ namespace hCraft {
 		
 	public:
 		inline bool is_running () { return this->running; }
+		inline bool is_shutting_down () { return this->shutting_down; }
+		
 		inline const server_config& get_config () { return this->cfg; }
 		inline logger& get_logger () { return this->log; }
 		inline playerlist& get_players () { return *this->players; }
@@ -321,6 +332,12 @@ namespace hCraft {
 		 * returns false and the player is kicked with an appropriate message.
 		 */
 		bool done_connecting (player *pl);
+		
+		/* 
+		 * Informs the server that player @{pl} is no longer valid, and must be
+		 * destroyed.
+		 */
+		void schedule_destruction (player *pl);
 	};
 }
 

@@ -814,7 +814,7 @@ namespace hCraft {
 			}
 		delete[] data;
 		
-		bool created;
+		bool created = false;
 		hw_chunk *hch = find_or_create_chunk (x, z, sblocks, writer, &created);
 		if (hch)
 			write_in_sectors (hch, compressed, compressed_size, writer);

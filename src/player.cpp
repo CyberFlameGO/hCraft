@@ -71,7 +71,8 @@ namespace hCraft {
 		this->last_ping = std::chrono::system_clock::now ();
 		
 		this->evbase = evbase;
-		this->bufev  = bufferevent_socket_new (evbase, sock, 0);
+		this->bufev  = bufferevent_socket_new (evbase, sock,
+			BEV_OPT_CLOSE_ON_FREE);
 		if (!this->bufev)
 			{ this->fail = true; return; }
 		
@@ -98,7 +99,7 @@ namespace hCraft {
 	 */
 	player::~player ()
 	{
-		evutil_closesocket (this->sock);
+		this->disconnect ();
 		
 		{
 			std::lock_guard<std::mutex> guard {this->out_lock};
@@ -207,6 +208,13 @@ namespace hCraft {
 						else
 							pl->log () << pl->get_username () << " has been kicked: " << pl->kick_msg << std::endl;	
 						
+						while (!pl->out_queue.empty ())
+							{
+								pack = pl->out_queue.front ();
+								delete pack;
+								pl->out_queue.pop ();
+							}
+						
 						pl->disconnect (true);
 						return;
 					}
@@ -226,12 +234,7 @@ namespace hCraft {
 		player *pl = static_cast<player *> (ctx);
 		if (pl->bad ()) return;
 		
-		if ((events & BEV_EVENT_ERROR) || (events & BEV_EVENT_TIMEOUT) ||
-				(events & BEV_EVENT_EOF))
-			{
-				pl->disconnect ();
-				return;
-			}
+		pl->disconnect ();
 	}
 	
 	
@@ -250,9 +253,9 @@ namespace hCraft {
 		
 		if (!silent)
 			log () << this->get_username () << " has disconnected." << std::endl;
-			
+		
 		this->get_server ().get_players ().remove (this);
-		if (this->curr_world)
+		if (this->curr_world && !this->get_server ().is_shutting_down ())
 			{
 				this->curr_world->get_players ().remove (this);
 				if (this->handshake && !silent)
@@ -267,6 +270,7 @@ namespace hCraft {
 					this->curr_chunk.x, this->curr_chunk.z);
 				if (curr_chunk)
 					curr_chunk->remove_entity (this);
+				this->known_chunks.clear ();
 				
 				// despawn from other players.
 				std::lock_guard<std::mutex> guard {this->visible_player_lock};
@@ -275,6 +279,12 @@ namespace hCraft {
 						this->despawn_from (pl);
 					}
 			}
+		
+		bufferevent_free (this->bufev);
+		
+		// and finally
+		if (this->logged_in)
+			this->get_server ().schedule_destruction (this);
 	}
 	
 	
@@ -294,8 +304,18 @@ namespace hCraft {
 		this->kicked = true;
 		if (sanitize)
 			this->send (packet::make_kick (msg));
-		else
-			this->send (packet::make_ping_kick (msg));
+		else if (msg[0] == '\0')
+			{
+				// server list ping responses are identified by an empty kick
+				// message and @{sanitize} being false.
+				
+				std::ostringstream ss;
+				auto& cfg = this->get_server ().get_config ();
+				auto& players = this->get_server ().get_players ();
+				
+				this->send (packet::make_ping_kick (cfg.srv_motd, players.count (),
+					cfg.max_players));
+			}
 	}
 	
 	
@@ -777,7 +797,7 @@ namespace hCraft {
 			this->get_eid (), col_name.c_str (),
 			me_pos.x, me_pos.y, me_pos.z, me_pos.r, me_pos.l, 0, me_meta));
 		pl->send (packet::make_entity_head_look (this->get_eid (), me_pos.r));
-		pl->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
+		//pl->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
 		
 		{
 			std::lock_guard<std::mutex> guard {pl->visible_player_lock};
@@ -799,7 +819,7 @@ namespace hCraft {
 			ping_name);
 		
 		pl->send (packet::make_destroy_entity (this->get_eid ()));
-		pl->send (packet::make_player_list_item (ping_name, false, 0));
+		//pl->send (packet::make_player_list_item (ping_name, false, 0));
 		std::lock_guard<std::mutex> guard {pl->visible_player_lock};
 		pl->visible_players.erase (this);
 	}
@@ -986,8 +1006,7 @@ namespace hCraft {
 	player::handle_packet_00 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
-			{ pl->disconnect (); return; }
-		
+			{ pl->disconnect (); return; }		
 		int id = reader.read_byte ();
 		
 		if (!pl->ping_waiting)
@@ -1007,7 +1026,7 @@ namespace hCraft {
 		char ping_name[24];
 		get_ping_name (pl->get_rank ().main_group->get_color (), pl->get_username (),
 			ping_name);
-		pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
+		//pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
 		
 		// update other players
 		player *me = pl;
@@ -1017,7 +1036,7 @@ namespace hCraft {
 					char ping_name[24];
 					get_ping_name (me->get_rank ().main_group->get_color (), me->get_username (),
 						ping_name);
-					pl->send (packet::make_player_list_item (ping_name, true, me->ping_time_ms));
+					//pl->send (packet::make_player_list_item (ping_name, true, me->ping_time_ms));
 				});
 	}
 	
@@ -1025,9 +1044,9 @@ namespace hCraft {
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
 		int protocol_version = reader.read_byte ();
-		if (protocol_version != 39)
+		if (protocol_version != 47)
 			{
-				if (protocol_version < 39)
+				if (protocol_version < 47)
 					pl->kick ("§cOutdated client", "outdated protocol version");
 				else
 					pl->kick ("§ahCraft has not been updated yet", "newer protocol version");
@@ -1035,6 +1054,7 @@ namespace hCraft {
 			}
 		
 		char username[17];
+		///*
 		int username_len = reader.read_string (username, 16);
 		if (username_len < 2)
 			{
@@ -1042,6 +1062,7 @@ namespace hCraft {
 				pl->disconnect ();
 				return;
 			}
+		//*/
 		/*
 		// Used when testing
 		{
@@ -1053,7 +1074,7 @@ namespace hCraft {
 				index = 0;
 			std::strcpy (username, cur);
 		}
-		*/
+		//*/
 		
 		
 		pl->log () << "Player " << username << " has logged in from @" << pl->get_ip () << std::endl;
@@ -1070,20 +1091,19 @@ namespace hCraft {
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
 		
-		if (!pl->get_server ().done_connecting (pl))
-			return;
-		
 		pl->send (packet::make_login (pl->get_eid (), "hCraft", 1, 0, 0,
 			(pl->get_server ().get_config ().max_players > 64)
 				? 64 : (pl->get_server ().get_config ().max_players)));
 		pl->logged_in = true;
+		if (!pl->get_server ().done_connecting (pl))
+			return;
 		
 		// insert self into player list ping
 		{
-			char ping_name[24];
+			char ping_name[128];
 			get_ping_name (pl->get_rank ().main_group->get_color (), pl->get_username (),
 				ping_name);
-			pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
+			//pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
 		}
 		
 		{
@@ -1357,12 +1377,16 @@ namespace hCraft {
 	void
 	player::handle_packet_fe (player *pl, packet_reader reader)
 	{
-		std::ostringstream ss;
-		auto& cfg = pl->get_server ().get_config ();
-		auto& players = pl->get_server ().get_players ();
+		int magic = reader.read_byte ();
+		if (magic != 1)
+			{
+				pl->log (LT_WARNING) << "Received an invalid server list ping packet from @"
+					<< pl->get_ip () << std::endl;
+				pl->disconnect ();
+				return;
+			}
 		
-		ss << cfg.srv_motd << "§" << players.count () << "§" << cfg.max_players;
-		pl->kick (ss.str ().c_str (), "server list ping", false);
+		pl->kick ("", "server list ping", false);
 	}
 	
 	void

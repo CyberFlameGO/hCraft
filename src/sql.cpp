@@ -67,7 +67,9 @@ namespace hCraft {
 		{
 			if (!this->opened)
 				return;
+			
 			sqlite3_close (this->db);
+			this->opened = false;
 		}
 		
 		

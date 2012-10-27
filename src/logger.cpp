@@ -49,7 +49,9 @@ namespace hCraft {
 		
 		struct winsize w;
 		ioctl (STDOUT_FILENO, TIOCGWINSZ, &w);
-		const char *str = this->str ().c_str ();
+		
+		std::string output = this->str ();
+		const char *str = output.c_str ();
 		int c, col = 0, max_col = w.ws_col - 1;
 		
 		const char *lo = std::strrchr (str, '|');
@@ -139,7 +141,7 @@ namespace hCraft {
 		strm << logtype_names[lt] << " | " << std::setfill ('0')
 				 << std::setw (2) << t2.tm_hour << ':'
 				 << std::setw (2) << t2.tm_min  << ':'
-				 << std::setw (2) << t2.tm_sec  << " | " << std::setfill (' ' );
+				 << std::setw (2) << t2.tm_sec  << " | " << std::setfill (' ');
 	}
 	
 	/* 

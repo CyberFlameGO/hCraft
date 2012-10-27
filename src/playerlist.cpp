@@ -225,7 +225,11 @@ namespace hCraft {
 			{
 				player *pl = itr->second;
 				if (pred (pl) == true)
-					itr = this->players.erase (itr);
+					{
+						itr = this->players.erase (itr);
+						if (delete_players)
+							delete pl;
+					}
 				else
 					++ itr;
 			}

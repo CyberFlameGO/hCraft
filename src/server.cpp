@@ -59,6 +59,9 @@ namespace hCraft {
 	
 	
 	
+	
+	static void _noop () {}
+	
 	/* 
 	 * Constructs a new server.
 	 */
@@ -66,6 +69,10 @@ namespace hCraft {
 		: log (log), perms (), groups (perms)
 	{
 		// add <init, destory> pairs
+		
+		this->inits.push_back (initializer (
+			_noop,
+			std::bind (std::mem_fn (&hCraft::server::final_cleanup), this)));
 		
 		this->inits.push_back (initializer (
 			std::bind (std::mem_fn (&hCraft::server::init_config), this),
@@ -139,7 +146,7 @@ namespace hCraft {
 					w = &t;
 			}
 		
-		while (!this->workers_stop)
+		while (!event_base_got_break (w->evbase))
 			{
 				event_base_loop (w->evbase, EVLOOP_NONBLOCK);
 				std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -187,8 +194,8 @@ namespace hCraft {
 		player *pl = new player (srv, w.evbase, sock, ip);
 		
 		{
-			std::lock_guard<std::mutex> guard {srv.connecting_lock};
-			srv.connecting.push_back (pl);
+			std::lock_guard<std::mutex> guard {srv.player_lock};
+			srv.connecting.insert (pl);
 		}
 	}
 	
@@ -206,15 +213,13 @@ namespace hCraft {
 		srv.get_players ().remove_if (
 			[] (player *pl) -> bool
 				{
-					if (pl->bad ())		
-						return true;
-					
-					return false;
+					return pl->bad ();
 				}, true);
 		
-		// and the list of players that haven't fully logged-in yet.
+		// handle players that aren't in the logged-in player list yet/anymore.
 		{
-			std::lock_guard<std::mutex> guard {srv.connecting_lock};
+			std::lock_guard<std::mutex> guard {srv.player_lock};
+			
 			for (auto itr = srv.connecting.begin (); itr != srv.connecting.end (); )
 				{
 					player *pl = *itr;
@@ -226,7 +231,17 @@ namespace hCraft {
 					else
 						++ itr;
 				}
+			
+			for (auto itr = std::begin (srv.to_destroy);
+					 itr != std::end (srv.to_destroy);
+					 ++itr)
+				{
+					player *pl = *itr;
+					delete pl;
+				}
+			srv.to_destroy.clear ();
 		}
+		
 	}
 	
 	
@@ -240,6 +255,7 @@ namespace hCraft {
 	{
 		if (this->running)
 			throw server_error ("server already running");
+		this->shutting_down = false;
 		
 		try
 			{
@@ -252,6 +268,7 @@ namespace hCraft {
 			}
 		catch (const std::exception& ex)
 			{
+				this->shutting_down = true;
 				for (auto itr = this->inits.rbegin (); itr != this->inits.rend (); ++itr)
 					{
 						initializer &init = *itr;
@@ -278,6 +295,7 @@ namespace hCraft {
 	{
 		if (!this->running)
 			return;
+		this->shutting_down = true;
 		
 		for (auto itr = this->inits.rbegin (); itr != this->inits.rend (); ++itr)
 			{
@@ -389,19 +407,26 @@ namespace hCraft {
 				can_stay = false; }
 		
 		{
-			std::lock_guard<std::mutex> guard {this->connecting_lock};
-			for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
-				{
-					player *other = *itr;
-					if (other == pl)
-						{
-							this->connecting.erase (itr);
-							break;
-						}
-				}
+			std::lock_guard<std::mutex> guard {this->player_lock};
+			this->connecting.erase (pl);
 		}
 		
 		return can_stay;
+	}
+	
+	/* 
+	 * Informs the server that player @{pl} is no longer valid, and must be
+	 * destroyed.
+	 */
+	void
+	server::schedule_destruction (player *pl)
+	{
+		std::lock_guard<std::mutex> guard {this->player_lock};
+		
+		this->get_players ().remove (pl);
+		this->connecting.erase (pl);
+		
+		this->to_destroy.insert (pl);
 	}
 	
 	
@@ -701,16 +726,30 @@ namespace hCraft {
 		this->tpool.stop ();
 		this->sched.stop ();
 		
+		std::vector<player *> cleanup_vec;
 		{
-			std::lock_guard<std::mutex> guard {this->connecting_lock};
-			for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
-				{
-					player *pl = *itr;
-					delete pl;
-				}
-			this->connecting.clear ();
-		}
+			std::lock_guard<std::mutex> guard {this->player_lock};
 		
+			this->get_players ().remove_if (
+				[&cleanup_vec] (player *pl)
+					{
+						cleanup_vec.push_back (pl);
+						return true;
+					});
+			
+			for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
+				cleanup_vec.push_back (*itr);
+			this->connecting.clear ();
+			
+			for (auto itr = std::begin (this->to_destroy);
+					 itr != std::end (this->to_destroy);
+					 ++itr)
+				cleanup_vec.push_back (*itr);
+			this->to_destroy.clear ();
+		}
+		for (player *pl : cleanup_vec)
+			delete pl;
+			
 		this->players->clear (true);
 		delete this->players;
 	}
@@ -1284,10 +1323,10 @@ namespace hCraft {
 		for (auto itr = this->workers.begin (); itr != this->workers.end (); ++itr)
 			{
 				worker &w = *itr;
+				
+				event_base_loopbreak (w.evbase);
 				if (w.th.joinable ())
 					w.th.join ();
-				
-				event_base_free (w.evbase);
 			}
 	}
 	
@@ -1323,6 +1362,26 @@ namespace hCraft {
 	server::destroy_listener ()
 	{
 		evconnlistener_free (this->listener);
+	}
+	
+	
+	
+//----
+	// final_cleanup ():
+	/* 
+	 * Performs cleanup on resources that can only be done after all other
+	 * <init, destory> pairs have been executed.
+	 */
+	
+	void
+	server::final_cleanup ()
+	{
+		for (auto itr = this->workers.begin (); itr != this->workers.end (); ++itr)
+			{
+				worker &w = *itr;
+				event_base_free (w.evbase);
+			}
+		this->workers.clear ();
 	}
 }
 
