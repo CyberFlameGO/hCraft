@@ -7,7 +7,7 @@ What is hCraft?
 ---------------
 
 hCraft is a custom implementation of a Minecraft server, currently supprting the
-39th revision of the protocol (version 1.3.2). hCraft strives to be fast,
+47th revision of the protocol (version 1.4.2). hCraft strives to be fast,
 customizable and easy to use.
 
 Features
