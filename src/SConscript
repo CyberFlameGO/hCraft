@@ -23,6 +23,7 @@ hCraft_sources = Split("""
 		permissions.cpp
 		sql.cpp
 		messages.cpp
+		nbt.cpp
 		
 		commands/command.cpp
 		commands/help.cpp
