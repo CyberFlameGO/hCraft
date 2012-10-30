@@ -27,6 +27,8 @@ namespace hCraft {
 	 */
 	enum block_type: unsigned short
 	{
+		BT_UNKNOWN = 0xFFFF,
+		
 		BT_AIR = 0,
 		BT_STONE,
 		BT_GRASS,

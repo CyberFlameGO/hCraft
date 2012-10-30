@@ -919,6 +919,63 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_set_slot (char wid, short slot, slot_item item)
+	{
+		packet *pack = new packet (11);
+		
+		/* 
+		 * TODO: Item metadata.
+		 */
+		
+		pack->put_byte (0x67);
+		pack->put_byte (wid);
+		pack->put_short (slot);
+		if (!item.is_valid () || item.amount () == 0)
+			pack->put_short (-1);
+		else
+			{
+				pack->put_short (item.id ());
+				pack->put_byte ((item.amount () > 64) ? 64 : item.amount ());
+				pack->put_short (item.damage ());
+				
+				// further metadata is currently not supported.
+				pack->put_short (-1);
+			}
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_set_window_items (char wid, const std::vector<slot_item>& slots)
+	{
+		/* 
+		 * TODO: Item metadata.
+		 */
+		
+		packet *pack = new packet (4 + (slots.size () * 7));
+		
+		pack->put_byte (0x68);
+		pack->put_byte (wid);
+		pack->put_short (slots.size ());
+		for (const slot_item& item : slots)
+			{
+				if (!item.is_valid () || item.amount () == 0)
+					pack->put_short (-1);
+				else
+					{
+						pack->put_short (item.id ());
+						pack->put_byte ((item.amount () > 64) ? 64 : item.amount ());
+						pack->put_short (item.damage ());
+				
+						// further metadata is currently not supported.
+						pack->put_short (-1);
+					}
+			}
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_player_list_item (const char *name, bool online,
 		short ping_ms)
 	{

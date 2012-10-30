@@ -25,6 +25,7 @@
 #include "world.hpp"
 #include "rank.hpp"
 #include "messages.hpp"
+#include "window.hpp"
 
 #include <atomic>
 #include <queue>
@@ -61,6 +62,8 @@ namespace hCraft {
 		char colored_username[24];
 		char nick[37]; // 36 chars max
 		char colored_nick[48];
+		
+		inventory inv;
 		
 		char kick_msg[384];
 		bool kicked;

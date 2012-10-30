@@ -20,6 +20,8 @@
 #define _hCraft__PACKET_H_
 
 #include <cstdint>
+#include <vector>
+#include "slot.hpp"
 
 
 namespace hCraft {
@@ -130,6 +132,11 @@ namespace hCraft {
 		
 		static packet* make_block_change (int x, unsigned char y, int z,
 			unsigned short id, unsigned char meta);
+		
+		static packet* make_set_slot (char wid, short slot, slot_item item);
+		
+		static packet* make_set_window_items (char wid,
+			const std::vector<slot_item>& slots);
 		
 		static packet* make_player_list_item (const char *name, bool online,
 			short ping_ms);

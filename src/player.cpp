@@ -1153,6 +1153,8 @@ namespace hCraft {
 		}
 		pl->join_world (pl->get_server ().get_main_world ());
 		
+		pl->inv.subscribe (pl);
+		
 		return 0;
 	}
 	
@@ -1411,6 +1413,8 @@ namespace hCraft {
 		
 		int eid = reader.read_int ();
 		char animation = reader.read_byte ();
+		
+		pl->inv.update ();
 		
 		if (animation == 1)
 			{

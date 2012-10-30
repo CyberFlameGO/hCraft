@@ -24,6 +24,9 @@ hCraft_sources = Split("""
 		sql.cpp
 		messages.cpp
 		nbt.cpp
+		window.cpp
+		items.cpp
+		slot.cpp
 		
 		commands/command.cpp
 		commands/help.cpp
