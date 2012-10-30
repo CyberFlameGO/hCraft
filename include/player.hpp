@@ -40,6 +40,15 @@ namespace hCraft {
 	
 	class server;
 	
+	
+	enum gamemode_type
+	{
+		GT_SURVIVAL = 0,
+		GT_CREATIVE = 1,
+		GT_ADVENTURE = 2,
+	};
+	
+	
 	/* 
 	 * Represents a player.
 	 */
@@ -63,7 +72,10 @@ namespace hCraft {
 		char nick[37]; // 36 chars max
 		char colored_nick[48];
 		
+		bool curr_gamemode;
 		inventory inv;
+		short held_slot;
+		slot_item cursor_slot;
 		
 		char kick_msg[384];
 		bool kicked;
@@ -115,8 +127,14 @@ namespace hCraft {
 		static int handle_packet_0c (player *pl, packet_reader reader);
 		static int handle_packet_0d (player *pl, packet_reader reader);
 		static int handle_packet_0e (player *pl, packet_reader reader);
+		static int handle_packet_0f (player *pl, packet_reader reader);
+		static int handle_packet_10 (player *pl, packet_reader reader);
 		static int handle_packet_12 (player *pl, packet_reader reader);
 		static int handle_packet_13 (player *pl, packet_reader reader);
+		static int handle_packet_65 (player *pl, packet_reader reader);
+		static int handle_packet_66 (player *pl, packet_reader reader);
+		static int handle_packet_6a (player *pl, packet_reader reader);
+		static int handle_packet_6b (player *pl, packet_reader reader);
 		static int handle_packet_fe (player *pl, packet_reader reader);
 		static int handle_packet_ff (player *pl, packet_reader reader);
 		
@@ -180,6 +198,10 @@ namespace hCraft {
 		
 		inline world* get_world () { return this->curr_world; }
 		static constexpr int chunk_radius () { return 10; }
+		
+		inline slot_item held_item () { return this->inv.get (this->held_slot); }
+		inline slot_item cursor_item () { return this->cursor_slot; }
+		inline bool gamemode () { return this->curr_gamemode; }
 		
 		inline int get_ping () { return this->ping_time_ms; }
 		

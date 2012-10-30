@@ -56,6 +56,8 @@ namespace hCraft {
 		std::strcpy (this->colored_username, this->username);
 		std::strcpy (this->colored_nick, this->nick);
 		
+		this->held_slot = 36;
+		
 		this->logged_in = false;
 		this->fail = false;
 		this->kicked = false;
@@ -1130,8 +1132,9 @@ namespace hCraft {
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
 		
-		pl->send (packet::make_login (pl->get_eid (), "hCraft", 1, 0, 0,
-			(pl->get_server ().get_config ().max_players > 64)
+		pl->curr_gamemode = GT_CREATIVE;
+		pl->send (packet::make_login (pl->get_eid (), "hCraft", pl->curr_gamemode,
+			0, 0, (pl->get_server ().get_config ().max_players > 64)
 				? 64 : (pl->get_server ().get_config ().max_players)));
 		pl->logged_in = true;
 		if (!pl->get_server ().done_connecting (pl))
@@ -1406,6 +1409,63 @@ namespace hCraft {
 	}
 	
 	int
+	player::handle_packet_0f (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			{ return -1; }
+		
+		int x = reader.read_int ();
+		int y = reader.read_byte ();
+		int z = reader.read_int ();
+		char direction = reader.read_byte ();
+		slot_item item = reader.read_slot ();
+		char cursor_x = reader.read_byte ();
+		char cursor_y = reader.read_byte ();
+		char cursor_z = reader.read_byte ();
+		
+		item = pl->held_item ();
+		if (!item.is_valid () || item.empty ())
+			return 0;
+		if (!item.is_block ())
+			return 0;
+		
+		int nx = x, ny = y, nz = z;
+		switch (direction)
+			{
+				case 0: -- ny; break;
+				case 1: ++ ny; break;
+				case 2: -- nz; break;
+				case 3: ++ nz; break;
+				case 4: -- nx; break;
+				case 5: ++ nx; break;
+			}
+		
+		pl->get_world ()->queue_update (nx, ny, nz,
+			item.id (), item.damage ());
+		pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
+			item.amount () - 1));
+		return 0;
+	}
+	
+	int
+	player::handle_packet_10 (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			return -1;
+		
+		unsigned short index = reader.read_short ();
+		if (index > 8)
+			{
+				pl->log (LT_WARNING) << "Invalid \"Held Item Change\" packet received "
+					"from " << pl->get_username () << " (slot: " << index << ")" << std::endl;
+				return -1;
+			}
+		
+		pl->held_slot = index + 36;
+		return 0;
+	}
+	
+	int
 	player::handle_packet_12 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
@@ -1430,6 +1490,84 @@ namespace hCraft {
 	{
 		if (!pl->logged_in)
 			{ return -1; }
+		return 0;
+	}
+	
+	int
+	player::handle_packet_65 (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			return -1;
+		
+		pl->log (LT_DEBUG) << "close window" << std::endl;
+		return 0;
+	}
+	
+	int
+	player::handle_packet_66 (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			return -1;
+		
+		pl->log (LT_DEBUG) << "click window" << std::endl;
+		return 0;
+	}
+	
+	int
+	player::handle_packet_6a (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			return -1;
+		
+		pl->log (LT_DEBUG) << "confirm transaction" << std::endl;
+		return 0;
+	}
+	
+	int
+	player::handle_packet_6b (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			return -1;
+		
+		if (pl->gamemode () != GT_CREATIVE)
+			{
+				pl->log (LT_WARNING) << "Received a \"Creative Inventory Action\" packet "
+					"a player in survival mode. (" << pl->get_username () << ")" << std::endl;
+				return -1;
+			}
+		
+		pl->log (LT_DEBUG) << "creative inventory action" << std::endl;
+		short index = reader.read_short ();
+		slot_item item = reader.read_slot ();
+		
+		pl->log (LT_DEBUG) << " - slot: " << index << " [id: " << item.id () << "]" << std::endl;
+		
+		if (index < 0 || index > 44)
+			{
+				// Dropping items is not supported yet, just remove it from the
+				// player's inventory. TODO ^
+				return 0;
+			}
+		
+		if (!(index >= 36 && index <= 44))
+			{
+				// shouldn't be possible
+				pl->log (LT_WARNING) << "Received an invalid \"Creative Inventory Action\" "
+					"packet from " << pl->get_username () << " (attempt to fetch item into an "
+					"illegal slot)." << std::endl;
+				return -1;
+			}
+		
+		if (!item.is_valid ())
+			{
+				// The player picked the item up.
+				pl->cursor_slot = pl->inv.get (index);
+				pl->inv.set (index, slot_item (BT_AIR, 0, 0));
+				return 0;
+			}
+		
+		pl->inv.set (index, item);
+		return 0;
 	}
 	
 	int
@@ -1465,9 +1603,9 @@ namespace hCraft {
 				handle_packet_00, handle_packet_xx, handle_packet_02, handle_packet_03, // 0x03
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x07
 				handle_packet_xx, handle_packet_xx, handle_packet_0a, handle_packet_0b, // 0x0B
-				handle_packet_0c, handle_packet_0d, handle_packet_0e, handle_packet_xx, // 0x0F
+				handle_packet_0c, handle_packet_0d, handle_packet_0e, handle_packet_0f, // 0x0F
 				
-				handle_packet_xx, handle_packet_xx, handle_packet_12, handle_packet_13, // 0x13
+				handle_packet_10, handle_packet_xx, handle_packet_12, handle_packet_13, // 0x13
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x17
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x1B
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x1F
@@ -1493,8 +1631,8 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x5F
 				
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x63
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x67
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x6B
+				handle_packet_xx, handle_packet_65, handle_packet_66, handle_packet_xx, // 0x67
+				handle_packet_xx, handle_packet_xx, handle_packet_6a, handle_packet_6b, // 0x6B
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x6F
 				
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x73

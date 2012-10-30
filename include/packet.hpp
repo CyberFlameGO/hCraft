@@ -182,6 +182,7 @@ namespace hCraft {
 		float read_float ();
 		double read_double ();
 		int read_string (char *out, int max_chars = 65535);
+		slot_item read_slot ();
 	};
 }
 

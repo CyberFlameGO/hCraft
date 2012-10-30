@@ -547,6 +547,26 @@ namespace hCraft {
 		return len;
 	}
 	
+	slot_item
+	packet_reader::read_slot ()
+	{
+		short id = this->read_short ();
+		if (id == -1)
+			return slot_item (BT_AIR, 0, 0);
+		
+		char  amount = this->read_byte ();
+		short damage = this->read_short ();
+		short meta   = this->read_short ();
+		if (meta != -1)
+			{
+				/* TODO */
+				// skip the array for now
+				this->pos += meta;
+			}
+		
+		return slot_item (id, damage, amount);
+	}
+	
 	
 	
 //---
