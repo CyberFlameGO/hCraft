@@ -28,6 +28,9 @@
 
 namespace hCraft {
 	
+	static const size_t sql_pool_size = 6;
+	
+	
 	// constructor.
 	server::initializer::initializer (std::function<void ()>&& init,
 		std::function<void ()>&& destroy)
@@ -66,7 +69,8 @@ namespace hCraft {
 	 * Constructs a new server.
 	 */
 	server::server (logger &log)
-		: log (log), perms (), groups (perms)
+		: log (log), perms (), groups (perms),
+			spool (0, sql_pool_size, "database.sqlite")
 	{
 		// add <init, destory> pairs
 		
@@ -685,7 +689,9 @@ namespace hCraft {
 		int err;
 		char* errmsg;
 		
-		log () << "Opening SQL database (at \"database.db\")" << std::endl;
+		log () << "Opening SQL database (at \"database.sqlite\")" << std::endl;
+		
+		/*
 		this->db.open ("database.db");
 		
 		// 
@@ -697,12 +703,21 @@ namespace hCraft {
 			
 			"CREATE TABLE IF NOT EXISTS `autoloaded-worlds` (`name` TEXT);"
 			);
+		*/
+		
+		sql::connection& conn = this->sql ().pop ();
+		conn.execute (
+			"CREATE TABLE IF NOT EXISTS `players` (`id` INTEGER PRIMARY KEY "
+			"AUTOINCREMENT, `name` TEXT, `groups` TEXT, `nick` TEXT);"
+			
+			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
+		this->sql ().push (conn); 
 	}
 	
 	void
 	server::destroy_sql ()
 	{
-		this->db.close ();
+		this->sql ().clear ();
 	}
 	
 	
@@ -1182,13 +1197,14 @@ namespace hCraft {
 		
 		// load worlds from the autoload list.
 		{
-			sql::statement stmt = this->sql ().create (
-				"SELECT * FROM `autoloaded-worlds`");
-			while (stmt.step () == sql::row)
-				{
-					const char *world_name = (const char *)stmt.column_text (0);
-					to_load.push_back (world_name);
-				}
+			auto& conn = this->sql ().pop ();
+			auto stmt = conn.query ("SELECT * FROM `autoload-worlds`");
+			
+			sql::row row;
+			while (stmt.step (row))
+				to_load.push_back (row.at (0).as_cstr ());
+			
+			this->sql ().push (conn);
 		}
 		for (std::string& wname : to_load)
 			{

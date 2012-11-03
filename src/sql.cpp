@@ -17,195 +17,499 @@
  */
 
 #include "sql.hpp"
-#include <string>
+#include <sqlite3.h>
 
 
 namespace hCraft {
 	
 	namespace sql {
 		
-		void (*dctor_static)(void *) = SQLITE_STATIC;
-		void (*dctor_transient)(void *) = SQLITE_TRANSIENT;
+		void (*pass_static)(void *) = SQLITE_STATIC;
+		void (*pass_transient)(void *) = SQLITE_TRANSIENT;
 		
 		
-		database::database ()
+		
+		/* 
+		 * Constructs a new connection but does not associate it with any open
+		 * database.
+		 */
+		connection::connection ()
 		{
+			this->_open = false;
 			this->db = nullptr;
-			this->opened = false;
-		}
-		
-		database::database (const char *path)
-		{
-			this->open (path);
 		}
 	
-		database::~database ()
+		/* 
+		 * Opens up a connection to the database file located at the path given
+		 * by parameter @{db_name}.
+		 * Throws sql_error on failure.
+		 */
+		connection::connection (const char *db_name)
+		{
+			int err;
+		
+			this->_open = false;
+			this->db = nullptr;
+		
+			this->open (db_name);
+		}
+		
+		/* 
+		 * Move constructor.
+		 */
+		connection::connection (connection&& conn)
+		{
+			this->db = conn.db;
+			this->_open = conn._open;
+			
+			conn.db = nullptr;
+			conn._open = false;
+		}
+	
+		/* 
+		 * Class destructor.
+		 * Closes the underlying database if it is open.
+		 */
+		connection::~connection ()
 		{
 			this->close ();
 		}
 		
 		
 		
+		/* 
+		 * Attempts to open the database file located at path @{dn_name}.
+		 * Throws sql_error on failure.
+		 */
 		void
-		database::open (const char *path)
+		connection::open (const char *db_name)
 		{
-			if (this->opened)
+			if (this->_open)
 				this->close ();
 			
 			int err;
-			err = sqlite3_open (path, &this->db);
+			
+			err = sqlite3_open (db_name, &this->db);
 			if (err != SQLITE_OK)
 				{
+					std::string msg = sqlite3_errmsg (this->db);
 					sqlite3_close (this->db);
-					throw sql_error ("failed to open database");
+					throw sql_error ("failed to open connection: " + msg);
 				}
-			this->opened = true;
+			
+			this->_open = true;
 		}
 		
+		/* 
+		 * Closes the underlying database connection.
+		 */
 		void
-		database::close ()
+		connection::close ()
 		{
-			if (!this->opened)
+			if (!this->_open)
 				return;
 			
 			sqlite3_close (this->db);
-			this->opened = false;
+			
+			this->_open = false;
+			this->db = nullptr;
 		}
 		
 		
 		
+		/* 
+		 * Executes the specified SQL command(s) (seperated by semi-colons).
+		 */
+		
+		void
+		connection::execute (const char *cmd)
+		{
+			if (!this->_open)
+				throw sql_error ("connection is not open");
+			if (!cmd) return;
+			
+			row r;
+			
+			const char *tail = cmd;
+			while (*tail)
+				{
+					statement stmt (*this);
+					stmt.prepare (tail, &tail);
+					while (stmt.step (r))
+						;
+				}
+		}
+		
+		void
+		connection::execute (const std::string& cmd)
+		{
+			this->execute (cmd.c_str ());
+		}
+		
+		
+		
+		/* 
+		 * Creates and returns a new prepared statement from the given SQL query
+		 * command.
+		 */
 		statement
-		database::create (const char *sql)
+		connection::query (const char *sql)
 		{
 			return statement (*this, sql);
 		}
 		
 		statement
-		database::create (const std::string& sql)
+		connection::query (const std::string& sql)
 		{
-			return this->create (sql.c_str ());
+			return statement (*this, sql);
+		}
+		
+		
+		
+	//----
+		/* 
+		 * Constructs an unprepared statement.
+		 */
+		statement::statement (connection& conn)
+			: conn (conn)
+		{
+			this->prepared = false;
+			this->col_count = 0;
+		}
+		
+		/* 
+		 * Constructs a new statement and prepares it with the given SQL command\
+		 * query.
+		 * Throws sql_error on failure.
+		 */
+		statement::statement (connection& conn, const char *query)
+			: statement (conn)
+		{
+			this->prepare (query);
+		}
+		
+		statement::statement (connection& conn, const std::string& query)
+			: statement (conn, query.c_str ())
+			{ }
+		
+		/* 
+		 * Class destructor.
+		 * Frees all resources\memory used by the statement.
+		 */
+		statement::~statement ()
+		{
+			this->finalize ();
+		}
+		
+		
+		
+		/* 
+		 * Prepares the given SQL query\command to be executed.
+		 * Throws sql_error on failure.
+		 */
+		
+		void
+		statement::prepare (const char *query, const char **tail)
+		{
+			if (this->prepared)
+				this->finalize ();
+			if (!this->conn.is_open ())
+				throw sql_error ("cannot prepare statement on closed connection");
+			
+			int err;
+			err = sqlite3_prepare_v2 (this->conn.handle (), query, -1, &this->stmt,
+				tail);
+			if (err != SQLITE_OK)
+				throw sql_error ("failed to prepare statement: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+			
+			this->col_count = sqlite3_column_count (this->stmt);
+			this->prepared = true;
 		}
 		
 		void
-		database::execute (const char *sql)
+		statement::prepare (const std::string& query)
+			{ this->prepare (query.c_str ()); }
+		
+		
+		/* 
+		 * Frees all memory\resources used by the constructed SQL query\command.
+		 */
+		void
+		statement::finalize ()
 		{
-			const char *str = sql;
-			int err;
-			while (*str)
-				{
-					statement stmt (*this, str, &str);
-					stmt.execute ();
-				}
+			if (!this->prepared)
+				return;
+			
+			if (this->stmt)
+				sqlite3_finalize (this->stmt);
+			this->prepared = false;
 		}
 		
-		int
-		database::scalar_int (const char *sql)
+		
+		
+		/* 
+		 * Evaluates the statement.
+		 * Returns true if a row has been fetched and false otherwise.
+		 */
+		row&
+		statement::step (row &r)
 		{
-			statement stmt (*this, sql);
-			if (stmt.step () == row)
-				return stmt.column_int (0);
-			throw sql_error ("no rows were fetched");
+			if (!this->prepared)
+				throw sql_error ("cannot step through an un-prepared statement");
+			
+			r.items.clear ();
+			if (!this->stmt) return r;
+			
+			int err;
+			err = sqlite3_step (this->stmt);
+			if (err == SQLITE_DONE) return r;
+			if (err != SQLITE_ROW)
+				throw sql_error ("failed to step through row: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+			
+			if (this->col_count)
+				{
+					r.items.reserve (this->col_count);
+					for (int i = 0; i < this->col_count; ++i)
+						{
+							value val;
+							
+							switch (sqlite3_column_type (this->stmt, i))
+								{
+									case SQLITE_INTEGER:
+										val._type = SQL_INTEGER;
+										val._data.integer = sqlite3_column_int64 (this->stmt, i);
+										break;
+									case SQLITE_FLOAT:
+										val._type = SQL_FLOAT;
+										val._data.floating = sqlite3_column_double (this->stmt, i);
+										break;
+									case SQLITE_TEXT:
+										val._type = SQL_TEXT;
+										val._data.text = sqlite3_column_text (this->stmt, i);
+										break;
+									case SQLITE_BLOB:
+										val._type = SQL_BLOB;
+										val._data.blob = sqlite3_column_blob (this->stmt, i);
+										break;
+									default:
+										val._type = SQL_NULL;
+										val._data.blob = nullptr;
+										break;
+								}
+							
+							r.items.push_back (val);
+						}
+				}
+			
+			return r;
+		}
+		
+		/* 
+		 * Same as step (sql::row), but the row is created by the method.
+		 * method.
+		 */
+		row
+		statement::step ()
+		{
+			row r;
+			this->step (r);
+			return r;
+		}
+		
+		/* 
+		 * Resets the prepared statement to its initial state, allowing it to be
+		 * stepped through again.
+		 */
+		void
+		statement::reset ()
+		{
+			if (!this->prepared)
+				throw sql_error ("statement is not prepared");
+			if (!this->stmt) return;
+			
+			sqlite3_reset (this->stmt);
+		}
+		
+		/* 
+		 * Calls step () until no more rows are returned.
+		 */
+		void
+		statement::execute ()
+		{
+			row r;
+			while (this->step (r))
+				;
+		}
+		
+		
+		
+		/* 
+		 * Parameter binding:
+		 */
+		
+		void
+		statement::bind (int index, int val)
+		{
+			int err;
+			err = sqlite3_bind_int (this->stmt, index, val);
+			if (err != SQLITE_OK)
+				throw sql_error ("failed to bind parameter: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+		}
+		
+		void
+		statement::bind (const char *var, int val)
+		{
+			int index = sqlite3_bind_parameter_index (this->stmt, var);
+			if (index == 0)
+				throw sql_error ("invalid parameter: " + std::string (var));
+			this->bind (index, val);
+		}
+		
+		void
+		statement::bind (int index, double val)
+		{
+			int err;
+			err = sqlite3_bind_double (this->stmt, index, val);
+			if (err != SQLITE_OK)
+				throw sql_error ("failed to bind parameter: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+		}
+		
+		void
+		statement::bind (const char *var, double val)
+		{
+			int index = sqlite3_bind_parameter_index (this->stmt, var);
+			if (index == 0)
+				throw sql_error ("invalid parameter: " + std::string (var));
+			this->bind (index, val);
+		}
+		
+		void
+		statement::bind (int index, const char *val, void (*dctor)(void *))
+		{
+			int err;
+			err = sqlite3_bind_text (this->stmt, index, val, -1, dctor);
+			if (err != SQLITE_OK)
+				throw sql_error ("failed to bind parameter: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+		}
+		
+		void
+		statement::bind (const char *var, const char *val,
+			void (*dctor)(void *))
+		{
+			int index = sqlite3_bind_parameter_index (this->stmt, var);
+			if (index == 0)
+				throw sql_error ("invalid parameter: " + std::string (var));
+			this->bind (index, val, dctor);
 		}
 		
 		
 		
 	//----
 		
-		statement::statement (database &db, const char *sql, const char **tail)
-			: db (db), code (sql)
+		value::value (value_type t)
 		{
-			int err;
-			err = sqlite3_prepare_v2 (db.db, sql, -1, &this->stmt, tail);
-			if (err != SQLITE_OK)
-				throw sql_error (sqlite3_errmsg (db.db));
+			this->_type = t;
 		}
 		
-		statement::~statement ()
-		{
-			this->finalize ();
-		}
 		
-		void
-		statement::finalize ()
+		
+	//----
+		
+		/* 
+		 * Constructs a new row of {@column_count} columns.
+		 */
+		row::row ()
+			{ }
+		
+		
+		
+	//----
+		
+		/* 
+		 * Constructs a new connection pool, and creates @{min} connections
+		 * on database @{db_name}.
+		 */
+		connection_pool::connection_pool (int min, int max, const char *db_name)
+			: db_name (db_name), lock ()
 		{
-			if (this->stmt)
+			this->min_conns = min;
+			this->max_conns = max;
+			
+			// create initial connections
+			for (int i = 0; i < min; ++i)
 				{
-					sqlite3_finalize (this->stmt);
+					this->conns.emplace_back (db_name);
+					this->free_conns.push_back (&(this->conns.back ()));
 				}
 		}
 		
-		
-		
-		void
-		statement::bind_text (int index, const char *text, int len,
-			void (*dctor)(void *))
+		/* 
+		 * Class destructor.
+		 */
+		connection_pool::~connection_pool ()
 		{
-			if (!this->stmt)
-				return;
-			if (sqlite3_bind_text (this->stmt, index, text, len, dctor) != SQLITE_OK)
-				throw sql_error (sqlite3_errmsg (this->db.db));
+			this->clear ();
 		}
 		
 		
 		
+		/* 
+		 * Pushes the specified connection back into the pool.
+		 */
 		void
-		statement::execute ()
+		connection_pool::push (connection& conn)
 		{
-			int ret;
-			for (;;)
+			std::lock_guard<std::mutex> guard {this->lock};
+			if (this->free_conns.size () == this->max_conns)
 				{
-					ret = this->step ();
-					if (ret == sql::done)
-						break;
-					if (ret != sql::row)
-						throw sql_error (sqlite3_errmsg (this->db.db));
+					conn.close ();
+					return;
 				}
+			
+			this->free_conns.push_back (&conn);
+			if (!this->free_conns.empty ())
+				this->cv.notify_one ();
 		}
 		
-		return_code
-		statement::step ()
+		/* 
+		 * Fetches an available connection from the pool.
+		 * Will block if one is not available.
+		 */
+		connection&
+		connection_pool::pop ()
 		{
-			if (this->stmt)
-				return sqlite3_step (this->stmt);
-			return done;
+			std::unique_lock<std::mutex> guard {this->lock};
+			std::vector<connection *>& free_list = this->free_conns;
+			if (free_list.empty ())
+				{
+					if (this->conns.size () < this->max_conns)
+						{
+							this->conns.emplace_back (this->db_name.c_str ());
+							return this->conns.back ();
+						}
+					
+					this->cv.wait (guard, [&free_list] () { return !free_list.empty (); });
+				}
+			
+			connection *conn = free_list.back ();
+			free_list.pop_back ();
+			return *conn;
 		}
 		
+		/* 
+		 * Removes all connection objects from this pool.
+		 */
 		void
-		statement::reset ()
+		connection_pool::clear ()
 		{
-			sqlite3_reset (this->stmt);
-		}
-		
-		
-		
-		int
-		statement::column_int (int col)
-		{
-			return sqlite3_column_int (this->stmt, col);
-		}
-		
-		long long
-		statement::column_int64 (int col)
-		{
-			return sqlite3_column_int64 (this->stmt, col);
-		}
-		
-		double
-		statement::column_double (int col)
-		{
-			return sqlite3_column_double (this->stmt, col);
-		}
-		
-		const unsigned char*
-		statement::column_text (int col)
-		{
-			return sqlite3_column_text (this->stmt, col);
-		}
-		
-		int
-		statement::column_bytes (int col)
-		{
-			return sqlite3_column_bytes (this->stmt, col);
+			std::lock_guard<std::mutex> guard {this->lock};
+			this->free_conns.clear ();
+			this->conns.clear ();
 		}
 	}
 }

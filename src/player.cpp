@@ -21,8 +21,8 @@
 #include "stringutils.hpp"
 #include "wordwrap.hpp"
 #include "commands/command.hpp"
-#include "sql.hpp"
 #include "utils.hpp"
+#include "sql.hpp"
 
 #include <memory>
 #include <algorithm>
@@ -956,30 +956,35 @@ namespace hCraft {
 	void
 	player::load_data ()
 	{
-		sql::statement stmt = this->get_server ().sql ().create (
-			"SELECT * FROM `players` WHERE `name`=?;");
-		stmt.bind_text (1, this->get_username ());
-		
-		if (stmt.step () == sql::row)
-			{
-				this->rnk.set ((const char *)stmt.column_text (2), this->get_server ().get_groups ());
-				std::strcpy (this->nick, (const char *)stmt.column_text (3));
-			}
-		else
-			{
-				this->rnk.set (this->get_server ().get_groups ().default_rank);
-				std::string grp_str;
-				this->rnk.get_string (grp_str);
-				
-				std::strcpy (this->nick, this->username);
-				
-				sql::statement stmt = this->get_server ().sql ().create (
-					"INSERT INTO `players` (`name`, `groups`, `nick`) VALUES (?, ?, ?)");
-				stmt.bind_text (1, this->get_username ());
-				stmt.bind_text (2, grp_str.c_str (), -1, sql::dctor_transient);
-				stmt.bind_text (3, this->get_nickname ());
-				stmt.execute ();
-			}
+		{
+			auto& conn = this->get_server ().sql ().pop ();
+			auto stmt = conn.query ("SELECT * FROM `players` WHERE `name`=?");
+			stmt.bind (1, this->get_username ());
+			
+			sql::row row;
+			if (stmt.step (row))
+				{
+					this->rnk.set (row.at (2).as_cstr (), this->get_server ().get_groups ());
+					std::strcpy (this->nick, row.at (3).as_cstr ());
+				}
+			else
+				{
+					this->rnk.set (this->get_server ().get_groups ().default_rank);
+					std::string grp_str;
+					this->rnk.get_string (grp_str);
+					
+					std::strcpy (this->nick, this->username);
+					
+					auto stmt = conn.query (
+						"INSERT INTO `players` (`name`, `groups`, `nick`) VALUES (?, ?, ?)");
+					stmt.bind (1, this->get_username ());
+					stmt.bind (2, grp_str.c_str (), sql::pass_transient);
+					stmt.bind (3, this->get_nickname ());
+					stmt.execute ();
+				}
+			
+			this->get_server ().sql ().push (conn);
+		}
 		
 		std::string str;
 		str.append ("§");
@@ -1013,7 +1018,7 @@ namespace hCraft {
 				ss << "UPDATE `players` SET `nick`='"
 				 << nick << "' WHERE `name`='"
 				 << this->get_username () << "';";
-				this->get_server ().sql ().execute (ss.str ().c_str ());
+				this->get_server ().execute_sql (ss.str ());
 			}
 	}
 	
@@ -1423,6 +1428,18 @@ namespace hCraft {
 		char cursor_y = reader.read_byte ();
 		char cursor_z = reader.read_byte ();
 		
+		const int rr = 3;
+		for (int xx = (x - rr); xx <= (x + rr); ++xx)
+			for (int yy = (y - rr); yy <= (y + rr); ++yy)
+				for (int zz = (z - rr); zz <= (z + rr); ++zz)
+					pl->get_world ()->queue_update (xx, yy, zz, 0, 0);
+		
+		if (x == -1 && y == 255 && z == -1 && direction == -1)
+			{
+				// Held item must be updated, or not enough room.
+				return 0;
+			}
+		
 		item = pl->held_item ();
 		if (!item.is_valid () || item.empty ())
 			return 0;
@@ -1440,10 +1457,13 @@ namespace hCraft {
 				case 5: ++ nx; break;
 			}
 		
+		/*
 		pl->get_world ()->queue_update (nx, ny, nz,
 			item.id (), item.damage ());
 		pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
 			item.amount () - 1));
+		*/
+		
 		return 0;
 	}
 	

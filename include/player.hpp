@@ -26,6 +26,7 @@
 #include "rank.hpp"
 #include "messages.hpp"
 #include "window.hpp"
+//#include "sql.hpp"
 
 #include <atomic>
 #include <queue>
@@ -207,6 +208,7 @@ namespace hCraft {
 		
 		// whether the player isn't valid anymore, and should be destroyed.
 		inline bool bad () { return this->fail || this->disconnecting; }
+		inline bool has_logged_in () { return this->logged_in; }
 		
 		virtual entity_type get_type () { return ET_PLAYER; }
 		

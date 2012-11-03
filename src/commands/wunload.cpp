@@ -29,15 +29,17 @@ namespace hCraft {
 		static bool
 		remove_from_autoload (server& srv, const std::string& world_name)
 		{
-			int count = srv.sql ().scalar_int ((
+			auto& conn = srv.sql ().pop ();
+			int count = conn.query (
 				"SELECT count(*) FROM `autoloaded-worlds` WHERE `name`='"
-				+ world_name + "'").c_str ());
+				+ world_name + "'").step ().at (0).as_int ();
 			if (count == 0)
 				return false;
 			
-			srv.sql ().execute ((
+			conn.execute (
 				"DELETE FROM `autoloaded-worlds` WHERE `name`='"
-				+ world_name + "'").c_str ());
+				+ world_name + "'");
+			srv.sql ().push (conn);
 			return true;
 		}
 		

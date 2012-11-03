@@ -19,7 +19,6 @@
 #include "chatc.hpp"
 #include "../player.hpp"
 #include "../server.hpp"
-#include "../sql.hpp"
 #include "../rank.hpp"
 #include <cstring>
 #include <sstream>
@@ -53,29 +52,32 @@ namespace hCraft {
 			if (target)
 				target_name.assign (target->get_username ());
 			
-			sql::statement stmt = pl->get_server ().sql ().create (
-				"SELECT * FROM `players` WHERE `name` LIKE ?;");
-			stmt.bind_text (1, target_name.c_str (), -1, sql::dctor_transient);
-			if (stmt.step () != sql::row)
+			auto& conn = pl->get_server ().sql ().pop ();
+			auto stmt = conn.query (
+				"SELECT * FROM `players` WHERE `name` LIKE ?");
+			sql::row row;
+			
+			stmt.bind (1, target_name.c_str (), sql::pass_transient);
+			if (!stmt.step (row))
 				{
 					pl->message ("§c * §eUnable to find player§f: §c" + target_name);
 					return;
 				}
 			
-			rank rnk ((const char *)stmt.column_text (2), pl->get_server ().get_groups ());
-			prev_nickname.assign ((const char *)stmt.column_text (3));
+			rank rnk (row.at (2).as_cstr (), pl->get_server ().get_groups ());
+			prev_nickname.assign (row.at (3).as_cstr ());
 			
 			if (reader.arg_count () == 2)
 				nickname.assign (reader.arg (1));
 			else
-				nickname.assign ((const char *)stmt.column_text (1));
+				nickname.assign (row.at (1).as_cstr ());
 			if (nickname.empty () || nickname.length () > 36)
 				{
 					pl->message ("§c * §eThe nickname cannot have more than §a36 "
 											 "§echaracters§f, and must have at least one§f.");
 					return;
 				}
-			else if (std::strcmp (nickname.c_str (), (const char *)stmt.column_text (3)) == 0)
+			else if (std::strcmp (nickname.c_str (), row.at (3).as_cstr ()) == 0)
 				{
 					pl->message ("§ePlayer §a" + target_name + " §ealready has that nickname§f.");
 					return;
@@ -92,7 +94,7 @@ namespace hCraft {
 						ss << "UPDATE `players` SET `nick`='"
 							 << nickname << "' WHERE `name`='"
 							 << target_name << "';";
-						pl->get_server ().sql ().execute (ss.str ().c_str ());
+						conn.execute (ss.str ());
 					}
 				
 				ss.clear (); ss.str (std::string ());
@@ -101,6 +103,8 @@ namespace hCraft {
 					 << nickname << "§f!";
 				pl->get_server ().get_players ().message (ss.str ());
 			}
+			
+			pl->get_server ().sql ().push (conn);
 		}
 	}
 }

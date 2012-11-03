@@ -61,6 +61,17 @@ namespace hCraft {
 		}
 	};
 	
+	struct light_update
+	{
+		int x;
+		int y;
+		int z;
+		bool placed; // true if the block was placed, false if it was destroyed.
+		
+		light_update (int x, int y, int z, bool placed)
+			{ this->x = x; this->y = y; this->z = z; this->placed = placed; }
+	};
+	
 	
 	/* 
 	 * The world provides methods to easily retreive or modify chunks, and
@@ -76,7 +87,7 @@ namespace hCraft {
 		bool th_running;
 		
 		std::queue<block_update> updates;
-		std::queue<block_pos> light_updates;
+		std::queue<light_update> light_updates;
 		std::recursive_mutex update_lock;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
@@ -217,7 +228,7 @@ namespace hCraft {
 		void queue_update (int x, int y, int z, unsigned short id,
 			unsigned char meta, player *pl = nullptr);
 		
-		void queue_light_update (int x, int y, int z);
+		void queue_light_update (int x, int y, int z, bool placed = false);
 	};
 }
 

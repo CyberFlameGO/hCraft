@@ -1,3 +1,4 @@
+
 hCraft_sources = Split("""
 		main.cpp
 		logger.cpp
@@ -21,12 +22,12 @@ hCraft_sources = Split("""
 		utils.cpp
 		rank.cpp
 		permissions.cpp
-		sql.cpp
 		messages.cpp
 		nbt.cpp
 		window.cpp
 		items.cpp
 		slot.cpp
+		sql.cpp
 		
 		commands/command.cpp
 		commands/help.cpp

@@ -31,7 +31,6 @@
 #include "rank.hpp"
 #include "sql.hpp"
 
-#include <sqlite3.h>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -129,7 +128,7 @@ namespace hCraft {
 		logger& log;
 		server_config cfg;
 		
-		sql::database db;
+		sql::connection_pool spool;
 		permission_manager perms;
 		group_manager groups;
 		
@@ -270,9 +269,16 @@ namespace hCraft {
 		inline thread_pool& get_thread_pool () { return this->tpool; }
 		inline world* get_main_world () { return this->main_world; }
 		inline command_list& get_commands () { return *this->commands; }
-		inline sql::database& sql () { return this->db; }
 		inline permission_manager& get_perms () { return this->perms; }
 		inline group_manager& get_groups () { return this->groups; }
+		
+		inline sql::connection_pool& sql () { return this->spool; }
+		inline void execute_sql (const std::string& str)
+		{
+			auto& conn = this->sql ().pop ();
+			conn.execute (str);
+			this->sql ().push (conn);
+		}
 		
 	public:
 		/* 

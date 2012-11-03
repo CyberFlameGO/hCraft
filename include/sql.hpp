@@ -21,89 +21,332 @@
 
 #include <stdexcept>
 #include <string>
-#include <sqlite3.h>
+#include <vector>
+#include <mutex>
+#include <condition_variable>
 
+
+// forward decs:
+struct sqlite3;
+struct sqlite3_stmt;
 
 namespace hCraft {
 	
-	class sql_error: public std::runtime_error
+	/* 
+	 * Base class for all errors thrown from the methods declared in this file.
+	 */
+	class sql_error: std::runtime_error
 	{
 	public:
-		sql_error (const char *what)
-			: std::runtime_error (what)
+		sql_error (const char *str)
+			: std::runtime_error (str)
+			{ }
+		sql_error (const std::string& str)
+			: std::runtime_error (str)
 			{ }
 	};
 	
+	
 	/* 
-	 * A collection of classes that wrap around sqlite3 functions.
+	 * Classes that wrap around sqlite3 objects and provide an cleaner and easier
+	 * to use interface (RAII, etc...)
 	 */
 	namespace sql {
 		
-		// forward defs:
-		class database;
+		class connection;
+		class connection_pool;
+		
+		extern void (*pass_static)(void *);
+		extern void (*pass_transient)(void *);
 		
 		
-		typedef int return_code;
-		const return_code ok    = SQLITE_OK;
-		const return_code done  = SQLITE_DONE;
-		const return_code busy  = SQLITE_BUSY;
-		const return_code row   = SQLITE_ROW;
-		const return_code error = SQLITE_ERROR;
-		
-		extern void (*dctor_static)(void *);
-		extern void (*dctor_transient)(void *);
-		
-		
-		class statement
+		enum value_type
 		{
-			friend class database;
-			sqlite3_stmt *stmt;
-			database& db;
-			const char *code;
+			SQL_NULL,
+			SQL_INTEGER,
+			SQL_FLOAT,
+			SQL_TEXT,
+			SQL_BLOB,
+		};
+		
+		/* 
+		 * A value type that can be fetched from returned rows.
+		 */
+		class value
+		{
+			friend class statement;
 			
-			
-		private:
-			statement (database &db, const char *sql, const char **tail = nullptr);
+			value_type _type;
+			union
+				{
+					const void *blob;
+					double floating;
+					long long integer;
+					const unsigned char *text;
+				} _data;
+				
+		public:
+			inline value_type type () { return this->_type; }
 			
 		public:
-			~statement ();
-			void finalize ();
+			value (value_type t = SQL_NULL);
 			
-			void bind_text (int index, const char *text, int len = -1,
-				void (*dctor)(void *) = dctor_static);
+			long long as_int ()
+				{ return this->_data.integer; }
 			
-			void execute ();
-			return_code step ();
-			void reset ();
+			double as_double ()
+				{ return this->_data.floating; }
 			
-			int column_int (int col);
-			long long column_int64 (int col);
-			double column_double (int col);
-			const unsigned char* column_text (int col);
-			int column_bytes (int col);
+			const char* as_cstr ()
+				{ return (const char *)this->_data.text; }
+			
+			std::string as_str ()
+				{ return std::string (this->as_cstr ()); }
+			
+			const void* as_blob ()
+				{ return this->_data.blob; }
 		};
 		
 		
-		class database
+		/* 
+		 * A table row that is filled by stepping through a prepared statement.
+		 */
+		class row
 		{
 			friend class statement;
-			sqlite3 *db;
-			bool opened;
+			std::vector<value> items;
 			
 		public:
-			database ();
-			database (const char *path);
-			~database ();
+			inline int size () { return this->items.size (); }
+			inline bool empty () { return this->items.empty (); }
+		
+		public:
+			/* 
+			 * Constructs a new empty row.
+			 */
+			row ();
 			
 			
-			void open (const char *path);
+			/* 
+			 * Returns the value of the column at the given index.
+			 */
+			value at (unsigned int index) { return items.at (index); }
+			
+			
+			/* 
+			 * Conversion to boolean values.
+			 * Returns true if this row has columns in it.
+			 */
+			operator bool () const
+				{ return !items.empty (); }
+		};
+		
+		
+		/* 
+		 * Represents an executable SQL statement.
+		 */
+		class statement
+		{
+			connection& conn;
+			sqlite3_stmt *stmt;
+			bool prepared;
+			
+			int col_count;
+			
+		public:
+			inline bool is_prepared () { return this->prepared; }
+			inline int  column_count () { return this->col_count; }
+			
+		public:
+			/* 
+			 * Constructs an unprepared statement.
+			 */
+			statement (connection& conn);
+			
+			/* 
+			 * Constructs a new statement and prepares it with the given SQL command\
+			 * query.
+			 * Throws sql_error on failure.
+			 */
+			statement (connection& conn, const char *query);
+			statement (connection& conn, const std::string& query);
+			
+			/* 
+			 * Class destructor.
+			 * Frees all resources\memory used by the statement.
+			 */
+			~statement ();
+			
+			
+			
+			/* 
+			 * Prepares the given SQL query\command to be executed.
+			 * Throws sql_error on failure.
+			 */
+			void prepare (const char *query, const char **tail = nullptr);
+			void prepare (const std::string& query);
+			
+			/* 
+			 * Frees all memory\resources used by the constructed SQL query\command.
+			 */
+			void finalize ();
+			
+			
+			
+			/* 
+			 * Parameter binding:
+			 */
+			
+			void bind (int index, int val);
+			void bind (const char *var, int val);
+			void bind (int index, double val);
+			void bind (const char *var, double val);
+			void bind (int index, const char *val, void (*dctor)(void *) = nullptr);
+			void bind (const char *var, const char *val,
+				void (*dctor)(void *) = nullptr);
+			
+			
+			
+			/* 
+			 * Evaluates the statement.
+			 */
+			row& step (row &r);
+			
+			/* 
+			 * Same as step (sql::row), but the row is created by the method.
+			 * method.
+			 */
+			row step ();
+			
+			/* 
+			 * Resets the prepared statement to its initial state, allowing it to be
+			 * stepped through again.
+			 */
+			void reset ();
+			
+			/* 
+			 * Calls step () until no more rows are returned.
+			 */
+			void execute ();
+		};
+		
+		
+		
+		/* 
+		 * A connection to a database object.
+		 */
+		class connection
+		{
+			sqlite3 *db;
+			bool _open;
+		
+		public:
+			inline bool is_open () { return this->_open; }
+			inline sqlite3* handle () { return this->db; }
+			
+		public:
+			/* 
+			 * Constructs a new connection but does not associate it with any open
+			 * database.
+			 */
+			connection ();
+			
+			/* 
+			 * Opens up a connection to the database file located at the path given
+			 * by parameter @{db_name}.
+			 * Throws sql_error on failure.
+			 */
+			connection (const char *db_name);
+			
+			/* 
+			 * Class destructor.
+			 * Closes the underlying database if it is open.
+			 */
+			~connection ();
+			
+			// connections are not copyable.
+			connection (const connection& conn) = delete;
+			
+			/* 
+			 * Move constructor.
+			 */
+			connection (connection&& conn);
+			
+			
+			
+			/* 
+			 * Attempts to open the database file located at path @{dn_name}.
+			 * Throws sql_error on failure.
+			 */
+			void open (const char *db_name);
+			
+			/* 
+			 * Closes the underlying database connection.
+			 */
 			void close ();
 			
 			
-			statement create (const char *sql);
-			statement create (const std::string& sql);
-			void execute (const char *sql);
-			int scalar_int (const char *sql);
+			
+			/* 
+			 * Executes the specified SQL command(s) (seperated by semi-colons).
+			 */
+			void execute (const char *cmd);
+			void execute (const std::string& cmd);
+			
+			/* 
+			 * Creates and returns a new prepared statement from the given SQL query
+			 * command.
+			 */
+			statement query (const char *sql);
+			statement query (const std::string& sql);
+		};
+		
+		
+		
+		/* 
+		 * A thread-safe pool of reusable connection objects.
+		 */
+		class connection_pool
+		{
+			std::vector<connection> conns;
+			std::vector<connection *> free_conns;
+			std::string db_name;
+			
+			std::mutex lock;
+			std::condition_variable cv;
+			
+			int min_conns;
+			int max_conns;
+			
+		public:
+			/* 
+			 * Constructs a new connection pool, and creates @{min} connections
+			 * on database @{db_name}.
+			 */
+			connection_pool (int min, int max, const char *db_name);
+			
+			/* 
+			 * Class destructor.
+			 */
+			~connection_pool ();
+			
+			
+			
+			/* 
+			 * Pushes the specified connection back into the pool.
+			 */
+			void push (connection& conn);
+			
+			/* 
+			 * Fetches an available connection from the pool.
+			 * Will block if one is not available.
+			 */
+			connection& pop ();
+			
+			/* 
+			 * Removes all connection objects from this pool.
+			 */
+			void clear ();
 		};
 	}
 }
