@@ -25,12 +25,34 @@
 
 namespace hCraft {
 	
+	inline bool
+	is_color_code (char c)
+		{ return (c >= '0' && c <= '9') ||
+						 (c >= 'a' && c <= 'f') ||
+						 (c >= 'A' && c <= 'F'); }
+	
+	inline bool
+	is_style_code (char c)
+	{
+		switch (c)
+			{ case 'k': case 'l': case 'm':
+			  case 'n': case 'o': case 'r':
+			  	return true; }
+		return false;
+	}
+	
+	inline bool
+	is_chat_code (char c)
+		{ return is_color_code (c) || is_style_code (c); }
+	
+	
+	
 	/* 
 	 * Collection of static methods that provide word-wrapping.
 	 */
 	class wordwrap
 	{
-	public:
+	public:	
 		/* 
 		 * Performs simple word wrapping on the given string, without doing any
 		 * further processing\formatting (except color wrapping, which is done).

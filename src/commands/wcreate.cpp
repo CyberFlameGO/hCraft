@@ -79,7 +79,7 @@ namespace hCraft {
 				{
 					if (!opt_width->is_int ())
 						{
-							pl->message_nowrap ("§c * §eArgument to flag §c--width §emust be an integer§f.");
+							pl->message ("§c * §eArgument to flag §c--width §emust be an integer§f.");
 							return;
 						}
 					world_width = opt_width->as_int ();
@@ -94,7 +94,7 @@ namespace hCraft {
 				{
 					if (!opt_depth->is_int ())
 						{
-							pl->message_nowrap ("§c * §eArgument to flag §c--depth §emust be an integer§f.");
+							pl->message ("§c * §eArgument to flag §c--depth §emust be an integer§f.");
 							return;
 						}
 					world_depth = opt_depth->as_int ();
@@ -138,7 +138,7 @@ namespace hCraft {
 			
 			if (load_world && (pl->get_server ().find_world (world_name.c_str ()) != nullptr))
 				{
-					pl->message_nowrap ("§c * §eA world with the same name is already loaded§f.");
+					pl->message ("§c * §eA world with the same name is already loaded§f.");
 					return;
 				}
 			
@@ -164,16 +164,16 @@ namespace hCraft {
 			wr->set_depth (world_depth);
 			wr->prepare_spawn (10);
 			
-			pl->message_nowrap ("§f - §aSaving§f...");
+			pl->message ("§f - §aSaving§f...");
 			wr->save_all ();
 			
 			if (load_world)
 				{
-					pl->message_nowrap ("§f - §aLoading§f...");
+					pl->message ("§f - §aLoading§f...");
 					if (!pl->get_server ().add_world (wr))
 						{
 							delete wr;
-							pl->message_nowrap ("§cFailed to load world§7.");
+							pl->message ("§cFailed to load world§7.");
 						}
 					
 					wr->start ();
@@ -183,7 +183,7 @@ namespace hCraft {
 					delete wr;
 				}
 			
-			pl->message_nowrap ("§f - §2Done§f.");
+			pl->message ("§f - §2Done§f.");
 		}
 	}
 }

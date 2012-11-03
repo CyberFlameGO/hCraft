@@ -51,7 +51,6 @@ namespace hCraft {
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 			if (target)
 				target_name.assign (target->get_username ());
-			
 			auto& conn = pl->get_server ().sql ().pop ();
 			auto stmt = conn.query (
 				"SELECT * FROM `players` WHERE `name` LIKE ?");
@@ -66,7 +65,7 @@ namespace hCraft {
 			
 			rank rnk (row.at (2).as_cstr (), pl->get_server ().get_groups ());
 			prev_nickname.assign (row.at (3).as_cstr ());
-			
+			pl->get_logger () (LT_DEBUG) << "C" << std::endl;
 			if (reader.arg_count () == 2)
 				nickname.assign (reader.arg (1));
 			else
@@ -74,7 +73,7 @@ namespace hCraft {
 			if (nickname.empty () || nickname.length () > 36)
 				{
 					pl->message ("§c * §eThe nickname cannot have more than §a36 "
-											 "§echaracters§f, and must have at least one§f.");
+											 "§echaracters or be empty§f.");
 					return;
 				}
 			else if (std::strcmp (nickname.c_str (), row.at (3).as_cstr ()) == 0)
@@ -86,17 +85,12 @@ namespace hCraft {
 			{
 				std::ostringstream ss;
 				if (target)
-					{
-						pl->set_nickname (nickname.c_str ());
-					}
-				else
-					{
-						ss << "UPDATE `players` SET `nick`='"
-							 << nickname << "' WHERE `name`='"
-							 << target_name << "';";
-						conn.execute (ss.str ());
-					}
-				
+					pl->set_nickname (nickname.c_str (), false);
+				ss << "UPDATE `players` SET `nick`='"
+					 << nickname << "' WHERE `name`='"
+					 << target_name << "';";
+				conn.execute (ss.str ());
+						
 				ss.clear (); ss.str (std::string ());
 				ss << "§" << rnk.main ()->get_color () << prev_nickname
 					 << " §eis now known as§f: §" << rnk.main ()->get_color ()

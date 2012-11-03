@@ -115,7 +115,7 @@ namespace hCraft {
 						 << x << "§f, §9"
 						 << y << "§f, §9"
 						 << z << "§e)";
-					pl->message_nowrap (ss.str ());
+					pl->message (ss.str ());
 					
 					pl->teleport_to (entity_pos (block_pos (x, y, z))
 						.set_rot (curr_pos.r, curr_pos.l));

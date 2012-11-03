@@ -252,7 +252,7 @@ namespace hCraft {
 		
 		if (!found_end)
 			{
-				err->message_nowrap ("§c * §eIncomplete string§f.");
+				err->message ("§c * §eIncomplete string§f.");
 				return false;
 			}
 		
@@ -695,7 +695,7 @@ namespace hCraft {
 				pl->message (ss.str ());
 			}
 			
-		pl->message_nowrap ("§8Examples§7:");
+		pl->message ("§8Examples§7:");
 		const char **examples = this->get_examples ();
 		for (const char **ex = examples; *ex; ++ex)
 			{

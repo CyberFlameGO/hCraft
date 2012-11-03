@@ -58,13 +58,13 @@ namespace hCraft {
 					
 					std::ostringstream ss;
 					ss << "§a" << target->get_username () << "§e's ping§f: §c" << target->get_ping () << " §emilliseconds§f.";
-					pl->message_nowrap (ss.str ());
+					pl->message (ss.str ());
 					return;
 				}
 			
 			std::ostringstream ss;
 			ss << "§ePing§f: §c" << pl->get_ping () << " §emilliseconds§f.";
-			pl->message_nowrap (ss.str ());
+			pl->message (ss.str ());
 		}
 	}
 }

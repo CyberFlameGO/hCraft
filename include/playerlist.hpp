@@ -138,8 +138,8 @@ namespace hCraft {
 		 */
 		void message (const char *msg, player *except = nullptr);
 		void message (const std::string& msg, player *except = nullptr);
-		void message_nowrap (const char *msg, player *except = nullptr);
-		void message_nowrap (const std::string& msg, player *except = nullptr);
+		void message_wrapped (const char *msg, const char *prefix = "§7 > §f", bool first_line = false, player *except = nullptr);
+		void message_wrapped (const std::string& msg, const char *prefix = "§7 > §f", bool first_line = false, player *except = nullptr);	
 		
 		/* 
 		 * Sends the specified packet to all players in this list.

@@ -276,19 +276,21 @@ namespace hCraft {
 	}
 	
 	void
-	playerlist::message_nowrap (const char *msg, player *except)
+	playerlist::message_wrapped (const char *msg, const char *prefix,
+		bool first_line, player *except)
 	{
 		this->all (
-			[msg] (player *pl)
+			[msg, prefix, first_line] (player *pl)
 				{
-					pl->message_nowrap (msg);
+					pl->message_wrapped (msg, prefix, first_line);
 				}, except);
 	}
 	
 	void
-	playerlist::message_nowrap (const std::string& msg, player *except)
+	playerlist::message_wrapped (const std::string& msg, const char *prefix,
+		bool first_line, player *except)
 	{
-		this->message_nowrap (msg.c_str (), except);
+		this->message_wrapped (msg.c_str (), prefix, first_line, except);
 	}
 	
 	

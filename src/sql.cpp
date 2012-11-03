@@ -19,6 +19,8 @@
 #include "sql.hpp"
 #include <sqlite3.h>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -193,12 +195,30 @@ namespace hCraft {
 			{ }
 		
 		/* 
+		 * Move constructor
+		 */
+		statement::statement (statement&& stmt)
+			: conn (stmt.conn)
+		{
+			this->stmt = stmt.stmt;
+			this->prepared = stmt.prepared;
+			this->col_count = stmt.col_count;
+			
+			stmt.stmt = nullptr;
+			stmt.prepared = false;
+			stmt.col_count = 0;
+		}
+		
+		/* 
 		 * Class destructor.
 		 * Frees all resources\memory used by the statement.
 		 */
 		statement::~statement ()
 		{
-			this->finalize ();
+			if (this->stmt)
+				{
+					this->finalize ();
+				}
 		}
 		
 		
@@ -490,13 +510,13 @@ namespace hCraft {
 					if (this->conns.size () < this->max_conns)
 						{
 							this->conns.emplace_back (this->db_name.c_str ());
-							return this->conns.back ();
+							return this->conns.front ();
 						}
 					
 					this->cv.wait (guard, [&free_list] () { return !free_list.empty (); });
 				}
 			
-			connection *conn = free_list.back ();
+			connection *conn = free_list.front ();
 			free_list.pop_back ();
 			return *conn;
 		}
@@ -510,6 +530,52 @@ namespace hCraft {
 			std::lock_guard<std::mutex> guard {this->lock};
 			this->free_conns.clear ();
 			this->conns.clear ();
+		}
+	
+	
+	
+	//----
+		
+		/* 
+		 * Begins a transaction on the given connection.
+		 */
+		transaction::transaction (connection& conn)
+			: conn (conn)
+		{
+			this->commited = false;
+			this->rolled_back = false;
+			conn.execute ("BEGIN TRANSACTION");
+		}
+		
+		/* 
+		 * Completely rolls-back the underlying transaction if it has not already
+		 * been commited.
+		 */
+		transaction::~transaction ()
+		{
+			if (!this->commited && !this->rolled_back)
+				this->rollback ();
+		}
+		
+		
+		void
+		transaction::commit ()
+		{
+			if (!this->commited && !this->rolled_back)
+				{
+					conn.execute ("COMMIT TRANSACTION");
+					this->commited = true;
+				}
+		}
+		
+		void
+		transaction::rollback ()
+		{
+			if (!this->commited && !this->rolled_back)
+				{
+					conn.execute ("ROLLBACK TRANSACTION");
+					this->rolled_back = true;
+				}
 		}
 	}
 }

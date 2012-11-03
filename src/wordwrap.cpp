@@ -238,7 +238,7 @@ namespace hCraft {
 				std::string& str = *itr;
 				for (int i = str.size () - 1; i >= 0; --i)
 					{
-						if ((i >= 2) && std::isxdigit (str[i]) && ((str[i - 1] & 0xFF) == 0xA7))
+						if ((i >= 2) && is_chat_code (str[i]) && ((str[i - 1] & 0xFF) == 0xA7))
 							{ last_col[0] = 0xC2; last_col[1] = 0xA7; last_col[2] = str[i]; break; }
 					}
 				

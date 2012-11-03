@@ -64,7 +64,7 @@ namespace hCraft {
 			world *prev_world = pl->get_world ();
 			if (wr == prev_world)
 				{
-					pl->message_nowrap ("§eAlready there§f." );
+					pl->message ("§eAlready there§f." );
 					return;
 				}
 			

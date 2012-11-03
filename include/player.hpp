@@ -293,12 +293,12 @@ namespace hCraft {
 		/* 
 		 * Sends the given message to the player.
 		 */
-		void message (const char *msg, const char *prefix = "§7 > §f", bool first_line = false);
-		void message (const std::string& msg, const char *prefix = "§7 > §f", bool first_line = false);
+		void message (const char *msg);
+		void message (const std::string& msg);
+		void message_wrapped (const char *msg, const char *prefix = "§7 > §f", bool first_line = false);
+		void message_wrapped (const std::string& msg, const char *prefix = "§7 > §f", bool first_line = false);
 		void message_spaced (const char *msg, bool remove_from_first = false);
 		void message_spaced (const std::string& msg, bool remove_from_first = false);
-		void message_nowrap (const char *msg);
-		void message_nowrap (const std::string& msg);
 		
 	//----
 		

@@ -37,6 +37,7 @@ namespace hCraft {
 		int  power;      // groups are sorted using this field (higher power = higher-ranked group).
 		char name[25];   // 24 chars max
 		char col;        // name color.
+		char txtcol;     // text color.
 		
 		// 32 chars max
 		char prefix[33];
@@ -102,6 +103,9 @@ namespace hCraft {
 		
 		inline char get_color () const { return this->col; }
 		inline void set_color (char col) { this->col = col ; }
+		
+		inline char get_text_color () const { return this->txtcol; }
+		inline void set_text_color (char col) { this->txtcol = col ; }
 		
 		inline const char* get_prefix () const { return this->prefix; }
 		void set_prefix (const char *val);

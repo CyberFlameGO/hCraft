@@ -711,6 +711,30 @@ namespace hCraft {
 			"AUTOINCREMENT, `name` TEXT, `groups` TEXT, `nick` TEXT);"
 			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
+		
+		/*
+		// TEST
+		{
+			sql::transaction ta (conn);
+			std::ostringstream ss;
+			
+			for (int i = 0; i < 100000; ++i)
+				{
+					ss.str (std::string ()); ss.clear ();
+					ss << i;
+					
+					auto stmt = conn.query (
+						"INSERT INTO `players` (`name`, `groups`, `nick`) VALUES "
+						"(:name, :groups, :nick)");
+					stmt.bind (":name", ss.str ().c_str ());
+					stmt.bind (":groups", "@guest");
+					stmt.bind (":nick", "Nobody");
+					stmt.execute ();
+				}
+			
+			ta.commit ();
+		}*/
+		
 		this->sql ().push (conn); 
 	}
 	
@@ -840,6 +864,7 @@ namespace hCraft {
 		grp_admin->inherit (grp_architect);
 		grp_admin->inherit (grp_moderator);
 		grp_builder->add ("command.world.tp.others");
+		grp_admin->set_text_color ('c');
 		
 		group* grp_executive = groups.add (8, "executive");
 		grp_executive->set_color ('e');
@@ -848,9 +873,11 @@ namespace hCraft {
 		grp_executive->add ("command.world.wload");
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.chat.nick");
+		grp_executive->set_text_color ('c');
 		
 		group* grp_owner = groups.add (9, "owner");
 		grp_owner->set_color ('6');
+		grp_owner->set_text_color ('c');
 		grp_owner->add ("*");
 	}
 	
@@ -888,6 +915,7 @@ namespace hCraft {
 				
 				emit << YAML::Key << "power" << YAML::Value << grp->get_power ();
 				emit << YAML::Key << "color" << YAML::Value << grp->get_color ();
+				emit << YAML::Key << "text-color" << YAML::Value << grp->get_text_color ();
 				emit << YAML::Key << "prefix" << YAML::Value << grp->get_prefix ();
 				emit << YAML::Key << "suffix" << YAML::Value << grp->get_suffix ();
 				emit << YAML::Key << "mprefix" << YAML::Value << grp->get_mprefix ();
@@ -926,6 +954,7 @@ namespace hCraft {
 		
 		int grp_power;
 		char grp_color;
+		char grp_text_color;
 		std::string grp_prefix;
 		std::string grp_mprefix;
 		std::string grp_suffix;
@@ -970,6 +999,13 @@ namespace hCraft {
 			grp_color = 'f';
 		else
 			*node >> grp_color;
+		
+		// color
+		node = group_node.FindValue ("text-color");
+		if (!node)
+			grp_text_color = 'f';
+		else
+			*node >> grp_text_color;
 		
 		// prefix
 		node = group_node.FindValue ("prefix");
@@ -1043,6 +1079,7 @@ namespace hCraft {
 		// create the group and add it to the list.
 		group *grp = groups.add (grp_power, group_name.c_str ());
 		grp->set_color (grp_color);
+		grp->set_text_color (grp_text_color);
 		grp->set_prefix (grp_prefix.c_str ());
 		grp->set_mprefix (grp_mprefix.c_str ());
 		grp->set_suffix (grp_suffix.c_str ());

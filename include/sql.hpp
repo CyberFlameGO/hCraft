@@ -35,7 +35,7 @@ namespace hCraft {
 	/* 
 	 * Base class for all errors thrown from the methods declared in this file.
 	 */
-	class sql_error: std::runtime_error
+	class sql_error: public std::runtime_error
 	{
 	public:
 		sql_error (const char *str)
@@ -172,6 +172,12 @@ namespace hCraft {
 			statement (connection& conn, const std::string& query);
 			
 			/* 
+			 * Move constructor
+			 */
+			statement (statement&& stmt);
+			statement (const statement&) = delete; // not copyable
+			
+			/* 
 			 * Class destructor.
 			 * Frees all resources\memory used by the statement.
 			 */
@@ -228,6 +234,35 @@ namespace hCraft {
 			 * Calls step () until no more rows are returned.
 			 */
 			void execute ();
+		};
+		
+		
+		
+		/* 
+		 * A RAII class that begins and ends a transaction on an SQL connection.
+		 */
+		class transaction
+		{
+			connection& conn;
+			bool commited;
+			bool rolled_back;
+			
+		public:
+			/* 
+			 * Begins a transaction on the given connection.
+			 */
+			transaction (connection& conn);
+			transaction (const transaction&) = delete;
+			
+			/* 
+			 * Completely rolls-back the underlying transaction if it has not already
+			 * been commited.
+			 */
+			~transaction ();
+			
+			
+			void commit ();
+			void rollback ();
 		};
 		
 		

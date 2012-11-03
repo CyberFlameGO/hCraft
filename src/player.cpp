@@ -300,7 +300,7 @@ namespace hCraft {
 						std::ostringstream ss;
 						ss << "§e[§c-§e] §" << this->get_rank ().main_group->get_color () << this->get_username ()
 							<< " §ehas left the server";
-						this->get_server ().get_players ().message_nowrap (ss.str ());
+						this->get_server ().get_players ().message (ss.str ());
 					}
 				
 				chunk *curr_chunk = this->curr_world->get_chunk (
@@ -869,8 +869,21 @@ namespace hCraft {
 	/* 
 	 * Sends the given message to the player.
 	 */
+	
 	void
-	player::message (const char *msg, const char *prefix, bool first_line)
+	player::message (const char *msg)
+	{
+		this->send (packet::make_message (msg));
+	}
+	
+	void
+	player::message (const std::string& msg)
+	{
+		this->send (packet::make_message (msg.c_str ()));
+	}
+	
+	void
+	player::message_wrapped (const char *msg, const char *prefix, bool first_line)
 	{
 		std::vector<std::string> lines;
 		
@@ -882,9 +895,9 @@ namespace hCraft {
 	}
 	
 	void
-	player::message (const std::string& msg, const char *prefix, bool first_line)
+	player::message_wrapped (const std::string& msg, const char *prefix, bool first_line)
 	{
-		this->message (msg.c_str (), prefix, first_line);
+		this->message_wrapped (msg.c_str (), prefix, first_line);
 	}
 	
 	void
@@ -903,18 +916,6 @@ namespace hCraft {
 	player::message_spaced (const std::string& msg, bool remove_from_first)
 	{
 		this->message_spaced (msg.c_str (), remove_from_first);
-	}
-	
-	void
-	player::message_nowrap (const char *msg)
-	{
-		this->send (packet::make_message (msg));
-	}
-	
-	void
-	player::message_nowrap (const std::string& msg)
-	{
-		this->send (packet::make_message (msg.c_str ()));
 	}
 	
 	
@@ -941,7 +942,7 @@ namespace hCraft {
 		if (this->has (perm))
 			return true;
 		
-		this->message_nowrap (messages::insufficient_permissions (
+		this->message (messages::insufficient_permissions (
 			this->get_server ().get_groups (), perm));
 		return false;
 	}
@@ -1017,7 +1018,8 @@ namespace hCraft {
 				std::ostringstream ss;
 				ss << "UPDATE `players` SET `nick`='"
 				 << nick << "' WHERE `name`='"
-				 << this->get_username () << "';";
+				 << this->get_username () << "'";
+				log (LT_DEBUG) << "cmd: \"" << ss.str () << "\"" << std::endl;
 				this->get_server ().execute_sql (ss.str ());
 			}
 	}
@@ -1157,7 +1159,7 @@ namespace hCraft {
 			std::ostringstream ss;
 			ss << "§e[§a+§e] " << pl->get_colored_nickname ()
 				 << " §ehas joined the server§f!";
-			pl->get_server ().get_players ().message_nowrap (ss.str ());
+			pl->get_server ().get_players ().message (ss.str ());
 		}
 		pl->join_world (pl->get_server ().get_main_world ());
 		
@@ -1191,7 +1193,7 @@ namespace hCraft {
 					{ msg.push_back ('\\'); goto continue_write; }
 				
 				pl->msgbuf << msg;
-				pl->message_nowrap ("§7 * §8Message appended to buffer§7.");
+				pl->message ("§7 * §8Message appended to buffer§7.");
 				return 0;
 			}
 		
@@ -1210,7 +1212,7 @@ namespace hCraft {
 				const std::string& cname = cread.command_name ();
 				if (cname.empty ())
 					{
-						pl->message_nowrap ("§c * §ePlease enter a command§f.");
+						pl->message ("§c * §ePlease enter a command§f.");
 						return 0;
 					}
 				
@@ -1218,7 +1220,7 @@ namespace hCraft {
 				if (!cmd)
 					{
 						if (cname.size () > 32)
-							pl->message_nowrap ("§c * §eNo such command§f.");
+							pl->message ("§c * §eNo such command§f.");
 						else
 							pl->message (("§c * §eNo such command§f: §c" + cname + "§f.").c_str ());
 						return 0;
@@ -1260,7 +1262,7 @@ namespace hCraft {
 		ss << mgrp->get_msuffix ();
 		for (group *grp : pl->get_rank ().get_groups ())
 			ss << grp->get_suffix ();
-		ss << "§f: " << msg;
+		ss << "§f: " << "§" << mgrp->get_text_color () << msg;
 		
 		std::string out = ss.str ();
 		
@@ -1279,7 +1281,7 @@ namespace hCraft {
 		target->all (
 			[&out] (player *pl)
 				{
-					pl->message (out.c_str ());
+					pl->message_wrapped (out.c_str ());
 				});
 		
 		return 0;

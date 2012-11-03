@@ -35,6 +35,7 @@ namespace hCraft {
 		this->power = power;
 		std::strcpy (this->name, name);
 		this->col = 'f';
+		this->txtcol = 'f';
 		this->prefix[0] = this->mprefix[0] = '\0';
 		this->suffix[0] = this->msuffix[0] = '\0';
 		this->chat = true;
