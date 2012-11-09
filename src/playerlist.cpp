@@ -284,7 +284,7 @@ namespace hCraft {
 				{
 					pl->message_wrapped (msg, prefix, first_line);
 				}, except);
-	}
+	} 
 	
 	void
 	playerlist::message_wrapped (const std::string& msg, const char *prefix,

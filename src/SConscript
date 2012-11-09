@@ -4,7 +4,7 @@ hCraft_sources = Split("""
 		logger.cpp
 		server.cpp
 		player.cpp
-		playerlist.cpp
+		playerlist.cpp 
 		packet.cpp
 		scheduler.cpp
 		entity.cpp

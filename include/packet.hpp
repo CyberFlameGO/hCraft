@@ -121,7 +121,7 @@ namespace hCraft {
 		static packet* make_entity_look_and_move (int eid, char dx, char dy, char dz,
 			float r, float l);
 		
-		static packet* make_entity_teleport (int eid, int x, int y, int z,
+		static packet* make_entity_teleport (int eid, int x, int y, int z, 
 			float r, float l);
 		
 		static packet* make_entity_head_look (int eid, float yaw);

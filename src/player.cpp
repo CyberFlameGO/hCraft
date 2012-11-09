@@ -1435,7 +1435,7 @@ namespace hCraft {
 				// Held item must be updated, or not enough room.
 				return 0;
 			}
-		
+		 
 		item = pl->held_item ();
 		if (!item.is_valid () || item.empty ())
 			return 0;

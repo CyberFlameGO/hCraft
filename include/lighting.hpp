@@ -34,7 +34,7 @@ namespace hCraft {
 	 */
 	struct light_update
 	{
-		int x;
+		int x; 
 		int y;
 		int z;
 		

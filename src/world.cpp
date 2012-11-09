@@ -469,7 +469,7 @@ namespace hCraft {
 		return ch->get_block_light (utils::mod (x, 16), y, utils::mod (z, 16));
 	}
 	
-	
+	 
 	void
 	world::set_sky_light (int x, int y, int z, unsigned char val)
 	{
