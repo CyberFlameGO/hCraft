@@ -46,6 +46,7 @@ namespace hCraft {
 	 * Constructs a new empty world.
 	 */
 	world::world (const char *name, world_generator *gen, world_provider *provider)
+		: lightman (this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -59,6 +60,7 @@ namespace hCraft {
 		
 		this->players = new playerlist ();
 		this->th_running = false;
+		this->auto_lighting = true;
 	}
 	
 	/* 
@@ -142,56 +144,6 @@ namespace hCraft {
 	
 	
 	
-	static bool
-	has_direct_sunlight (world *wr, int x, int y, int z)
-	{
-		return (y == 255) ? true : ((wr->get_sky_light (x, y + 1, z)) == 0xF);
-	}
-	
-	static void
-	update_skylight_in_column (world *wr, chunk *ch, int x, int y_start, int z,
-		char sl_start, bool continue_on_zero = false)
-	{
-		int bx = utils::mod (x, 16);
-		int bz = utils::mod (z, 16);
-		
-		// top row is always full lit
-		if (y_start == 255) 
-			{
-				ch->set_sky_light (bx, 255, bz, 0xF);
-				-- y_start;
-			}
-		
-		int y;
-		char curr_opacity = sl_start;
-		for (y = y_start; y >= 0; --y)
-			{
-				if (curr_opacity > 0)
-					curr_opacity -= block_info::from_id (ch->get_id (bx, y, bz))->opacity;
-				else if (!continue_on_zero)
-					break;
-				
-				ch->set_sky_light (bx, y, bz, (curr_opacity > 0) ? curr_opacity : 0);
-				
-				// check adjacent blocks for inconsistency
-				if (curr_opacity > 1)
-					{
-						if ((wr->get_id (x - 1, y, z) == BT_AIR) &&
-								utils::iabs (wr->get_sky_light (x - 1, y, z) - curr_opacity) > 1)
-							wr->queue_light_update (x - 1, y, z);
-						if ((wr->get_id (x + 1, y, z) == BT_AIR) &&
-								utils::iabs (wr->get_sky_light (x + 1, y, z) - curr_opacity) > 1)
-							wr->queue_light_update (x + 1, y, z);
-						if ((wr->get_id (x, y, z - 1) == BT_AIR) &&
-								utils::iabs (wr->get_sky_light (x, y, z - 1) - curr_opacity) > 1)
-							wr->queue_light_update (x, y, z - 1);
-						if ((wr->get_id (x, y, z + 1) == BT_AIR) &&
-								utils::iabs (wr->get_sky_light (x, y, z + 1) - curr_opacity) > 1)
-							wr->queue_light_update (x, y, z + 1);
-					}
-			}
-	}
-	
 	/* 
 	 * The function ran by the world's thread.
 	 */
@@ -200,6 +152,7 @@ namespace hCraft {
 	{
 		const static int block_update_cap = 128; // per tick
 		const static int light_update_cap = 384; // per tick
+		
 		int update_count;
 		
 		bool nolight_msg = false;
@@ -235,60 +188,14 @@ namespace hCraft {
 							
 							this->set_id_and_meta (update.x, update.y, update.z,
 								update.id, update.meta);
+							this->get_players ().send_to_all (packet::make_block_change (
+								update.x, update.y, update.z, update.id, update.meta), update.pl);
 							
 							chunk *ch = this->get_chunk_at (update.x, update.z);
 							if (ch)
 								{
-									// check whether we need to recalculate lighting.
-									if (this->get_id (update.x, update.y, update.z) == BT_AIR)
-										{
-											update_skylight_in_column (this, ch, update.x, update.y, update.z,
-												(update.y == 255) ? 0xF : ch->get_sky_light (
-													utils::mod (update.x, 16), update.y + 1, utils::mod (update.z, 16)));
-											
-											// check the modified block
-											if (
-												//
-												((this->get_id (update.x - 1, update.y, update.z) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x - 1, update.y, update.z)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1) ||
-												((this->get_id (update.x + 1, update.y, update.z) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x + 1, update.y, update.z)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1) ||
-												((this->get_id (update.x, update.y, update.z - 1) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x, update.y, update.z - 1)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1) ||
-												((this->get_id (update.x, update.y, update.z + 1) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x, update.y, update.z + 1)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1) ||
-												((update.y < 255) && ((this->get_id (update.x, update.y + 1, update.z) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x, update.y + 1, update.z)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1)) ||
-												((update.y > 0) && ((this->get_id (update.x, update.y - 1, update.z) == BT_AIR) &&
-												utils::iabs (this->get_sky_light (update.x, update.y - 1, update.z)
-												- this->get_sky_light (update.x, update.y, update.z)) > 1)) )
-												//
-												{ this->queue_light_update (update.x, update.y, update.z); }
-										}
-									else
-										{
-											// lighting needs to be calculated differently when a block
-											// is placed.
-											
-											update_skylight_in_column (this, ch, update.x, update.y, update.z,
-												(update.y == 255) ? 0xF : ch->get_sky_light (
-													utils::mod (update.x, 16), update.y + 1, utils::mod (update.z, 16)),
-													true);
-											
-										}
-										
-									
-									this->get_players ().all (
-										[&update] (player *pl)
-											{
-												pl->send (packet::make_block_change (update.x, update.y,
-													update.z, update.id, update.meta));
-											}, update.pl);
+									if (auto_lighting)
+										this->lightman.enqueue (update.x, update.y, update.z);
 								}
 							
 							this->updates.pop ();
@@ -298,95 +205,7 @@ namespace hCraft {
 					/* 
 					 * Lighting updates.
 					 */
-					update_count = 0;
-					if (this->light_updates.empty ())
-						{
-							if (!nolight_msg)
-								{
-									std::cout << "[DEBUG] ~ Processed " << total_update_count << " lighting updates." << std::endl;
-									nolight_msg = true;
-									total_update_count = 0;
-								}
-						}
-					while (!this->light_updates.empty () && (update_count < light_update_cap))
-						{
-							nolight_msg = false;
-							++ total_update_count;
-							
-							light_update &update = this->light_updates.front ();
-							//if (update_count == 0)
-							//	std::cout << "----" << std::endl;
-							//std::cout << "Handling light update [" << update_count << "/" << light_update_cap << "] ("
-							//	<< update.x << " " << update.y << " " << update.z << ") ";
-							
-							if (update.placed)
-								{
-								}
-							else
-								{
-									// find brightest (in terms of sky light) block around this one.
-									char this_sl = this->get_sky_light (update.x, update.y, update.z);
-									char brightest = this_sl;
-									char sl;
-									if ((sl = this->get_sky_light (update.x - 1, update.y, update.z)) > brightest)
-										brightest = sl;
-									if ((sl = this->get_sky_light (update.x + 1, update.y, update.z)) > brightest)
-										brightest = sl;
-									if ((sl = this->get_sky_light (update.x, update.y, update.z - 1)) > brightest)
-										brightest = sl;
-									if ((sl = this->get_sky_light (update.x, update.y, update.z + 1)) > brightest)
-										brightest = sl;
-									if ((update.y > 0) && (sl = this->get_sky_light (update.x, update.y - 1, update.z)) > brightest)
-										brightest = sl;
-									if ((update.y < 255) && (sl = this->get_sky_light (update.x, update.y + 1, update.z)) > brightest)
-										brightest = sl;
-							
-									// the sky light value of this block will be the value of the brightest one
-									// minus one.
-									sl = brightest - 1;
-									if (sl < 0) sl = 0;
-									std::cout << "setting [" << update.x << ", " << update.y << ", " << update.z << "] to " << (int)sl << std::endl;
-									//std::cout << "was -> " << (int)this_sl << " now -> " << (int)sl << std::endl;
-									if (sl != this_sl)
-										{
-											this->set_sky_light (update.x, update.y, update.z, sl);
-									
-											// queue updates for adjacent blocks if needed
-											if (sl > 1)
-												{
-													if ((this->get_id (update.x - 1, update.y, update.z) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x - 1, update.y, update.z)
-																- sl) > 1)
-														this->queue_light_update (update.x - 1, update.y, update.z);
-													if ((this->get_id (update.x + 1, update.y, update.z) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x + 1, update.y, update.z)
-																- sl) > 1)
-														this->queue_light_update (update.x + 1, update.y, update.z);
-													if ((this->get_id (update.x, update.y, update.z - 1) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x, update.y, update.z - 1)
-																- sl) > 1)
-														this->queue_light_update (update.x, update.y, update.z - 1);
-													if ((this->get_id (update.x, update.y, update.z + 1) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x, update.y, update.z + 1)
-																- sl) > 1)
-														this->queue_light_update (update.x, update.y, update.z + 1);
-													if ((update.y > 0) &&
-														(this->get_id (update.x, update.y - 1, update.z) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x, update.y - 1, update.z)
-																- sl) > 1)
-														this->queue_light_update (update.x, update.y - 1, update.z);
-													if ((update.y < 255) &&
-														(this->get_id (update.x, update.y + 1, update.z) == BT_AIR) &&
-															utils::iabs (this->get_sky_light (update.x, update.y + 1, update.z)
-																- sl) > 1)
-														this->queue_light_update (update.x, update.y + 1, update.z);
-												}
-										}
-								}
-							
-							this->light_updates.pop ();
-							++ update_count;
-						}
+					this->lightman.update (light_update_cap);
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -689,13 +508,6 @@ namespace hCraft {
 	{
 		std::lock_guard<std::recursive_mutex> guard {this->update_lock};
 		this->updates.emplace (x, y, z, id, meta, pl);
-	}
-	
-	void
-	world::queue_light_update (int x, int y, int z, bool placed)
-	{
-		std::lock_guard<std::recursive_mutex> guard {this->update_lock};
-		this->light_updates.emplace (x, y, z, placed);
 	}
 }
 

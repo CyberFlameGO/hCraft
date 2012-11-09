@@ -194,6 +194,9 @@ namespace hCraft {
 		
 		block_info (unsigned short id, const char *name, float blast_resistance,
 			char opacity, char luminance, char max_stack);
+		
+		bool is_solid ()
+			{ return (this->opacity == 0xF); }
 			
 	//----
 		

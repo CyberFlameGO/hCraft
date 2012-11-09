@@ -1430,12 +1430,6 @@ namespace hCraft {
 		char cursor_y = reader.read_byte ();
 		char cursor_z = reader.read_byte ();
 		
-		const int rr = 3;
-		for (int xx = (x - rr); xx <= (x + rr); ++xx)
-			for (int yy = (y - rr); yy <= (y + rr); ++yy)
-				for (int zz = (z - rr); zz <= (z + rr); ++zz)
-					pl->get_world ()->queue_update (xx, yy, zz, 0, 0);
-		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
 				// Held item must be updated, or not enough room.
@@ -1459,12 +1453,10 @@ namespace hCraft {
 				case 5: ++ nx; break;
 			}
 		
-		/*
 		pl->get_world ()->queue_update (nx, ny, nz,
 			item.id (), item.damage ());
 		pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
 			item.amount () - 1));
-		*/
 		
 		return 0;
 	}
@@ -1588,7 +1580,13 @@ namespace hCraft {
 				return 0;
 			}
 		
-		pl->inv.set (index, item);
+		if (pl->cursor_slot.is_valid ())
+			{
+				pl->inv.set (index, pl->cursor_slot);
+				pl->cursor_slot.set (BT_AIR, 0, 0);
+			}
+		else
+			pl->inv.set (index, item);
 		return 0;
 	}
 	

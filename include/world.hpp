@@ -23,6 +23,7 @@
 #include "chunk.hpp"
 #include "worldgenerator.hpp"
 #include "worldprovider.hpp"
+#include "lighting.hpp"
 
 #include <unordered_map>
 #include <mutex>
@@ -61,16 +62,6 @@ namespace hCraft {
 		}
 	};
 	
-	struct light_update
-	{
-		int x;
-		int y;
-		int z;
-		bool placed; // true if the block was placed, false if it was destroyed.
-		
-		light_update (int x, int y, int z, bool placed)
-			{ this->x = x; this->y = y; this->z = z; this->placed = placed; }
-	};
 	
 	
 	/* 
@@ -87,8 +78,8 @@ namespace hCraft {
 		bool th_running;
 		
 		std::queue<block_update> updates;
-		std::queue<light_update> light_updates;
 		std::recursive_mutex update_lock;
+		lighting_manager lightman;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -100,6 +91,9 @@ namespace hCraft {
 		
 		world_generator *gen;
 		world_provider *prov;
+		
+	public:
+		bool auto_lighting;
 		
 	public:
 		inline const char* get_name () { return this->name; }
@@ -227,8 +221,6 @@ namespace hCraft {
 		 */
 		void queue_update (int x, int y, int z, unsigned short id,
 			unsigned char meta, player *pl = nullptr);
-		
-		void queue_light_update (int x, int y, int z, bool placed = false);
 	};
 }
 
