@@ -19,8 +19,6 @@
 #include "chunk.hpp"
 #include <cstring>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -476,10 +474,6 @@ namespace hCraft {
 		if (cl == 0)
 			return;
 		
-		std::cout << "[" << x << ", " << y << ", " << z << "] ->" << std::endl;
-		std::cout << "  -> id: " << this->get_id (x, y, z) << std::endl;
-		std::cout << "  -> cl: " << (int)cl << std::endl;
-		
 		if (x > 0 && (this->get_id (x - 1, y, z) == 0)
 			&& this->get_sky_light (x - 1, y, z) < cl)
 			{
@@ -522,7 +516,6 @@ namespace hCraft {
 	{
 		if (this->get_id (x, y, z) == 0 && this->get_sky_light (x, y, z) == 0)
 			{
-				std::cout << "dark air block at [" << x << " " << y << " " << z << "]" << std::endl;
 				if (x > 0 && (this->get_id (x - 1, y, z) == 0) &&
 					(this->get_sky_light (x - 1, y, z) > 0))
 					this->respread (x - 1, y, z);

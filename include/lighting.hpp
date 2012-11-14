@@ -57,6 +57,9 @@ namespace hCraft {
 		std::recursive_mutex lock;
 		
 	public:
+		inline world* get_world () const { return this->wr; }
+		
+	public:
 		/* 
 		 * Constructs a new lighting manager on top of the given world.
 		 */

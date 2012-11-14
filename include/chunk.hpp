@@ -139,6 +139,7 @@ namespace hCraft {
 			{ return this->biomes[(z << 4) | x]; }
 		
 		inline short get_height (int x, int z) { return this->heightmap[(z << 4) | x]; }
+		inline void set_height (int x, int z, short h) { this->heightmap[(z << 4) | x] = h; }
 		
 	public:
 		/* 

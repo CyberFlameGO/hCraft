@@ -144,6 +144,12 @@ namespace hCraft {
 	
 	
 	
+	static void
+	update_height_map (world *wr, chunk *ch, int x, int z)
+	{
+		
+	}
+	
 	/* 
 	 * The function ran by the world's thread.
 	 */
@@ -171,6 +177,10 @@ namespace hCraft {
 						{
 							block_update &update = this->updates.front ();
 							
+							block_info *old_inf = block_info::from_id (
+								this->get_id (update.x, update.y, update.z));
+							block_info *new_inf = block_info::from_id (update.id);
+							
 							if (((this->width > 0) && ((update.x >= this->width) || (update.x < 0))) ||
 								((this->depth > 0) && ((update.z >= this->depth) || (update.z < 0))) ||
 								((update.y < 0) || (update.y > 255)))
@@ -195,7 +205,13 @@ namespace hCraft {
 							if (ch)
 								{
 									if (auto_lighting)
-										this->lightman.enqueue (update.x, update.y, update.z);
+										{
+											if (new_inf->obscures_light != old_inf->obscures_light)
+												update_height_map (this, ch, utils::mod (update.x, 16),
+													utils::mod (update.z, 16));
+											
+											this->lightman.enqueue (update.x, update.y, update.z);
+										}
 								}
 							
 							this->updates.pop ();

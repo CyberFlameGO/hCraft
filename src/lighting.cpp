@@ -21,6 +21,8 @@
 #include "world.hpp"
 #include "utils.hpp"
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -39,6 +41,10 @@ namespace hCraft {
 		{ return (a < b) ? b : a; }
 	
 	static inline int
+	_min (int a, int b)
+		{ return (a > b) ? b : a; }
+	
+	static inline int
 	_abs (int x)
 		{ return (x < 0) ? (-x) : x; }
 	
@@ -50,6 +56,145 @@ namespace hCraft {
 		
 		return wr->get_sky_light (x, y, z);
 	}
+	
+	
+	
+	static void
+	spread_light (lighting_manager &lm, light_update u)
+	{
+		world *wr = lm.get_world ();
+		
+		unsigned short u_id = wr->get_id (u.x, u.y, u.z);
+		char u_sl = wr->get_sky_light (u.x, u.y, u.z);
+		block_info *u_inf = block_info::from_id (u_id);
+		
+		// get the sky light values of neighbouring blocks
+		char sll = skylight_at (wr, u.x + 1, u.y, u.z);
+		char slr = skylight_at (wr, u.x - 1, u.y, u.z);
+		char slf = skylight_at (wr, u.x, u.y, u.z + 1);
+		char slb = skylight_at (wr, u.x, u.y, u.z - 1);
+		char slu = skylight_at (wr, u.x, u.y + 1, u.z);
+		char sld = skylight_at (wr, u.x, u.y - 1, u.z);
+		
+		// pick the highest value
+		char max_sl =
+			_max (sll, _max (slr, _max (slf,
+			_max (slb, _max (sld, _max (slu, 0))))));
+		char new_sl = (max_sl > 0) ? (max_sl - 1) : 0;
+		
+		// check whether this block has direct contact with sunlight
+		bool direct_sunlight = true;
+		if (u.y < 255)
+			{
+				for (int y = u.y; y < 256; ++y)
+					{
+						if (block_info::from_id (wr->get_id (u.x, y, u.z))->obscures_light)
+							{ direct_sunlight = false; break; }
+					}
+			}
+		if (direct_sunlight)
+			new_sl = 15;
+		
+		if (new_sl != u_sl)
+			{
+				wr->set_sky_light (u.x, u.y, u.z, new_sl);
+				
+				// update any inconsistent neighbouring blocks
+				if ((_abs (new_sl - sll) > 1) && !block_info::from_id (
+					wr->get_id (u.x + 1, u.y, u.z))->obscures_light)
+					lm.enqueue (u.x + 1, u.y, u.z);
+				if ((_abs (new_sl - slr) > 1) && !block_info::from_id (
+					wr->get_id (u.x - 1, u.y, u.z))->obscures_light)
+					lm.enqueue (u.x - 1, u.y, u.z);
+				if ((_abs (new_sl - slf) > 1) && !block_info::from_id (
+					wr->get_id (u.x, u.y, u.z + 1))->obscures_light)
+					lm.enqueue (u.x, u.y, u.z + 1);
+				if ((_abs (new_sl - slb) > 1) && !block_info::from_id (
+					wr->get_id (u.x, u.y, u.z - 1))->obscures_light)
+					lm.enqueue (u.x, u.y, u.z - 1);
+				if (u.y < 255 && (_abs (new_sl - slu) > 1) && !block_info::from_id (
+					wr->get_id (u.x, u.y + 1, u.z))->obscures_light)
+					lm.enqueue (u.x, u.y + 1, u.z);
+				if (u.y > 0 && (_abs (new_sl - sld) > 1) && !block_info::from_id (
+					wr->get_id (u.x, u.y - 1, u.z))->obscures_light)
+					lm.enqueue (u.x, u.y - 1, u.z);
+				
+				// go through the entire column again and check for more
+				// inconsistencies.
+				chunk *ch = wr->get_chunk_at (u.x, u.z);
+				if (ch)
+					{
+						char sl, cur_sl = 0xF;
+						unsigned short id;
+						
+						int cx = utils::div (u.x, 16);
+						int cz = utils::div (u.z, 16);
+						int bx = utils::mod (u.x, 16);
+						int bz = utils::mod (u.z, 16);
+						
+						for (int y = 254; y >= 0; --y)
+							{
+								id = ch->get_id (bx, y, bz);
+								sl = block_info::from_id (id)->opacity;
+								cur_sl -= sl;
+								ch->set_sky_light (bx, y, bz, (cur_sl > 0) ? cur_sl : 0);
+								
+								// check neighbouring blocks
+								if (cur_sl > 0)
+									{
+										char nsll = skylight_at (wr, u.x + 1, y, u.z);
+										char nslr = skylight_at (wr, u.x - 1, y, u.z);
+										char nslf = skylight_at (wr, u.x, y, u.z + 1);
+										char nslb = skylight_at (wr, u.x, y, u.z - 1);
+										
+										if ((_abs (cur_sl - nsll) > 1) && !block_info::from_id (
+											wr->get_id (u.x + 1, y, u.z))->obscures_light)
+											lm.enqueue (u.x + 1, y, u.z);
+										if ((_abs (cur_sl - nslr) > 1) && !block_info::from_id (
+											wr->get_id (u.x - 1, y, u.z))->obscures_light)
+											lm.enqueue (u.x - 1, y, u.z);
+										if ((_abs (cur_sl - nslf) > 1) && !block_info::from_id (
+											wr->get_id (u.x, y, u.z + 1))->obscures_light)
+											lm.enqueue (u.x, y, u.z + 1);
+										if ((_abs (cur_sl - nslb) > 1) && !block_info::from_id (
+											wr->get_id (u.x, y, u.z - 1))->obscures_light)
+											lm.enqueue (u.x, y, u.z - 1);
+									}
+								else break;
+							}
+					}
+			}
+	}
+	
+	
+	
+	static void
+	block_light (lighting_manager& lm, light_update u)
+	{
+		world *wr = lm.get_world ();
+		
+		// update the sky light value of all blocks below it
+		for (int y = u.y - 1; y >= 0; --y)
+			{
+				unsigned short id = wr->get_id (u.x, y, u.z);
+				char sl = wr->get_sky_light (u.x, y, u.z);
+				if (block_info::from_id (id)->obscures_light)
+					break; // reached solid block
+				
+				char sll = skylight_at (wr, u.x + 1, y, u.z);
+				char slr = skylight_at (wr, u.x - 1, y, u.z);
+				char slf = skylight_at (wr, u.x, y, u.z + 1);
+				char slb = skylight_at (wr, u.x, y, u.z - 1);
+				char max_sl = _max (sll, _max (slr, _max (slf, _max (slb, 0))));
+				char new_sl = (max_sl > 0) ? (max_sl - 1) : 0;
+				
+				if (sl != new_sl)
+					{
+						wr->set_sky_light (u.x, y, u.z, new_sl);
+					}
+			}
+	}
+	
 	
 	/* 
 	 * Goes through all queued updates and handles them (No more than
@@ -72,105 +217,10 @@ namespace hCraft {
 				char u_sl = this->wr->get_sky_light (u.x, u.y, u.z);
 				block_info *u_inf = block_info::from_id (u_id);
 				
-				if (!u_inf->is_solid ())
-					{
-						// get the sky light values of neighbouring blocks
-						char sll = skylight_at (wr, u.x + 1, u.y, u.z);
-						char slr = skylight_at (wr, u.x - 1, u.y, u.z);
-						char slf = skylight_at (wr, u.x, u.y, u.z + 1);
-						char slb = skylight_at (wr, u.x, u.y, u.z - 1);
-						char slu = skylight_at (wr, u.x, u.y + 1, u.z);
-						char sld = skylight_at (wr, u.x, u.y - 1, u.z);
-						
-						// pick the highest value
-						char max_sl =
-							_max (sll, _max (slr, _max (slf,
-							_max (slb, _max (sld, _max (slu, 0))))));
-						char new_sl = (max_sl > 0) ? (max_sl - 1) : 0;
-						
-						// check whether this block has direct contact with sunlight
-						bool direct_sunlight = true;
-						if (u.y < 255)
-							{
-								for (int y = u.y; y < 256; ++y)
-									{
-										if (block_info::from_id (this->wr->get_id (u.x, y, u.z))->is_solid ())
-											{ direct_sunlight = false; break; }
-									}
-							}
-						if (direct_sunlight)
-							new_sl = 15;
-						
-						if (new_sl != u_sl)
-							{
-								this->wr->set_sky_light (u.x, u.y, u.z, new_sl);
-								
-								// update any inconsistent neighbouring blocks
-								if ((_abs (new_sl - sll) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x + 1, u.y, u.z))->is_solid ())
-									this->enqueue (u.x + 1, u.y, u.z);
-								if ((_abs (new_sl - slr) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x - 1, u.y, u.z))->is_solid ())
-									this->enqueue (u.x - 1, u.y, u.z);
-								if ((_abs (new_sl - slf) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x, u.y, u.z + 1))->is_solid ())
-									this->enqueue (u.x, u.y, u.z + 1);
-								if ((_abs (new_sl - slb) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x, u.y, u.z - 1))->is_solid ())
-									this->enqueue (u.x, u.y, u.z - 1);
-								if (u.y < 255 && (_abs (new_sl - slu) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x, u.y + 1, u.z))->is_solid ())
-									this->enqueue (u.x, u.y + 1, u.z);
-								if (u.y > 0 && (_abs (new_sl - sld) > 1) && !block_info::from_id (
-									this->wr->get_id (u.x, u.y - 1, u.z))->is_solid ())
-									this->enqueue (u.x, u.y - 1, u.z);
-								
-								// go through the entire column again and check for more
-								// inconsistencies.
-								chunk *ch = this->wr->get_chunk_at (u.x, u.z);
-								if (ch)
-									{
-										char sl, cur_sl = 0xF;
-										unsigned short id;
-										
-										int cx = utils::div (u.x, 16);
-										int cz = utils::div (u.z, 16);
-										int bx = utils::mod (u.x, 16);
-										int bz = utils::mod (u.z, 16);
-										
-										for (int y = 254; y >= 0; --y)
-											{
-												id = ch->get_id (bx, y, bz);
-												sl = block_info::from_id (id)->opacity;
-												cur_sl -= sl;
-												ch->set_sky_light (bx, y, bz, (cur_sl > 0) ? cur_sl : 0);
-												
-												// check neighbouring blocks
-												if (cur_sl > 0)
-													{
-														char nsll = skylight_at (wr, u.x + 1, y, u.z);
-														char nslr = skylight_at (wr, u.x - 1, y, u.z);
-														char nslf = skylight_at (wr, u.x, y, u.z + 1);
-														char nslb = skylight_at (wr, u.x, y, u.z - 1);
-														
-														if ((_abs (cur_sl - nsll) > 1) && !block_info::from_id (
-															this->wr->get_id (u.x + 1, y, u.z))->is_solid ())
-															this->enqueue (u.x + 1, y, u.z);
-														if ((_abs (cur_sl - nslr) > 1) && !block_info::from_id (
-															this->wr->get_id (u.x - 1, y, u.z))->is_solid ())
-															this->enqueue (u.x - 1, y, u.z);
-														if ((_abs (cur_sl - nslf) > 1) && !block_info::from_id (
-															this->wr->get_id (u.x, y, u.z + 1))->is_solid ())
-															this->enqueue (u.x, y, u.z + 1);
-														if ((_abs (cur_sl - nslb) > 1) && !block_info::from_id (
-															this->wr->get_id (u.x, y, u.z - 1))->is_solid ())
-															this->enqueue (u.x, y, u.z - 1);
-													}
-												else break;
-											}
-									}
-							}
-					}
+				if (u_inf->obscures_light)
+					block_light (*this, u);
+				else
+					spread_light (*this, u);
 			}
 	}
 	

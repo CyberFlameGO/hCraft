@@ -178,6 +178,14 @@ namespace hCraft {
 	
 //----
 	
+	enum block_state
+	{
+		solid,
+		nonsolid,
+		fluid,
+	};
+	
+	
 	/* 
 	 * Basic information about a single block.
 	 */
@@ -185,18 +193,19 @@ namespace hCraft {
 	{
 		unsigned short id;
 		char name[33];
+		block_state state;
 		float blast_resistance;
 		char opacity;
 		char luminance;
 		char max_stack;
+		bool transmits_light;
+		bool obscures_light;
 		
 	//----
 		
 		block_info (unsigned short id, const char *name, float blast_resistance,
-			char opacity, char luminance, char max_stack);
-		
-		bool is_solid ()
-			{ return (this->opacity == 0xF); }
+			char opacity, char luminance, char max_stack, bool transmits_light,
+			bool obscures_light);
 			
 	//----
 		

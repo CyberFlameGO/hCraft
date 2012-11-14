@@ -1093,9 +1093,9 @@ namespace hCraft {
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
 		int protocol_version = reader.read_byte ();
-		if (protocol_version != 47)
+		if (protocol_version != 49)
 			{
-				if (protocol_version < 47)
+				if (protocol_version < 49)
 					pl->kick ("§cOutdated client", "outdated protocol version");
 				else
 					pl->kick ("§ahCraft has not been updated yet", "newer protocol version");
@@ -1455,8 +1455,9 @@ namespace hCraft {
 		
 		pl->get_world ()->queue_update (nx, ny, nz,
 			item.id (), item.damage ());
-		pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
-			item.amount () - 1));
+		if (pl->gamemode () != GT_CREATIVE)
+			pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
+				item.amount () - 1));
 		
 		return 0;
 	}
