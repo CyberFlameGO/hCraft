@@ -17,16 +17,14 @@
  */
 
 #include "world.hpp"
-#include "utils.hpp"
 #include "playerlist.hpp"
 #include "player.hpp"
 #include "packet.hpp"
+#include "logger.hpp"
 #include <stdexcept>
 #include <cassert>
 #include <cstring>
 #include <cctype>
-
-#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -45,8 +43,9 @@ namespace hCraft {
 	/* 
 	 * Constructs a new empty world.
 	 */
-	world::world (const char *name, world_generator *gen, world_provider *provider)
-		: lightman (this)
+	world::world (const char *name, logger &log, world_generator *gen,
+		world_provider *provider)
+		: log (log), lightman (log, this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -156,8 +155,8 @@ namespace hCraft {
 	void
 	world::worker ()
 	{
-		const static int block_update_cap = 128; // per tick
-		const static int light_update_cap = 384; // per tick
+		const static int block_update_cap = 10000; // per tick
+		const static int light_update_cap = 10000; // per tick
 		
 		int update_count;
 		
@@ -196,19 +195,21 @@ namespace hCraft {
 									continue;
 								}
 							
+							chunk *ch = this->get_chunk_at (update.x, update.z);
 							this->set_id_and_meta (update.x, update.y, update.z,
 								update.id, update.meta);
+							if (new_inf->obscures_light != old_inf->obscures_light)
+								ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
+							
 							this->get_players ().send_to_all (packet::make_block_change (
 								update.x, update.y, update.z, update.id, update.meta), update.pl);
 							
-							chunk *ch = this->get_chunk_at (update.x, update.z);
 							if (ch)
 								{
 									if (auto_lighting)
 										{
 											if (new_inf->obscures_light != old_inf->obscures_light)
-												update_height_map (this, ch, utils::mod (update.x, 16),
-													utils::mod (update.z, 16));
+												update_height_map (this, ch, update.x & 0xF, update.z & 0xF);
 											
 											this->lightman.enqueue (update.x, update.y, update.z);
 										}
@@ -221,7 +222,9 @@ namespace hCraft {
 					/* 
 					 * Lighting updates.
 					 */
-					this->lightman.update (light_update_cap);
+					int handled = this->lightman.update (light_update_cap);
+					if (handled)
+						this->log (LT_DEBUG) << "World: " << handled << " updates." << std::endl;
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -364,7 +367,65 @@ namespace hCraft {
 				this->chunks.erase (itr);
 			}
 		
+		// set links
+		{
+			// north (-z)
+			chunk *n = get_chunk_nolock (x, z - 1);
+			if (n)
+				{
+					ch->north = n;
+					n->south = ch;
+				}
+			else
+				ch->north = nullptr;
+			
+			// south (+z)
+			chunk *s = get_chunk_nolock (x, z + 1);
+			if (s)
+				{
+					ch->south = s;
+					s->north = ch;
+				}
+			else
+				ch->south = nullptr;
+			
+			// west (-x)
+			chunk *w = get_chunk_nolock (x - 1, z);
+			if (w)
+				{
+					ch->west = w;
+					w->east = ch;
+				}
+			else
+				ch->west = nullptr;
+			
+			// east (+x)
+			chunk *e = get_chunk_nolock (x + 1, z);
+			if (e)
+				{
+					ch->east = e;
+					e->west = ch;
+				}
+			else
+				ch->east = nullptr;
+		}
+		
 		this->chunks[key] = ch;
+	}
+	
+	
+	chunk*
+	world::get_chunk_nolock (int x, int z)
+	{
+		if (((this->width > 0) && (((x * 16) >= this->width) || (x < 0))) ||
+				((this->depth > 0) && (((z * 16) >= this->depth) || (z < 0))))
+			return this->edge_chunk;
+		
+		auto itr = this->chunks.find ((unsigned long long)chunk_key (x, z));
+		if (itr != this->chunks.end ())
+			return itr->second;
+		
+		return nullptr;
 	}
 	
 	/* 
@@ -393,7 +454,7 @@ namespace hCraft {
 	chunk*
 	world::get_chunk_at (int bx, int bz)
 	{
-		return this->get_chunk (utils::div (bx, 16), utils::div (bz, 16));
+		return this->get_chunk (bx >> 4, bz >> 4);
 	}
 	
 	/* 
@@ -438,76 +499,86 @@ namespace hCraft {
 	void
 	world::set_id (int x, int y, int z, unsigned short id)
 	{
-		chunk *ch = this->load_chunk (utils::div (x, 16), utils::div (z, 16));
-		ch->set_id (utils::mod (x, 16), y, utils::mod (z, 16), id);
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_id (x & 0xF, y, z & 0xF, id);
 	}
 	
 	unsigned short
 	world::get_id (int x, int y, int z)
 	{
-		chunk *ch = this->get_chunk (utils::div (x, 16), utils::div (z, 16));
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
 		if (!ch)
 			return 0;
-		return ch->get_id (utils::mod (x, 16), y, utils::mod (z, 16));
+		return ch->get_id (x & 0xF, y, z & 0xF);
 	}
 	
 	
 	void
 	world::set_meta (int x, int y, int z, unsigned char val)
 	{
-		chunk *ch = this->load_chunk (utils::div (x, 16), utils::div (z, 16));
-		ch->set_meta (utils::mod (x, 16), y, utils::mod (z, 16), val);
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_meta (x & 0xF, y, z & 0xF, val);
 	}
 	
 	unsigned char
 	world::get_meta (int x, int y, int z)
 	{
-		chunk *ch = this->get_chunk (utils::div (x, 16), utils::div (z, 16));
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
 		if (!ch)
 			return 0;
-		return ch->get_meta (utils::mod (x, 16), y, utils::mod (z, 16));
+		return ch->get_meta (x & 0xF, y, z & 0xF);
 	}
 	
 	
 	void
 	world::set_block_light (int x, int y, int z, unsigned char val)
 	{
-		chunk *ch = this->load_chunk (utils::div (x, 16), utils::div (z, 16));
-		ch->set_block_light (utils::mod (x, 16), y, utils::mod (z, 16), val);
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_block_light (x & 0xF, y, z & 0xF, val);
 	}
 	
 	unsigned char
 	world::get_block_light (int x, int y, int z)
 	{
-		chunk *ch = this->get_chunk (utils::div (x, 16), utils::div (z, 16));
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
 		if (!ch)
 			return 0;
-		return ch->get_block_light (utils::mod (x, 16), y, utils::mod (z, 16));
+		return ch->get_block_light (x & 0xF, y, z & 0xF);
 	}
 	
 	 
 	void
 	world::set_sky_light (int x, int y, int z, unsigned char val)
 	{
-		chunk *ch = this->load_chunk (utils::div (x, 16), utils::div (z, 16));
-		ch->set_sky_light (utils::mod (x, 16), y, utils::mod (z, 16), val);
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_sky_light (x & 0xF, y, z & 0xF, val);
 	}
 	
 	unsigned char
 	world::get_sky_light (int x, int y, int z)
 	{
-		chunk *ch = this->get_chunk (utils::div (x, 16), utils::div (z, 16));
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
 		if (!ch)
 			return 0xF;
-		return ch->get_sky_light (utils::mod (x, 16), y, utils::mod (z, 16));
+		return ch->get_sky_light (x & 0xF, y, z & 0xF);
 	}
 	
 	
 	void
 	world::set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta)
 	{
-		chunk *ch = this->load_chunk (utils::div (x, 16), utils::div (z, 16));
-		ch->set_id_and_meta (utils::mod (x, 16), y, utils::mod (z, 16), id, meta);
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_id_and_meta (x & 0xF, y, z & 0xF, id, meta);
+	}
+	
+	
+	block_data
+	world::get_block (int x, int y, int z)
+	{
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
+		if (!ch)
+			return block_data ();
+		return ch->get_block (x & 0xF, y, z & 0xF);
 	}
 	
 	

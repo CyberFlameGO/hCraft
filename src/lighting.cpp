@@ -17,21 +17,49 @@
  */
 
 #include "lighting.hpp"
+#include "logger.hpp"
 #include "blocks.hpp"
 #include "world.hpp"
-#include "utils.hpp"
-
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
 	/* 
 	 * Constructs a new lighting manager on top of the given world.
 	 */
-	lighting_manager::lighting_manager (world *wr)
+	lighting_manager::lighting_manager (logger &log, world *wr, int limit)
+		: log (log)
 	{
 		this->wr = wr;
+		this->overloaded = false;
+		this->limit = limit;
+		this->handled_since_empty = 0;
+	}
+	
+	
+	
+	void
+	lighting_manager::enqueue_nolock (int x, int y, int z)
+	{
+		if (this->overloaded)
+			return;
+	
+		this->updates.emplace (x, y, z);
+		if (this->updates.size () >= this->limit)
+			{
+				this->overloaded = true;
+				this->log (LT_WARNING) << "World \"" << this->wr->get_name () <<
+					"\": Too many lighting updates! (>= " << this->limit << ")" << std::endl;
+			}
+	}
+	
+	/* 
+	 * Pushes a lighting update to the update queue.
+	 */
+	void
+	lighting_manager::enqueue (int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		this->enqueue_nolock (x, y, z);
 	}
 	
 	
@@ -48,6 +76,8 @@ namespace hCraft {
 	_abs (int x)
 		{ return (x < 0) ? (-x) : x; }
 	
+	
+	
 	static char
 	skylight_at (world *wr, int x, int y, int z)
 	{
@@ -59,141 +89,141 @@ namespace hCraft {
 	
 	
 	
-	static void
-	spread_light (lighting_manager &lm, light_update u)
+	static bool
+	is_light_inconsistent (chunk *ch, int x, int y, int z)
+	{
+		if (x > 15) { x =  0; ch = ch->east; }
+		if (x <  0) { x = 15; ch = ch->west; }
+		if (z > 15) { z =  0; ch = ch->south; }
+		if (z <  0) { z = 15; ch = ch->north; }
+		
+		block_data bd = ch->get_block (x, y, z);
+		short id = bd.id;
+		block_info *binf = block_info::from_id (id);
+		if (binf->obscures_light)
+			return false;
+		
+		short sl = bd.sl;
+		
+		// neighbouring blocks
+		char sll = (x < 15) ? ch->get_sky_light (x + 1, y, z)
+												: ((ch->east) ? ch->east->get_sky_light (0, y, z) : 15);
+		char slr = (x >  0) ? ch->get_sky_light (x - 1, y, z)
+												: ((ch->west) ? ch->west->get_sky_light (15, y, z) : 15);
+		char slf = (z < 15) ? ch->get_sky_light (x, y, z + 1)
+												: ((ch->south) ? ch->south->get_sky_light (x, y, 0) : 15);
+		char slb = (z >  0) ? ch->get_sky_light (x, y, z - 1)
+												: ((ch->north) ? ch->north->get_sky_light (x, y, 15) : 15);
+		char slu = (y < 255) ? ch->get_sky_light (x, y + 1, z) : 15;
+		char sld = (y >   0) ? ch->get_sky_light (x, y - 1, z) : 0;
+		
+		short need = sl + 1;
+		if (need > 15) need = 15;
+		
+		return ((sll < need) || 
+			 	 	  (slr < need) || 
+				 	  (slf < need) || 
+				 	  (slb < need) || 
+					  (slu < need) || 
+					  (sld < need));
+	}
+	
+	
+	
+	static char
+	calc_sky_light (lighting_manager &lm, int x, int y, int z)
 	{
 		world *wr = lm.get_world ();
 		
-		unsigned short u_id = wr->get_id (u.x, u.y, u.z);
-		char u_sl = wr->get_sky_light (u.x, u.y, u.z);
+		chunk *ch = wr->get_chunk_at (x, z);
+		if (!ch) return 15;
+		
+		int bx = x & 0xF;
+		int bz = z & 0xF;
+		
+		block_data u_data = wr->get_block (x, y, z);
+		unsigned short u_id = u_data.id;
+		char u_sl = u_data.sl;
 		block_info *u_inf = block_info::from_id (u_id);
 		
 		// get the sky light values of neighbouring blocks
-		char sll = skylight_at (wr, u.x + 1, u.y, u.z);
-		char slr = skylight_at (wr, u.x - 1, u.y, u.z);
-		char slf = skylight_at (wr, u.x, u.y, u.z + 1);
-		char slb = skylight_at (wr, u.x, u.y, u.z - 1);
-		char slu = skylight_at (wr, u.x, u.y + 1, u.z);
-		char sld = skylight_at (wr, u.x, u.y - 1, u.z);
+		char sll = (bx < 15) ? ch->get_sky_light (bx + 1, y, bz)
+												: ((ch->east) ? ch->east->get_sky_light (0, y, bz) : 15);
+		char slr = (bx >  0) ? ch->get_sky_light (bx - 1, y, bz)
+												: ((ch->west) ? ch->west->get_sky_light (15, y, bz) : 15);
+		char slf = (bz < 15) ? ch->get_sky_light (bx, y, bz + 1)
+												: ((ch->south) ? ch->south->get_sky_light (bx, y, 0) : 15);
+		char slb = (bz >  0) ? ch->get_sky_light (bx, y, bz - 1)
+												: ((ch->north) ? ch->north->get_sky_light (bx, y, 15) : 15);
+		char slu = (y < 255) ? ch->get_sky_light (bx, y + 1, bz) : 15;
+		char sld = (y >   0) ? ch->get_sky_light (bx, y - 1, bz) : 0;
 		
 		// pick the highest value
 		char max_sl =
 			_max (sll, _max (slr, _max (slf,
 			_max (slb, _max (sld, _max (slu, 0))))));
-		char new_sl = (max_sl > 0) ? (max_sl - 1) : 0;
-		
-		// check whether this block has direct contact with sunlight
-		bool direct_sunlight = true;
-		if (u.y < 255)
-			{
-				for (int y = u.y; y < 256; ++y)
-					{
-						if (block_info::from_id (wr->get_id (u.x, y, u.z))->obscures_light)
-							{ direct_sunlight = false; break; }
-					}
-			}
+		char new_sl = max_sl - u_inf->opacity - 1;
+		if (new_sl < 0) new_sl = 0;
+		bool direct_sunlight = (y >= ch->get_height (bx, bz));
 		if (direct_sunlight)
-			new_sl = 15;
+			new_sl = 15 - u_inf->opacity;
 		
 		if (new_sl != u_sl)
 			{
-				wr->set_sky_light (u.x, u.y, u.z, new_sl);
+				wr->set_sky_light (x, y, z, new_sl);
+				//lm.get_logger () (LT_DEBUG) << "Setting [" << x << " " << y << " " << z << "] to " <<
+				//	(int)new_sl << "." << std::endl;
 				
 				// update any inconsistent neighbouring blocks
-				if ((_abs (new_sl - sll) > 1) && !block_info::from_id (
-					wr->get_id (u.x + 1, u.y, u.z))->obscures_light)
-					lm.enqueue (u.x + 1, u.y, u.z);
-				if ((_abs (new_sl - slr) > 1) && !block_info::from_id (
-					wr->get_id (u.x - 1, u.y, u.z))->obscures_light)
-					lm.enqueue (u.x - 1, u.y, u.z);
-				if ((_abs (new_sl - slf) > 1) && !block_info::from_id (
-					wr->get_id (u.x, u.y, u.z + 1))->obscures_light)
-					lm.enqueue (u.x, u.y, u.z + 1);
-				if ((_abs (new_sl - slb) > 1) && !block_info::from_id (
-					wr->get_id (u.x, u.y, u.z - 1))->obscures_light)
-					lm.enqueue (u.x, u.y, u.z - 1);
-				if (u.y < 255 && (_abs (new_sl - slu) > 1) && !block_info::from_id (
-					wr->get_id (u.x, u.y + 1, u.z))->obscures_light)
-					lm.enqueue (u.x, u.y + 1, u.z);
-				if (u.y > 0 && (_abs (new_sl - sld) > 1) && !block_info::from_id (
-					wr->get_id (u.x, u.y - 1, u.z))->obscures_light)
-					lm.enqueue (u.x, u.y - 1, u.z);
+				if (is_light_inconsistent (ch, bx + 1, y, bz))
+					lm.enqueue_nolock (x + 1, y, z);
+				if (is_light_inconsistent (ch, bx - 1, y, bz))
+					lm.enqueue_nolock (x - 1, y, z);
+				if (is_light_inconsistent (ch, bx, y, bz + 1))
+					lm.enqueue_nolock (x, y, z + 1);
+				if (is_light_inconsistent (ch, bx, y, bz - 1))
+					lm.enqueue_nolock (x, y, z - 1);
+				if ((y < 255) && is_light_inconsistent (ch, bx, y + 1, bz))
+					lm.enqueue_nolock (x, y + 1, z);
+				if ((y >   0) && is_light_inconsistent (ch, bx, y - 1, bz))
+					lm.enqueue_nolock (x, y - 1, z);
 				
 				// go through the entire column again and check for more
 				// inconsistencies.
-				chunk *ch = wr->get_chunk_at (u.x, u.z);
-				if (ch)
+				char sl, cur_sl = 0xF;
+				unsigned short id;
+				
+				int cx = x >> 4;
+				int cz = z >> 4;
+				int bx = x & 0xF;
+				int bz = z & 0xF;
+				
+				for (int yy = 254; yy >= 0; --yy)
 					{
-						char sl, cur_sl = 0xF;
-						unsigned short id;
+						id = ch->get_id (bx, yy, bz);
+						sl = block_info::from_id (id)->opacity;
+						cur_sl -= sl;
+						ch->set_sky_light (bx, yy, bz, (cur_sl > 0) ? cur_sl : 0);
 						
-						int cx = utils::div (u.x, 16);
-						int cz = utils::div (u.z, 16);
-						int bx = utils::mod (u.x, 16);
-						int bz = utils::mod (u.z, 16);
-						
-						for (int y = 254; y >= 0; --y)
+						// check neighbouring blocks
+						if (cur_sl > 0)
 							{
-								id = ch->get_id (bx, y, bz);
-								sl = block_info::from_id (id)->opacity;
-								cur_sl -= sl;
-								ch->set_sky_light (bx, y, bz, (cur_sl > 0) ? cur_sl : 0);
-								
-								// check neighbouring blocks
-								if (cur_sl > 0)
-									{
-										char nsll = skylight_at (wr, u.x + 1, y, u.z);
-										char nslr = skylight_at (wr, u.x - 1, y, u.z);
-										char nslf = skylight_at (wr, u.x, y, u.z + 1);
-										char nslb = skylight_at (wr, u.x, y, u.z - 1);
-										
-										if ((_abs (cur_sl - nsll) > 1) && !block_info::from_id (
-											wr->get_id (u.x + 1, y, u.z))->obscures_light)
-											lm.enqueue (u.x + 1, y, u.z);
-										if ((_abs (cur_sl - nslr) > 1) && !block_info::from_id (
-											wr->get_id (u.x - 1, y, u.z))->obscures_light)
-											lm.enqueue (u.x - 1, y, u.z);
-										if ((_abs (cur_sl - nslf) > 1) && !block_info::from_id (
-											wr->get_id (u.x, y, u.z + 1))->obscures_light)
-											lm.enqueue (u.x, y, u.z + 1);
-										if ((_abs (cur_sl - nslb) > 1) && !block_info::from_id (
-											wr->get_id (u.x, y, u.z - 1))->obscures_light)
-											lm.enqueue (u.x, y, u.z - 1);
-									}
-								else break;
+								if (is_light_inconsistent (ch, bx + 1, yy, bz))
+									lm.enqueue_nolock (x + 1, yy, z);
+								if (is_light_inconsistent (ch, bx - 1, yy, bz))
+									lm.enqueue_nolock (x - 1, yy, z);
+								if (is_light_inconsistent (ch, bx, yy, bz + 1))
+									lm.enqueue_nolock (x, yy, z + 1);
+								if (is_light_inconsistent (ch, bx, yy, bz - 1))
+									lm.enqueue_nolock (x, yy, z - 1);
 							}
+						else break;
 					}
 			}
+			
+			return new_sl;
 	}
 	
-	
-	
-	static void
-	block_light (lighting_manager& lm, light_update u)
-	{
-		world *wr = lm.get_world ();
-		
-		// update the sky light value of all blocks below it
-		for (int y = u.y - 1; y >= 0; --y)
-			{
-				unsigned short id = wr->get_id (u.x, y, u.z);
-				char sl = wr->get_sky_light (u.x, y, u.z);
-				if (block_info::from_id (id)->obscures_light)
-					break; // reached solid block
-				
-				char sll = skylight_at (wr, u.x + 1, y, u.z);
-				char slr = skylight_at (wr, u.x - 1, y, u.z);
-				char slf = skylight_at (wr, u.x, y, u.z + 1);
-				char slb = skylight_at (wr, u.x, y, u.z - 1);
-				char max_sl = _max (sll, _max (slr, _max (slf, _max (slb, 0))));
-				char new_sl = (max_sl > 0) ? (max_sl - 1) : 0;
-				
-				if (sl != new_sl)
-					{
-						wr->set_sky_light (u.x, y, u.z, new_sl);
-					}
-			}
-	}
 	
 	
 	/* 
@@ -202,12 +232,12 @@ namespace hCraft {
 	 * 
 	 * Returns the total amount of updates handled.
 	 */
-	void
+	int
 	lighting_manager::update (int max_updates)
 	{
 		int updated = 0;
 		
-		std::lock_guard<std::recursive_mutex> guard {this->lock};
+		std::lock_guard<std::mutex> guard {this->lock};
 		while (!this->updates.empty () && (updated++ < max_updates))
 			{
 				light_update u = this->updates.front ();
@@ -217,23 +247,18 @@ namespace hCraft {
 				char u_sl = this->wr->get_sky_light (u.x, u.y, u.z);
 				block_info *u_inf = block_info::from_id (u_id);
 				
-				if (u_inf->obscures_light)
-					block_light (*this, u);
-				else
-					spread_light (*this, u);
+				calc_sky_light (*this, u.x, u.y, u.z);
+				++ this->handled_since_empty;
 			}
-	}
-	
-	
-	
-	/* 
-	 * Pushes a lighting update to the update queue.
-	 */
-	void
-	lighting_manager::enqueue (int x, int y, int z)
-	{
-		std::lock_guard<std::recursive_mutex> guard {this->lock};
-		this->updates.emplace (x, y, z);
+		
+		if (this->updates.empty () && (this->handled_since_empty > 0))
+			{
+				this->overloaded = false;
+				this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
+				this->handled_since_empty = 0;
+			}
+		
+		return updated;
 	}
 }
 

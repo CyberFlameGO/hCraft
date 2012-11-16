@@ -27,6 +27,7 @@ namespace hCraft {
 	
 	// forward decs:
 	class world;
+	class logger;
 	
 	
 	/* 
@@ -52,18 +53,23 @@ namespace hCraft {
 	 */
 	class lighting_manager
 	{
+		logger &log;
 		world *wr;
 		std::queue<light_update> updates;
-		std::recursive_mutex lock;
+		std::mutex lock;
+		bool overloaded;
+		int limit;
+		int handled_since_empty;
 		
 	public:
 		inline world* get_world () const { return this->wr; }
+		inline logger& get_logger () const { return this->log; }
 		
 	public:
 		/* 
 		 * Constructs a new lighting manager on top of the given world.
 		 */
-		lighting_manager (world *wr);
+		lighting_manager (logger &log, world *wr, int limit = 500000);
 		
 		
 		/* 
@@ -72,13 +78,14 @@ namespace hCraft {
 		 * 
 		 * Returns the total amount of updates handled.
 		 */
-		void update (int max_updates = 384);
+		int update (int max_updates = 384);
 		
 		
 		/* 
 		 * Pushes a lighting update to the update queue.
 		 */
 		void enqueue (int x, int y, int z);
+		void enqueue_nolock (int x, int y, int z); // not thread-safe
 	};
 }
 

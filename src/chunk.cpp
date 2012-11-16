@@ -231,6 +231,38 @@ namespace hCraft {
 	}
 	
 	
+	block_data
+	subchunk::get_block (int x, int y, int z)
+	{
+		block_data data {};
+		unsigned int index = (y << 8) | (z << 4) | x;
+		unsigned int half = index >> 1;
+		
+		data.id = this->ids[index];
+		if (this->add_count > 0)
+			{
+				data.id |=
+					((index & 1) ? (this->add[half] >> 4) : (this->add[half] & 0xF))
+					<< 8;
+			}
+		
+		if (index & 1)
+			{
+				data.meta = this->meta[half] >> 4;
+				data.bl = this->blight[half] >> 4;
+				data.sl = this->slight[half] >> 4;
+			}
+		else
+			{
+				data.meta = this->meta[half] & 0xF;
+				data.bl = this->blight[half] & 0xF;
+				data.sl = this->slight[half] & 0xF;
+			}
+		
+		return data;
+	}
+	
+	
 	
 //----
 	
@@ -247,6 +279,8 @@ namespace hCraft {
 		std::memset (this->heightmap, 0, 256 * sizeof (short));
 		std::memset (this->biomes, BI_PLAINS, 256);
 		this->modified = true;
+		
+		this->north = this->south = this->east = this->west = nullptr;
 	}
 	
 	/* 
@@ -293,8 +327,11 @@ namespace hCraft {
 					sub = this->subs[sy] = new subchunk ();
 			}
 		
-		//if (sub->get_id (x, y & 0xF, z) != id)
-			this->modified = true;
+		
+		block_info *old_inf = block_info::from_id (this->get_id (x, y, z));
+		block_info *new_inf = block_info::from_id (id);
+		
+		this->modified = true;
 		sub->set_id (x, y & 0xF, z, id);
 	}
 	
@@ -417,6 +454,18 @@ namespace hCraft {
 		sub->set_id_and_meta (x, y & 0xF, z, id, meta);
 	}
 	
+	
+	block_data
+	chunk::get_block (int x, int y, int z)
+	{
+		int sy = y >> 4;
+		subchunk *sub = this->subs[sy];
+		if (!sub)
+			return block_data ();
+		
+		return sub->get_block (x, y & 0xF, z);
+	}
+	
 	 
 	
 //----
@@ -455,107 +504,30 @@ namespace hCraft {
 	
 	
 	
-	void
-	chunk::respread ()
-	{
-		int x, y, z;
-		for (x = 0; x < 16; ++x)
-			for (z = 0; z < 16; ++z)
-				for (y = 0; y < 255; ++y)
-					{
-						this->respread_around (x, y, z);
-					}
-	}
-	
-	void
-	chunk::respread (int x, int y, int z)
-	{
-		char cl = this->get_sky_light (x, y, z);
-		if (cl == 0)
-			return;
-		
-		if (x > 0 && (this->get_id (x - 1, y, z) == 0)
-			&& this->get_sky_light (x - 1, y, z) < cl)
-			{
-				this->set_sky_light (x - 1, y, z, cl - 1);
-				this->respread (x - 1, y, z);
-			}
-		
-		if (x < 0xF && (this->get_id (x + 1, y, z) == 0)
-			&& this->get_sky_light (x + 1, y, z) < cl)
-			{
-				this->set_sky_light (x + 1, y, z, cl - 1);
-				this->respread (x + 1, y, z);
-			}
-		
-		if (z > 0 && (this->get_id (x, y, z - 1) == 0)
-			&& this->get_sky_light (x, y, z - 1) < cl)
-			{
-				this->set_sky_light (x, y, z - 1, cl - 1);
-				this->respread (x, y, z - 1);
-			}
-		
-		if (z < 0xF && (this->get_id (x, y, z + 1) == 0)
-			&& this->get_sky_light (x, y, z + 1) < cl)
-			{
-				this->set_sky_light (x, y, z + 1, cl - 1);
-				this->respread (x, y, z + 1);
-			}
-		
-		
-		if (y > 0 && (this->get_id (x, y - 1, z) == 0)
-			&& this->get_sky_light (x, y - 1, z) < cl)
-			{
-				this->set_sky_light (x, y - 1, z, cl - 1);
-				this->respread (x, y - 1, z);
-			}
-	}
-	
-	void
-	chunk::respread_around (int x, int y, int z)
-	{
-		if (this->get_id (x, y, z) == 0 && this->get_sky_light (x, y, z) == 0)
-			{
-				if (x > 0 && (this->get_id (x - 1, y, z) == 0) &&
-					(this->get_sky_light (x - 1, y, z) > 0))
-					this->respread (x - 1, y, z);
-				
-				if (x < 0xF && (this->get_id (x + 1, y, z) == 0) &&
-					(this->get_sky_light (x + 1, y, z) > 0))
-					this->respread (x + 1, y, z);
-				
-				if (z > 0 && (this->get_id (x, y, z - 1) == 0) &&
-					(this->get_sky_light (x, y, z - 1) > 0))
-					this->respread (x, y, z - 1);
-				
-				if (z < 0xF && (this->get_id (x, y, z + 1) == 0) &&
-					(this->get_sky_light (x, y, z + 1) > 0))
-					this->respread (x, y, z + 1);
-			}
-	}
-	
-	
-	
 	/* 
 	 * (Re)creates the chunk's heightmap.
 	 */
+	 
+	short
+	chunk::recalc_heightmap (int x, int z)
+	{
+		short h;
+		for (h = 255; h >= 0; --h)
+			{
+				block_info *binf = block_info::from_id (this->get_id (x, h, z));
+				if (binf->state == BS_SOLID && binf->obscures_light)
+					break;
+			}
+		this->set_height (x, z, h);
+		return h;
+	}
+	
 	void
 	chunk::recalc_heightmap ()
 	{
-		int y;
-		short h;
-
 		for (int x = 0; x < 16; ++x)
 			for (int z = 0; z < 16; ++z)
-				{
-					h = 0;
-					for (y = 255; y >= 0; --y)
-						{
-							if (this->get_id (x, y, z) != 0)
-								{ h = y + 1; break; }
-						}
-					this->heightmap[(z << 4) | x] = h;
-				}
+				this->recalc_heightmap (x, z);
 	}
 	
 	

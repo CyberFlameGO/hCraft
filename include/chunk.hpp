@@ -109,6 +109,8 @@ namespace hCraft {
 		unsigned char get_sky_light (int x, int y, int z);
 		
 		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
+		
+		block_data get_block (int x, int y, int z);
 	};
 	
 	
@@ -128,6 +130,11 @@ namespace hCraft {
 		
 	public:
 		bool modified;
+		
+		chunk *north; // -z
+		chunk *south; // +z
+		chunk *west;  // -x
+		chunk *east;  // +x
 		
 	public:
 		inline subchunk* get_sub (int index) { return this->subs[index]; }
@@ -178,6 +185,8 @@ namespace hCraft {
 		
 		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
 		
+		block_data get_block (int x, int y, int z);
+		
 	//----
 		
 		/* 
@@ -187,15 +196,12 @@ namespace hCraft {
 		void relight (int x, int z, bool stop_at_zero = true);
 		void relight (bool stop_at_zero = true);
 		
-		void respread ();
-		void respread (int x, int y, int z);
-		void respread_around (int x, int y, int z);
-		
 		
 		/* 
 		 * (Re)creates the chunk's heightmap.
 		 */
 		void recalc_heightmap ();
+		short recalc_heightmap (int x, int z);
 		
 	//----
 		

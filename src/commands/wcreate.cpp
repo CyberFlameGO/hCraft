@@ -159,7 +159,7 @@ namespace hCraft {
 				}
 			
 			pl->message ("§aCreating world §e" + world_name + "§f:");
-			world *wr = new world (world_name.c_str (), gen, prov);
+			world *wr = new world (world_name.c_str (), pl->get_logger (), gen, prov);
 			wr->set_width (world_width);
 			wr->set_depth (world_depth);
 			wr->prepare_spawn (10);

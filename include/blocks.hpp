@@ -180,9 +180,9 @@ namespace hCraft {
 	
 	enum block_state
 	{
-		solid,
-		nonsolid,
-		fluid,
+		BS_SOLID,
+		BS_NONSOLID,
+		BS_FLUID,
 	};
 	
 	
@@ -205,7 +205,7 @@ namespace hCraft {
 		
 		block_info (unsigned short id, const char *name, float blast_resistance,
 			char opacity, char luminance, char max_stack, bool transmits_light,
-			bool obscures_light);
+			bool obscures_light, block_state state);
 			
 	//----
 		
@@ -214,6 +214,23 @@ namespace hCraft {
 		 * specified ID number.
 		 */
 		static block_info* from_id (unsigned short id);
+	};
+	
+	
+	struct block_data
+	{
+		unsigned short id;
+		char meta;
+		char bl; // block light
+		char sl; // sky light
+		
+		block_data (unsigned short id = 0, char meta = 0, char bl = 0, char sl = 15)
+		{
+			this->id = id;
+			this->meta = meta;
+			this->bl = bl;
+			this->sl = sl;
+		}
 	};
 }
 

@@ -34,6 +34,7 @@
 
 namespace hCraft {
 	
+	class logger;
 	class player;
 	class playerlist;
 	
@@ -71,6 +72,7 @@ namespace hCraft {
 	 */
 	class world
 	{
+		logger &log;
 		char name[33]; // 32 chars max
 		playerlist *players;
 		
@@ -118,11 +120,14 @@ namespace hCraft {
 		 */
 		void worker ();
 		
+		chunk* get_chunk_nolock (int x, int z);
+		
 	public:
 		/* 
 		 * Constructs a new empty world.
 		 */
-		world (const char *name, world_generator *gen, world_provider *provider);
+		world (const char *name, logger &log, world_generator *gen,
+			world_provider *provider);
 		
 		/* 
 		 * Class destructor.
@@ -212,6 +217,8 @@ namespace hCraft {
 		unsigned char get_sky_light (int x, int y, int z);
 		
 		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
+		
+		block_data get_block (int x, int y, int z);
 		
 	//----
 		

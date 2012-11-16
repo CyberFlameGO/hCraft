@@ -459,7 +459,7 @@ namespace hCraft {
 	default_config (server_config& out)
 	{
 		std::strcpy (out.srv_name, "hCraft server");
-		std::strcpy (out.srv_motd, "Welcome to my server!");
+		std::strcpy (out.srv_motd, "§6A new §ehCraft §6server is born§f!");
 		out.max_players = 12;
 		std::strcpy (out.main_world, "main");
 		
@@ -1203,7 +1203,7 @@ namespace hCraft {
 			{
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
-				main_world = new world (this->get_config ().main_world,
+				main_world = new world (this->get_config ().main_world, this->log, 
 					world_generator::create ("flatgrass"),
 					world_provider::create ("hw", "worlds", this->get_config ().main_world));
 				main_world->set_size (32, 32);
@@ -1224,7 +1224,7 @@ namespace hCraft {
 						throw server_error ("failed to load main world (invalid generator)");
 					}
 				
-				main_world = new world (this->get_config ().main_world, gen, prov);
+				main_world = new world (this->get_config ().main_world, this->log, gen, prov);
 				main_world->set_size (winf.width, winf.depth);
 			}
 		main_world->prepare_spawn (10);
@@ -1272,7 +1272,7 @@ namespace hCraft {
 					}
 				
 				log () << " - Loading \"" << wname << std::endl;
-				world *wr = new world (wname.c_str (), gen, prov);
+				world *wr = new world (wname.c_str (), this->log, gen, prov);
 				wr->set_size (winf.width, winf.depth);
 				wr->prepare_spawn (10);
 				wr->start ();

@@ -1430,6 +1430,16 @@ namespace hCraft {
 		char cursor_y = reader.read_byte ();
 		char cursor_z = reader.read_byte ();
 		
+		if (pl->is_crouched ())
+			{
+				int xx, yy, zz, r = 3;
+				for (xx = (x - r); xx <= (x + r); ++xx)
+					for (yy = (y - r); yy <= (y + r); ++yy)
+						for (zz = (z - r); zz <= (z + r); ++zz)
+							pl->get_world ()->queue_update (xx, yy, zz, 0, 0);
+				return 0;
+			}
+		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
 				// Held item must be updated, or not enough room.
@@ -1505,6 +1515,24 @@ namespace hCraft {
 	{
 		if (!pl->logged_in)
 			{ return -1; }
+		
+		int eid = reader.read_int ();
+		int action = reader.read_byte ();
+		
+		if (eid != pl->get_eid ())
+			return -1;
+		
+		switch (action)
+			{
+				case 1: pl->crouched = true; break;
+				case 2: pl->crouched = false; break;
+				case 3: /* leave bed */ break;
+				case 4: pl->sprinting = true; break;
+				case 5: pl->sprinting = false; break;
+				
+				default: return -1;
+			}
+		
 		return 0;
 	}
 	
