@@ -21,6 +21,12 @@
 #include "blocks.hpp"
 #include "world.hpp"
 
+#include <cmath>
+#include <utility>
+#include <bitset>
+
+#include <iostream> // DEBUG
+
 namespace hCraft {
 	
 	/* 
@@ -89,139 +95,247 @@ namespace hCraft {
 	
 	
 	
-	static bool
-	is_light_inconsistent (chunk *ch, int x, int y, int z)
+	static inline unsigned int
+	relative_index (int rx, int ry, int rz)
+		{ return ((rz + 16) << 8) | ((ry + 16) << 4) | (rx + 16); }
+	
+	static void
+	brightest_block_in_vicinity_do (world *wr, int rx, int ry, int rz,
+		int ox, int oy, int oz, std::bitset<32768>& visited,
+		std::pair<char, int>& brightest, bool& connected_to_fully_lit_block)
 	{
-		if (x > 15) { x =  0; ch = ch->east; }
-		if (x <  0) { x = 15; ch = ch->west; }
-		if (z > 15) { z =  0; ch = ch->south; }
-		if (z <  0) { z = 15; ch = ch->north; }
+		int nx = ox + rx;
+		int ny = oy + ry;
+		int nz = oz + rz;
 		
-		block_data bd = ch->get_block (x, y, z);
-		short id = bd.id;
-		block_info *binf = block_info::from_id (id);
-		if (binf->obscures_light)
-			return false;
+		int distance = 0;
+		{
+			int sx = rx * rx;
+			int sy = ry * ry;
+			int sz = rz * rz;
+			distance = (int)std::sqrt(sx + sy + sz);
+		}
 		
-		short sl = bd.sl;
+		if (brightest.first == 15 && (distance > 0))
+			return;
+		if (((oy + ry) > 255) || ((oy + ry) < 0))
+			return;
 		
-		// neighbouring blocks
-		char sll = (x < 15) ? ch->get_sky_light (x + 1, y, z)
-												: ((ch->east) ? ch->east->get_sky_light (0, y, z) : 15);
-		char slr = (x >  0) ? ch->get_sky_light (x - 1, y, z)
-												: ((ch->west) ? ch->west->get_sky_light (15, y, z) : 15);
-		char slf = (z < 15) ? ch->get_sky_light (x, y, z + 1)
-												: ((ch->south) ? ch->south->get_sky_light (x, y, 0) : 15);
-		char slb = (z >  0) ? ch->get_sky_light (x, y, z - 1)
-												: ((ch->north) ? ch->north->get_sky_light (x, y, 15) : 15);
-		char slu = (y < 255) ? ch->get_sky_light (x, y + 1, z) : 15;
-		char sld = (y >   0) ? ch->get_sky_light (x, y - 1, z) : 0;
+		//std::cout << "  around [" << ox << " " << oy << " " << oz << "]: [" << (ox + rx) << " " <<
+		//	(oy + ry) << " " << (oz + rz) << "] ->" << std::endl;
 		
-		short need = sl + 1;
-		if (need > 15) need = 15;
+		unsigned int index = relative_index (rx, ry, rz);
+		if (visited.test (index)) return;
+		visited.set (index, true);
 		
-		return ((sll < need) || 
-			 	 	  (slr < need) || 
-				 	  (slf < need) || 
-				 	  (slb < need) || 
-					  (slu < need) || 
-					  (sld < need));
+		chunk *ch = wr->get_chunk_at (nx, nz);
+		if (!ch) return;
+		if ((oy + ry + 1) >= ch->get_height (nx & 15, nz & 15))
+			{
+				if ((15 - distance) > (brightest.first - brightest.second))
+					{
+						brightest.first = 15;
+						brightest.second = distance;
+					}
+				return;
+			}
+		
+		block_data bd_left = wr->get_block (nx + 1, ny, nz);
+		block_data bd_right = wr->get_block (nx - 1, ny, nz);
+		block_data bd_up = wr->get_block (nx, ny + 1, nz);
+		block_data bd_down = wr->get_block (nx, ny - 1, nz);
+		block_data bd_forward = wr->get_block (nx, ny, nz + 1);
+		block_data bd_back = wr->get_block (nx, ny, nz - 1);
+		
+		/*
+		std::cout << "   - left    +x: " << bd_left.id << ", sl: " << (int)bd_left.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - right   -x: " << bd_right.id << ", sl: " << (int)bd_right.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - up      +y: " << bd_up.id << ", sl: " << (int)bd_up.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - down    -y: " << bd_down.id << ", sl: " << (int)bd_down.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - forward +z: " << bd_forward.id << ", sl: " << (int)bd_forward.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - back    -z: " << bd_back.id << ", sl: " << (int)bd_back.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		*/
+		
+		// 
+		// Left (+x)
+		// 
+		if (!block_info::from_id (bd_left.id)->opaque)
+			{
+				if ((bd_left.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_left.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_left.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx + 1, ry, rz, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
+		
+		// 
+		// Right (-x)
+		// 
+		if (!block_info::from_id (bd_right.id)->opaque)
+			{
+				if ((bd_right.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_right.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_right.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx - 1, ry, rz, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
+		
+		// 
+		// Up (+y)
+		// 
+		if (!block_info::from_id (bd_up.id)->opaque)
+			{
+				if ((bd_up.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_up.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_up.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx, ry + 1, rz, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
+		
+		// 
+		// Down (-y)
+		// 
+		if (!block_info::from_id (bd_down.id)->opaque)
+			{
+				if ((bd_down.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_down.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_down.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx, ry - 1, rz, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
+		
+		// 
+		// Forward (+z)
+		// 
+		if (!block_info::from_id (bd_forward.id)->opaque)
+			{
+				if ((bd_forward.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_forward.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_forward.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx, ry, rz + 1, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
+		
+		// 
+		// Back (-z)
+		// 
+		if (!block_info::from_id (bd_back.id)->opaque)
+			{
+				if ((bd_back.sl - distance + 1) > (brightest.first - brightest.second))
+					{
+						brightest.first = bd_back.sl;
+						brightest.second = distance + 1;
+					}
+				if (bd_back.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if (distance < 15 && (brightest.first != 15))
+					brightest_block_in_vicinity_do (wr, rx, ry, rz - 1, ox, oy, oz,
+						visited, brightest, connected_to_fully_lit_block);
+			}
 	}
 	
-	
+	//               light distance
+	static std::pair<char, int>
+	brightest_block_in_vicinity (lighting_manager &lm, world *wr, int x, int y,
+		int z)
+	{
+		std::bitset<32768> &visited = lm.visited;
+		visited.reset ();
+		lm.connected_to_fully_lit_block = false;
+		
+		block_data this_block = wr->get_block (x, y, z);
+		std::pair<char, int> brightest (this_block.sl, 0);
+		
+		brightest_block_in_vicinity_do (wr, 0, 0, 0, x, y, z, visited, brightest,
+			lm.connected_to_fully_lit_block);
+		return brightest;
+	}
 	
 	static char
 	calc_sky_light (lighting_manager &lm, int x, int y, int z)
 	{
 		world *wr = lm.get_world ();
 		
-		chunk *ch = wr->get_chunk_at (x, z);
-		if (!ch) return 15;
+		int cx = x >> 4;
+		int cz = z >> 4;
+		int bx = x & 15;
+		int bz = z & 15;
+		chunk *ch = wr->get_chunk (cx, cz);
+		if (!ch) return 0;
 		
-		int bx = x & 0xF;
-		int bz = z & 0xF;
+		block_data this_block = wr->get_block (x, y, z);
+		block_info *this_info = block_info::from_id (this_block.id);
+		char nl;
 		
-		block_data u_data = wr->get_block (x, y, z);
-		unsigned short u_id = u_data.id;
-		char u_sl = u_data.sl;
-		block_info *u_inf = block_info::from_id (u_id);
-		
-		// get the sky light values of neighbouring blocks
-		char sll = (bx < 15) ? ch->get_sky_light (bx + 1, y, bz)
-												: ((ch->east) ? ch->east->get_sky_light (0, y, bz) : 15);
-		char slr = (bx >  0) ? ch->get_sky_light (bx - 1, y, bz)
-												: ((ch->west) ? ch->west->get_sky_light (15, y, bz) : 15);
-		char slf = (bz < 15) ? ch->get_sky_light (bx, y, bz + 1)
-												: ((ch->south) ? ch->south->get_sky_light (bx, y, 0) : 15);
-		char slb = (bz >  0) ? ch->get_sky_light (bx, y, bz - 1)
-												: ((ch->north) ? ch->north->get_sky_light (bx, y, 15) : 15);
-		char slu = (y < 255) ? ch->get_sky_light (bx, y + 1, bz) : 15;
-		char sld = (y >   0) ? ch->get_sky_light (bx, y - 1, bz) : 0;
-		
-		// pick the highest value
-		char max_sl =
-			_max (sll, _max (slr, _max (slf,
-			_max (slb, _max (sld, _max (slu, 0))))));
-		char new_sl = max_sl - u_inf->opacity - 1;
-		if (new_sl < 0) new_sl = 0;
-		bool direct_sunlight = (y >= ch->get_height (bx, bz));
-		if (direct_sunlight)
-			new_sl = 15 - u_inf->opacity;
-		
-		if (new_sl != u_sl)
+		if (this_info->opacity == 15)
 			{
-				wr->set_sky_light (x, y, z, new_sl);
-				//lm.get_logger () (LT_DEBUG) << "Setting [" << x << " " << y << " " << z << "] to " <<
-				//	(int)new_sl << "." << std::endl;
-				
-				// update any inconsistent neighbouring blocks
-				if (is_light_inconsistent (ch, bx + 1, y, bz))
-					lm.enqueue_nolock (x + 1, y, z);
-				if (is_light_inconsistent (ch, bx - 1, y, bz))
-					lm.enqueue_nolock (x - 1, y, z);
-				if (is_light_inconsistent (ch, bx, y, bz + 1))
-					lm.enqueue_nolock (x, y, z + 1);
-				if (is_light_inconsistent (ch, bx, y, bz - 1))
-					lm.enqueue_nolock (x, y, z - 1);
-				if ((y < 255) && is_light_inconsistent (ch, bx, y + 1, bz))
-					lm.enqueue_nolock (x, y + 1, z);
-				if ((y >   0) && is_light_inconsistent (ch, bx, y - 1, bz))
-					lm.enqueue_nolock (x, y - 1, z);
-				
-				// go through the entire column again and check for more
-				// inconsistencies.
-				char sl, cur_sl = 0xF;
-				unsigned short id;
-				
-				int cx = x >> 4;
-				int cz = z >> 4;
-				int bx = x & 0xF;
-				int bz = z & 0xF;
-				
-				for (int yy = 254; yy >= 0; --yy)
-					{
-						id = ch->get_id (bx, yy, bz);
-						sl = block_info::from_id (id)->opacity;
-						cur_sl -= sl;
-						ch->set_sky_light (bx, yy, bz, (cur_sl > 0) ? cur_sl : 0);
-						
-						// check neighbouring blocks
-						if (cur_sl > 0)
-							{
-								if (is_light_inconsistent (ch, bx + 1, yy, bz))
-									lm.enqueue_nolock (x + 1, yy, z);
-								if (is_light_inconsistent (ch, bx - 1, yy, bz))
-									lm.enqueue_nolock (x - 1, yy, z);
-								if (is_light_inconsistent (ch, bx, yy, bz + 1))
-									lm.enqueue_nolock (x, yy, z + 1);
-								if (is_light_inconsistent (ch, bx, yy, bz - 1))
-									lm.enqueue_nolock (x, yy, z - 1);
-							}
-						else break;
-					}
+				nl = 0;
 			}
-			
-			return new_sl;
+		else if ((y + 1) >= ch->get_height (bx, bz))
+			{
+				nl = 15 - this_info->opacity;
+			}
+		else
+			{		
+				auto brightest = brightest_block_in_vicinity (lm, wr, x, y, z);
+				//std::cout << "  Brightest block is " << (int)brightest.first << " (" << brightest.second << " blocks away)" << std::endl;
+				
+				nl = brightest.first - brightest.second;
+				if (nl < 0 || !lm.connected_to_fully_lit_block)
+					nl = 0;
+			}
+		
+		if (this_block.sl != nl)
+			{
+				wr->set_sky_light (x, y, z, nl);
+				std::cout << "[" << x << " " << y << " " << z << "] id: " << this_block.id << ", sl: " << (int)this_block.sl << " -> " << (int)nl << "." << std::endl;
+				
+				if (block_info::from_id (wr->get_id (x + 1, y, z))->opacity < 15)
+					lm.enqueue_nolock (x + 1, y, z);
+				if (block_info::from_id (wr->get_id (x - 1, y, z))->opacity < 15)
+					lm.enqueue_nolock (x - 1, y, z);
+				if ((y < 255) && (block_info::from_id (wr->get_id (x, y + 1, z))->opacity < 15))
+					lm.enqueue_nolock (x, y + 1, z);
+				if ((y >   0) && (block_info::from_id (wr->get_id (x, y - 1, z))->opacity < 15))
+					lm.enqueue_nolock (x, y - 1, z);
+				if (block_info::from_id (wr->get_id (x, y, z + 1))->opacity < 15)
+					lm.enqueue_nolock (x, y, z + 1);
+				if (block_info::from_id (wr->get_id (x, y, z - 1))->opacity < 15)
+					lm.enqueue_nolock (x, y, z - 1);
+			}
+		
+		return nl;
 	}
 	
 	
@@ -254,7 +368,7 @@ namespace hCraft {
 		if (this->updates.empty () && (this->handled_since_empty > 0))
 			{
 				this->overloaded = false;
-				this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
+				//this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
 				this->handled_since_empty = 0;
 			}
 		

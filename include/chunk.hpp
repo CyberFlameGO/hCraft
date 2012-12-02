@@ -123,10 +123,13 @@ namespace hCraft {
 	{
 		subchunk *subs[16];
 		unsigned char biomes[256];
-		short heightmap[256];
+		int heightmap[256];
 		
 		std::unordered_set<entity *> entities;
 		std::mutex entity_lock;
+		
+	private:
+		int top_nonempty_subchunk ();
 		
 	public:
 		bool modified;
@@ -192,10 +195,7 @@ namespace hCraft {
 		/* 
 		 * Lighting (re)calculation.
 		 */
-		
-		void relight (int x, int z, bool stop_at_zero = true);
-		void relight (bool stop_at_zero = true);
-		
+		void relight ();
 		
 		/* 
 		 * (Re)creates the chunk's heightmap.

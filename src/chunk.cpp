@@ -276,7 +276,9 @@ namespace hCraft {
 				this->subs[i] = nullptr;
 			}
 		
-		std::memset (this->heightmap, 0, 256 * sizeof (short));
+		for (int i = 0; i < 256; ++i)
+			this->heightmap[i] = 0;
+		
 		std::memset (this->biomes, BI_PLAINS, 256);
 		this->modified = true;
 		
@@ -326,10 +328,6 @@ namespace hCraft {
 				else
 					sub = this->subs[sy] = new subchunk ();
 			}
-		
-		
-		block_info *old_inf = block_info::from_id (this->get_id (x, y, z));
-		block_info *new_inf = block_info::from_id (id);
 		
 		this->modified = true;
 		sub->set_id (x, y & 0xF, z, id);
@@ -475,30 +473,21 @@ namespace hCraft {
 	 */
 	
 	void
-	chunk::relight (int x, int z, bool stop_at_zero)
-	{
-		// the top-most layer is always lit.
-		this->set_sky_light (x, 255, z, 15);
-		
-		char curr_opacity = 15;
-		for (int y = 254; y >= 0; --y)
-			{
-				if (curr_opacity > 0)
-					curr_opacity -= block_info::from_id (this->get_id (x, y, z))->opacity;
-				else if (stop_at_zero)
-					break;
-				
-				this->set_sky_light (x, y, z, (curr_opacity > 0) ? curr_opacity : 0);
-			}
-	}
-	
-	void
-	chunk::relight (bool stop_at_zero)
+	chunk::relight ()
 	{
 		for (int x = 0; x < 16; ++x)
 			for (int z = 0; z < 16; ++z)
 				{
-					this->relight (x, z, stop_at_zero);
+					// the top-most layer is always lit.
+					this->set_sky_light (x, 255, z, 15);
+		
+					char curr_opacity = 15;
+					for (int y = 254; y >= 0; --y)
+						{
+							if (curr_opacity > 0)
+								curr_opacity -= block_info::from_id (this->get_id (x, y, z))->opacity;
+							this->set_sky_light (x, y, z, (curr_opacity > 0) ? curr_opacity : 0);
+						}
 				}
 	}
 	
@@ -515,11 +504,11 @@ namespace hCraft {
 		for (h = 255; h >= 0; --h)
 			{
 				block_info *binf = block_info::from_id (this->get_id (x, h, z));
-				if (binf->state == BS_SOLID && binf->obscures_light)
+				if (binf->state == BS_SOLID && binf->opaque)
 					break;
 			}
-		this->set_height (x, z, h);
-		return h;
+		this->set_height (x, z, h + 1);
+		return h + 1;
 	}
 	
 	void

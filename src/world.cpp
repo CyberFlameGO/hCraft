@@ -45,7 +45,7 @@ namespace hCraft {
 	 */
 	world::world (const char *name, logger &log, world_generator *gen,
 		world_provider *provider)
-		: log (log), lightman (log, this)
+		: log (log), lm (log, this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -143,11 +143,6 @@ namespace hCraft {
 	
 	
 	
-	static void
-	update_height_map (world *wr, chunk *ch, int x, int z)
-	{
-		
-	}
 	
 	/* 
 	 * The function ran by the world's thread.
@@ -198,7 +193,7 @@ namespace hCraft {
 							chunk *ch = this->get_chunk_at (update.x, update.z);
 							this->set_id_and_meta (update.x, update.y, update.z,
 								update.id, update.meta);
-							if (new_inf->obscures_light != old_inf->obscures_light)
+							if (new_inf->opaque != old_inf->opaque)
 								ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
 							
 							this->get_players ().send_to_all (packet::make_block_change (
@@ -208,10 +203,7 @@ namespace hCraft {
 								{
 									if (auto_lighting)
 										{
-											if (new_inf->obscures_light != old_inf->obscures_light)
-												update_height_map (this, ch, update.x & 0xF, update.z & 0xF);
-											
-											this->lightman.enqueue (update.x, update.y, update.z);
+											this->lm.enqueue (update.x, update.y, update.z);
 										}
 								}
 							
@@ -222,9 +214,9 @@ namespace hCraft {
 					/* 
 					 * Lighting updates.
 					 */
-					int handled = this->lightman.update (light_update_cap);
-					if (handled)
-						this->log (LT_DEBUG) << "World: " << handled << " updates." << std::endl;
+					int handled = this->lm.update (light_update_cap);
+				//	if (handled)
+				//		this->log (LT_DEBUG) << "World: " << handled << " updates." << std::endl;
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -485,7 +477,7 @@ namespace hCraft {
 		this->put_chunk (x, z, ch);
 		this->gen->generate (*this, ch, x, z);
 		ch->recalc_heightmap ();
-		ch->relight (false);
+		ch->relight ();
 		return ch;
 	}
 	

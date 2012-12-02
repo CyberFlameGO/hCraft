@@ -21,6 +21,7 @@
 
 #include <queue>
 #include <mutex>
+#include <bitset>
 
 
 namespace hCraft {
@@ -60,6 +61,10 @@ namespace hCraft {
 		bool overloaded;
 		int limit;
 		int handled_since_empty;
+		
+	public:
+		std::bitset<32768> visited;
+		bool connected_to_fully_lit_block;
 		
 	public:
 		inline world* get_world () const { return this->wr; }

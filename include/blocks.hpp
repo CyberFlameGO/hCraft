@@ -198,14 +198,13 @@ namespace hCraft {
 		char opacity;
 		char luminance;
 		char max_stack;
-		bool transmits_light;
-		bool obscures_light;
+		bool opaque;
 		
 	//----
 		
 		block_info (unsigned short id, const char *name, float blast_resistance,
-			char opacity, char luminance, char max_stack, bool transmits_light,
-			bool obscures_light, block_state state);
+			char opacity, char luminance, char max_stack, bool opaque,
+			block_state state);
 			
 	//----
 		

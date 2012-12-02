@@ -81,7 +81,6 @@ namespace hCraft {
 		
 		std::queue<block_update> updates;
 		std::recursive_mutex update_lock;
-		lighting_manager lightman;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -93,6 +92,8 @@ namespace hCraft {
 		
 		world_generator *gen;
 		world_provider *prov;
+		
+		lighting_manager lm;
 		
 	public:
 		bool auto_lighting;
