@@ -21,7 +21,6 @@
 #include "blocks.hpp"
 #include "world.hpp"
 
-#include <cmath>
 #include <utility>
 #include <bitset>
 
@@ -95,9 +94,31 @@ namespace hCraft {
 	
 	
 	
+	static short
+	isqrt (short num)
+	{
+		short res = 0;
+		short bit = 1 << 14;
+		while (bit > num)
+			bit >>= 2;
+		
+		while (bit != 0)
+			{
+				if (num >= res + bit)
+					{
+						num -= res + bit;
+						res = (res >> 1) + bit;
+					}
+				else
+					res >>= 1;
+				bit >>= 2;
+			}
+		return res;
+	}
+
 	static inline unsigned int
 	relative_index (int rx, int ry, int rz)
-		{ return ((rz + 16) << 8) | ((ry + 16) << 4) | (rx + 16); }
+		{ return ((rz + 16) << 10) | ((ry + 16) << 5) | (rx + 16); }
 	
 	static void
 	brightest_block_in_vicinity_do (world *wr, int rx, int ry, int rz,
@@ -108,68 +129,108 @@ namespace hCraft {
 		int ny = oy + ry;
 		int nz = oz + rz;
 		
+		int cx = nx >> 4;
+		int cz = nz >> 4;
+		int bx = nx & 15;
+		int bz = nz & 15;
+		chunk *ch = wr->get_chunk (cx, cz);
+		if (!ch) return;
+		//std::cout << "<<< entering (" << nx << " " << ny << " " << nz << ") = " << relative_index (rx, ry, rz) << std::endl;
+		
 		int distance = 0;
 		{
 			int sx = rx * rx;
 			int sy = ry * ry;
 			int sz = rz * rz;
-			distance = (int)std::sqrt(sx + sy + sz);
+			distance = isqrt(sx + sy + sz);
 		}
 		
-		if (brightest.first == 15 && (distance > 0))
-			return;
+		//if (brightest.first == 15 && (distance > 0))
+		//	return;
 		if (((oy + ry) > 255) || ((oy + ry) < 0))
 			return;
 		
 		//std::cout << "  around [" << ox << " " << oy << " " << oz << "]: [" << (ox + rx) << " " <<
 		//	(oy + ry) << " " << (oz + rz) << "] ->" << std::endl;
 		
+		//std::cout << "  <<<<<< A" << std::endl;
 		unsigned int index = relative_index (rx, ry, rz);
 		if (visited.test (index)) return;
 		visited.set (index, true);
+		//std::cout << "  <<<<<< B" << std::endl;
 		
-		chunk *ch = wr->get_chunk_at (nx, nz);
-		if (!ch) return;
-		if ((oy + ry + 1) >= ch->get_height (nx & 15, nz & 15))
+		block_data bd_this = ch->get_block (bx, ny, bz);
+		if (distance == 0) bd_this.sl = 0;
+		
+		//std::cout << "  this brightness: " << (bd_this.sl - distance) << " (sl: " << (int)bd_this.sl <<
+		//	", distance: " << distance << ")" << std::endl;
+		//std::cout << "  prev brightness: " << (brightest.first - brightest.second) << " (sl: " << (int)brightest.first <<
+		//	", distance: " << brightest.second << ")" << std::endl;
+			
+		int prev_bright = brightest.first - brightest.second;
+		int curr_bright = bd_this.sl - distance;
+		if (distance > 0)
 			{
-				if ((15 - distance) > (brightest.first - brightest.second))
+				if ((curr_bright > prev_bright) ||
+					((curr_bright == prev_bright) && (bd_this.sl > brightest.first)))
+				{
+					//std::cout << "   - new brightest!" << std::endl;
+					brightest.first = bd_this.sl;
+					brightest.second = distance;
+				}
+				
+				if (bd_this.sl == 15)
+					connected_to_fully_lit_block = true;
+				
+				if ((oy + ry + 1) >= ch->get_height (nx & 15, nz & 15))
 					{
-						brightest.first = 15;
-						brightest.second = distance;
+						if ((15 - distance) > (brightest.first - brightest.second))
+							{
+								brightest.first = 15;
+								brightest.second = distance;
+							}
+						return;
 					}
-				return;
 			}
 		
-		block_data bd_left = wr->get_block (nx + 1, ny, nz);
-		block_data bd_right = wr->get_block (nx - 1, ny, nz);
-		block_data bd_up = wr->get_block (nx, ny + 1, nz);
-		block_data bd_down = wr->get_block (nx, ny - 1, nz);
-		block_data bd_forward = wr->get_block (nx, ny, nz + 1);
-		block_data bd_back = wr->get_block (nx, ny, nz - 1);
+		unsigned short id_left = (bx < 15)
+			? ch->get_id (bx + 1, ny, bz)
+			: (ch->east
+				? ch->east->get_id (0, ny, bz)
+				: 0);
+		unsigned short id_right = (bx > 0)
+			? ch->get_id (bx - 1, ny, bz)
+			: (ch->west
+				? ch->west->get_id (15, ny, bz)
+				: 0);
+		unsigned short id_up = (ny < 255) ? ch->get_id (bx, ny + 1, bz) : 15;
+		unsigned short id_down = (ny > 0) ? ch->get_id (bx, ny - 1, bz) : 0;
+		unsigned short id_forward = (bz < 15)
+			? ch->get_id (bx, ny, bz + 1)
+			: (ch->south
+				? ch->south->get_id (bx, ny, 0)
+				: 0);
+		unsigned short id_back = (bx > 0)
+			? ch->get_id (bx - 1, ny, bz)
+			: (ch->north
+				? ch->north->get_id (bx, ny, 15)
+				: 0);
 		
 		/*
-		std::cout << "   - left    +x: " << bd_left.id << ", sl: " << (int)bd_left.sl << " (distance: " << (distance + 1) << ")" << std::endl;
-		std::cout << "   - right   -x: " << bd_right.id << ", sl: " << (int)bd_right.sl << " (distance: " << (distance + 1) << ")" << std::endl;
-		std::cout << "   - up      +y: " << bd_up.id << ", sl: " << (int)bd_up.sl << " (distance: " << (distance + 1) << ")" << std::endl;
-		std::cout << "   - down    -y: " << bd_down.id << ", sl: " << (int)bd_down.sl << " (distance: " << (distance + 1) << ")" << std::endl;
-		std::cout << "   - forward +z: " << bd_forward.id << ", sl: " << (int)bd_forward.sl << " (distance: " << (distance + 1) << ")" << std::endl;
-		std::cout << "   - back    -z: " << bd_back.id << ", sl: " << (int)bd_back.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - left    +x (" << nx << " " << ny << " " << nz << "): " << bd_left.id << ", sl: " << (int)bd_left.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - right   -x (" << nx << " " << ny << " " << nz << "): " << bd_right.id << ", sl: " << (int)bd_right.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - up      +y (" << nx << " " << ny << " " << nz << "): " << bd_up.id << ", sl: " << (int)bd_up.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - down    -y (" << nx << " " << ny << " " << nz << "): " << bd_down.id << ", sl: " << (int)bd_down.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - forward +z (" << nx << " " << ny << " " << nz << "): " << bd_forward.id << ", sl: " << (int)bd_forward.sl << " (distance: " << (distance + 1) << ")" << std::endl;
+		std::cout << "   - back    -z (" << nx << " " << ny << " " << nz << "): " << bd_back.id << ", sl: " << (int)bd_back.sl << " (distance: " << (distance + 1) << ")" << std::endl;
 		*/
 		
 		// 
 		// Left (+x)
 		// 
-		if (!block_info::from_id (bd_left.id)->opaque)
+		if (!block_info::from_id (id_left)->opaque)
 			{
-				if ((bd_left.sl - distance + 1) > (brightest.first - brightest.second))
-					{
-						brightest.first = bd_left.sl;
-						brightest.second = distance + 1;
-					}
-				if (bd_left.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					brightest_block_in_vicinity_do (wr, rx + 1, ry, rz, ox, oy, oz,
 						visited, brightest, connected_to_fully_lit_block);
 			}
@@ -177,17 +238,9 @@ namespace hCraft {
 		// 
 		// Right (-x)
 		// 
-		if (!block_info::from_id (bd_right.id)->opaque)
+		if (!block_info::from_id (id_right)->opaque)
 			{
-				if ((bd_right.sl - distance + 1) > (brightest.first - brightest.second))
-					{
-						brightest.first = bd_right.sl;
-						brightest.second = distance + 1;
-					}
-				if (bd_right.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					brightest_block_in_vicinity_do (wr, rx - 1, ry, rz, ox, oy, oz,
 						visited, brightest, connected_to_fully_lit_block);
 			}
@@ -195,17 +248,9 @@ namespace hCraft {
 		// 
 		// Up (+y)
 		// 
-		if (!block_info::from_id (bd_up.id)->opaque)
+		if ((ny < 255) && !block_info::from_id (id_up)->opaque)
 			{
-				if ((bd_up.sl - distance + 1) > (brightest.first - brightest.second))
-					{
-						brightest.first = bd_up.sl;
-						brightest.second = distance + 1;
-					}
-				if (bd_up.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					brightest_block_in_vicinity_do (wr, rx, ry + 1, rz, ox, oy, oz,
 						visited, brightest, connected_to_fully_lit_block);
 			}
@@ -213,17 +258,9 @@ namespace hCraft {
 		// 
 		// Down (-y)
 		// 
-		if (!block_info::from_id (bd_down.id)->opaque)
+		if ((ny > 0) && !block_info::from_id (id_down)->opaque)
 			{
-				if ((bd_down.sl - distance + 1) > (brightest.first - brightest.second))
-					{
-						brightest.first = bd_down.sl;
-						brightest.second = distance + 1;
-					}
-				if (bd_down.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					brightest_block_in_vicinity_do (wr, rx, ry - 1, rz, ox, oy, oz,
 						visited, brightest, connected_to_fully_lit_block);
 			}
@@ -231,17 +268,9 @@ namespace hCraft {
 		// 
 		// Forward (+z)
 		// 
-		if (!block_info::from_id (bd_forward.id)->opaque)
+		if (!block_info::from_id (id_forward)->opaque)
 			{
-				if ((bd_forward.sl - distance + 1) > (brightest.first - brightest.second))
-					{
-						brightest.first = bd_forward.sl;
-						brightest.second = distance + 1;
-					}
-				if (bd_forward.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					brightest_block_in_vicinity_do (wr, rx, ry, rz + 1, ox, oy, oz,
 						visited, brightest, connected_to_fully_lit_block);
 			}
@@ -249,19 +278,13 @@ namespace hCraft {
 		// 
 		// Back (-z)
 		// 
-		if (!block_info::from_id (bd_back.id)->opaque)
+		if (!block_info::from_id (id_back)->opaque)
 			{
-				if ((bd_back.sl - distance + 1) > (brightest.first - brightest.second))
+				if (distance < 15/* && (brightest.first != 15)*/)
 					{
-						brightest.first = bd_back.sl;
-						brightest.second = distance + 1;
+						brightest_block_in_vicinity_do (wr, rx, ry, rz - 1, ox, oy, oz,
+							visited, brightest, connected_to_fully_lit_block);
 					}
-				if (bd_back.sl == 15)
-					connected_to_fully_lit_block = true;
-				
-				if (distance < 15 && (brightest.first != 15))
-					brightest_block_in_vicinity_do (wr, rx, ry, rz - 1, ox, oy, oz,
-						visited, brightest, connected_to_fully_lit_block);
 			}
 	}
 	
@@ -274,8 +297,8 @@ namespace hCraft {
 		visited.reset ();
 		lm.connected_to_fully_lit_block = false;
 		
-		block_data this_block = wr->get_block (x, y, z);
-		std::pair<char, int> brightest (this_block.sl, 0);
+		//block_data this_block = wr->get_block (x, y, z);
+		std::pair<char, int> brightest (0, 0);
 		
 		brightest_block_in_vicinity_do (wr, 0, 0, 0, x, y, z, visited, brightest,
 			lm.connected_to_fully_lit_block);
@@ -286,6 +309,7 @@ namespace hCraft {
 	calc_sky_light (lighting_manager &lm, int x, int y, int z)
 	{
 		world *wr = lm.get_world ();
+		//std::cout << "Checking [" << x << " " << y << " " << z << "] ->" << std::endl;
 		
 		int cx = x >> 4;
 		int cz = z >> 4;
@@ -294,7 +318,7 @@ namespace hCraft {
 		chunk *ch = wr->get_chunk (cx, cz);
 		if (!ch) return 0;
 		
-		block_data this_block = wr->get_block (x, y, z);
+		block_data this_block = ch->get_block (bx, y, bz);
 		block_info *this_info = block_info::from_id (this_block.id);
 		char nl;
 		
@@ -309,7 +333,7 @@ namespace hCraft {
 		else
 			{		
 				auto brightest = brightest_block_in_vicinity (lm, wr, x, y, z);
-				//std::cout << "  Brightest block is " << (int)brightest.first << " (" << brightest.second << " blocks away)" << std::endl;
+				//std::cout << " Brightest block is " << (int)brightest.first << " (" << brightest.second << " blocks away) (F: " << (brightest.first - brightest.second) << ")" << std::endl;
 				
 				nl = brightest.first - brightest.second;
 				if (nl < 0 || !lm.connected_to_fully_lit_block)
@@ -318,20 +342,20 @@ namespace hCraft {
 		
 		if (this_block.sl != nl)
 			{
-				wr->set_sky_light (x, y, z, nl);
-				std::cout << "[" << x << " " << y << " " << z << "] id: " << this_block.id << ", sl: " << (int)this_block.sl << " -> " << (int)nl << "." << std::endl;
+				ch->set_sky_light (bx, y, bz, nl);
+				//std::cout << "  [" << x << " " << y << " " << z << "] id: " << this_block.id << ", sl: " << (int)this_block.sl << " -> " << (int)nl << "." << std::endl;
 				
-				if (block_info::from_id (wr->get_id (x + 1, y, z))->opacity < 15)
+				//if (block_info::from_id (wr->get_id (x + 1, y, z))->opacity < 15)
 					lm.enqueue_nolock (x + 1, y, z);
-				if (block_info::from_id (wr->get_id (x - 1, y, z))->opacity < 15)
+				//if (block_info::from_id (wr->get_id (x - 1, y, z))->opacity < 15)
 					lm.enqueue_nolock (x - 1, y, z);
-				if ((y < 255) && (block_info::from_id (wr->get_id (x, y + 1, z))->opacity < 15))
+				//if ((y < 255) && (block_info::from_id (wr->get_id (x, y + 1, z))->opacity < 15))
 					lm.enqueue_nolock (x, y + 1, z);
-				if ((y >   0) && (block_info::from_id (wr->get_id (x, y - 1, z))->opacity < 15))
+				//if ((y >   0) && (block_info::from_id (wr->get_id (x, y - 1, z))->opacity < 15))
 					lm.enqueue_nolock (x, y - 1, z);
-				if (block_info::from_id (wr->get_id (x, y, z + 1))->opacity < 15)
+				//if (block_info::from_id (wr->get_id (x, y, z + 1))->opacity < 15)
 					lm.enqueue_nolock (x, y, z + 1);
-				if (block_info::from_id (wr->get_id (x, y, z - 1))->opacity < 15)
+				//if (block_info::from_id (wr->get_id (x, y, z - 1))->opacity < 15)
 					lm.enqueue_nolock (x, y, z - 1);
 			}
 		
@@ -368,7 +392,7 @@ namespace hCraft {
 		if (this->updates.empty () && (this->handled_since_empty > 0))
 			{
 				this->overloaded = false;
-				//this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
+				this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
 				this->handled_since_empty = 0;
 			}
 		
