@@ -60,6 +60,14 @@ namespace hCraft {
 		this->players = new playerlist ();
 		this->th_running = false;
 		this->auto_lighting = true;
+		
+		// physics blocks
+		{
+#define REGISTER_BLOCK(B)  \
+	{ B *a = new B ();        \
+		this->phblocks[a->id ()].reset (a); }
+			
+		}
 	}
 	
 	/* 
@@ -152,6 +160,7 @@ namespace hCraft {
 	{
 		const static int block_update_cap = 10000; // per tick
 		const static int light_update_cap = 10000; // per tick
+		const static int ph_update_cap    = 200;
 		
 		int update_count;
 		
@@ -161,7 +170,7 @@ namespace hCraft {
 		while (this->th_running)
 			{
 				{
-					std::lock_guard<std::recursive_mutex> guard {this->update_lock};
+					std::lock_guard<std::mutex> guard {this->update_lock};
 					
 					/* 
 					 * Block updates.
@@ -205,6 +214,12 @@ namespace hCraft {
 										{
 											this->lm.enqueue (update.x, update.y, update.z);
 										}
+									
+									// physics
+									auto itr = this->phblocks.find (update.id);
+									if (itr != this->phblocks.end ())
+										this->phupdates.emplace (update.x, update.y, update.z,
+											update.extra, std::chrono::system_clock::now ());
 								}
 							
 							this->updates.pop ();
@@ -215,8 +230,35 @@ namespace hCraft {
 					 * Lighting updates.
 					 */
 					int handled = this->lm.update (light_update_cap);
-				//	if (handled)
-				//		this->log (LT_DEBUG) << "World: " << handled << " updates." << std::endl;
+					
+					/* 
+					 * Physics.
+					 */
+					update_count = 0;
+					while (!phupdates.empty () && (update_count < ph_update_cap))
+						{
+							physics_update u = this->phupdates.front ();
+							this->phupdates.pop ();
+							
+							unsigned short id = this->get_id (u.x, u.y, u.z);
+							physics_block *ph; {
+								auto itr = this->phblocks.find (id);
+								if (itr == this->phblocks.end ())
+									continue;
+								ph = itr->second.get ();
+							}
+							
+							if ((u.last_tick + std::chrono::milliseconds (ph->tick_rate ()))
+								> std::chrono::system_clock::now ())
+								{
+									this->phupdates.push (u);
+									continue;
+								}
+							
+							ph->tick (*this, u.x, u.y, u.z, u.extra);
+							++ update_count;
+							
+						}
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -585,8 +627,22 @@ namespace hCraft {
 	world::queue_update (int x, int y, int z, unsigned short id,
 		unsigned char meta, player *pl)
 	{
-		std::lock_guard<std::recursive_mutex> guard {this->update_lock};
-		this->updates.emplace (x, y, z, id, meta, pl);
+		std::lock_guard<std::mutex> guard {this->update_lock};
+		this->updates.emplace (x, y, z, id, meta, 0, pl);
+	}
+	
+	void
+	world::queue_update_nolock (int x, int y, int z, unsigned short id,
+		unsigned char meta, int extra, player *pl)
+	{
+		this->updates.emplace (x, y, z, id, meta, extra, pl);
+	}
+	
+	void
+	world::queue_physics (int x, int y, int z, int extra)
+	{
+		std::lock_guard<std::mutex> guard {this->update_lock};
+		this->phupdates.emplace (x, y, z, extra, std::chrono::system_clock::now ());
 	}
 }
 

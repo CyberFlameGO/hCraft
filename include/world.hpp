@@ -24,12 +24,14 @@
 #include "worldgenerator.hpp"
 #include "worldprovider.hpp"
 #include "lighting.hpp"
+#include "physics/physics.hpp"
 
 #include <unordered_map>
 #include <mutex>
 #include <queue>
 #include <memory>
 #include <thread>
+#include <chrono>
 
 
 namespace hCraft {
@@ -47,12 +49,13 @@ namespace hCraft {
 		int x;
 		int y;
 		int z;
+		int extra;
 		unsigned short id;
 		unsigned char  meta;
 		player *pl; // the player that initated the update.
 		
 		block_update (int x, int y, int z, unsigned short id, unsigned char meta,
-			player *pl)
+			int extra, player *pl)
 		{
 			this->x = x;
 			this->y = y;
@@ -60,6 +63,26 @@ namespace hCraft {
 			this->id = id;
 			this->meta = meta;
 			this->pl = pl;
+			this->extra = extra;
+		}
+	};
+	
+	struct physics_update
+	{
+		int x;
+		int y;
+		int z;
+		int extra;
+		std::chrono::time_point<std::chrono::system_clock> last_tick;
+		
+		physics_update (int x, int y, int z, int extra,
+			std::chrono::time_point<std::chrono::system_clock> lt)
+			: last_tick (lt)
+		{
+			this->x = x;
+			this->y = y;
+			this->z = z;
+			this->extra = extra;
 		}
 	};
 	
@@ -80,7 +103,9 @@ namespace hCraft {
 		bool th_running;
 		
 		std::queue<block_update> updates;
-		std::recursive_mutex update_lock;
+		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
+		std::queue<physics_update> phupdates;
+		std::mutex update_lock;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -228,7 +253,11 @@ namespace hCraft {
 		 * and sent to nearby players.
 		 */
 		void queue_update (int x, int y, int z, unsigned short id,
-			unsigned char meta, player *pl = nullptr);
+			unsigned char meta = 0, player *pl = nullptr);
+		void queue_update_nolock (int x, int y, int z, unsigned short id,
+			unsigned char meta = 0, int extra = 0, player *pl = nullptr);
+		
+		void queue_physics (int x, int y, int z, int extra = 0);
 	};
 }
 

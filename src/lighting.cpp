@@ -25,8 +25,6 @@
 #include <bitset>
 #include <vector>
 
-#include <iostream> // DEBUG
-
 namespace hCraft {
 	
 	/* 
@@ -172,7 +170,7 @@ namespace hCraft {
 		if (this->updates.empty () && (this->handled_since_empty > 0))
 			{
 				this->overloaded = false;
-				this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
+				//this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
 				this->handled_since_empty = 0;
 			}
 		
