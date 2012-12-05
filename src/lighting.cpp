@@ -85,39 +85,6 @@ namespace hCraft {
 	
 	
 	static char
-	skylight_at (world *wr, int x, int y, int z)
-	{
-		if (y < 0) return 0;
-		if (y >= 255) return 0xF;
-		
-		return wr->get_sky_light (x, y, z);
-	}
-	
-	
-	
-	static short
-	isqrt (short num)
-	{
-		short res = 0;
-		short bit = 1 << 14;
-		while (bit > num)
-			bit >>= 2;
-		
-		while (bit != 0)
-			{
-				if (num >= res + bit)
-					{
-						num -= res + bit;
-						res = (res >> 1) + bit;
-					}
-				else
-					res >>= 1;
-				bit >>= 2;
-			}
-		return res;
-	}
-	
-	static char
 	calc_sky_light (lighting_manager &lm, int x, int y, int z, bool a)
 	{
 		world *wr = lm.get_world ();
@@ -131,7 +98,6 @@ namespace hCraft {
 		
 		block_data this_block = ch->get_block (bx, y, bz);
 		block_info *this_info = block_info::from_id (this_block.id);
-		//std::cout << "Checking [" << x << " " << y << " " << z << "] (id: " << this_block.id << ", sl: " << (int)this_block.sl << ") ->" << std::endl;
 		char nl;
 		
 		if (this_info->opacity == 15)
@@ -143,12 +109,7 @@ namespace hCraft {
 				nl = 15 - this_info->opacity;
 			}
 		else
-			{		
-				//auto brightest = brightest_block_in_vicinity (lm, wr, x, y, z);
-	 			//std::cout << " Brightest block is " << (int)brightest.first << " (" << brightest.second << " blocks away) (F: " << (brightest.first - brightest.second) << ")" << std::endl;
-				//nl = brightest.first - brightest.second;
-				//if (nl < 0) nl = 0;
-				
+			{
 				char sle = (bx < 15) ? ch->get_sky_light (bx + 1, y, bz)
 														 : (ch->east ? ch->east->get_sky_light (0, y, bz) : 0);
 				char slw = (bx >  0) ? ch->get_sky_light (bx - 1, y, bz)
@@ -169,19 +130,13 @@ namespace hCraft {
 			{
 				ch->set_sky_light (bx, y, bz, nl);
 				//std::cout << "  [" << x << " " << y << " " << z << "] id: " << this_block.id << ", sl: " << (int)this_block.sl << " -> " << (int)nl << "." << std::endl;
-				
-				//if (block_info::from_id (wr->get_id (x + 1, y, z))->opacity < 15)
-					lm.enqueue_nolock (x + 1, y, z);
-				//if (block_info::from_id (wr->get_id (x - 1, y, z))->opacity < 15)
-					lm.enqueue_nolock (x - 1, y, z);
-				//if ((y < 255) && (block_info::from_id (wr->get_id (x, y + 1, z))->opacity < 15))
-					lm.enqueue_nolock (x, y + 1, z);
-				//if ((y >   0) && (block_info::from_id (wr->get_id (x, y - 1, z))->opacity < 15))
-					lm.enqueue_nolock (x, y - 1, z);
-				//if (block_info::from_id (wr->get_id (x, y, z + 1))->opacity < 15)
-					lm.enqueue_nolock (x, y, z + 1);
-				//if (block_info::from_id (wr->get_id (x, y, z - 1))->opacity < 15)
-					lm.enqueue_nolock (x, y, z - 1);
+			
+				lm.enqueue_nolock (x + 1, y, z);
+				lm.enqueue_nolock (x - 1, y, z);
+				lm.enqueue_nolock (x, y + 1, z);
+				lm.enqueue_nolock (x, y - 1, z);
+				lm.enqueue_nolock (x, y, z + 1);
+				lm.enqueue_nolock (x, y, z - 1);
 			}
 		
 		return nl;
