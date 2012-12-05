@@ -39,12 +39,14 @@ namespace hCraft {
 		int x; 
 		int y;
 		int z;
+		bool a;
 		
-		light_update (int xx, int yy, int zz)
+		light_update (int xx, int yy, int zz, bool aa = true)
 		{
 			this->x = xx;
 			this->y = yy;
 			this->z = zz;
+			this->a = aa;
 		}
 	};
 	
@@ -61,10 +63,6 @@ namespace hCraft {
 		bool overloaded;
 		int limit;
 		int handled_since_empty;
-		
-	public:
-		std::bitset<32768> visited;
-		bool connected_to_fully_lit_block;
 		
 	public:
 		inline world* get_world () const { return this->wr; }
@@ -90,7 +88,7 @@ namespace hCraft {
 		 * Pushes a lighting update to the update queue.
 		 */
 		void enqueue (int x, int y, int z);
-		void enqueue_nolock (int x, int y, int z); // not thread-safe
+		void enqueue_nolock (int x, int y, int z, bool a = true); // not thread-safe
 	};
 }
 
