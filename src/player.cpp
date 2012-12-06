@@ -1430,6 +1430,7 @@ namespace hCraft {
 		char cursor_y = reader.read_byte ();
 		char cursor_z = reader.read_byte ();
 		
+		/*
 		if (pl->is_crouched ())
 			{
 				int xx, yy, zz, r = 3;
@@ -1438,7 +1439,7 @@ namespace hCraft {
 						for (zz = (z - r); zz <= (z + r); ++zz)
 							pl->get_world ()->queue_update (xx, yy, zz, 0, 0);
 				return 0;
-			}
+			}*/
 		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{

@@ -28,7 +28,7 @@
 
 #include <unordered_map>
 #include <mutex>
-#include <queue>
+#include <deque>
 #include <memory>
 #include <thread>
 #include <chrono>
@@ -102,10 +102,11 @@ namespace hCraft {
 		std::unique_ptr<std::thread> th;
 		bool th_running;
 		
-		std::queue<block_update> updates;
+		std::deque<block_update> updates;
 		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
-		std::queue<physics_update> phupdates;
+		std::deque<physics_update> phupdates;
 		std::mutex update_lock;
+		bool ph_on;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -246,6 +247,10 @@ namespace hCraft {
 		
 		block_data get_block (int x, int y, int z);
 		
+		bool has_physics_at (int x, int y, int z);
+		physics_block* get_physics_at (int x, int y, int z);
+		unsigned short get_final_id_nolock (int x, int y, int z);
+		
 	//----
 		
 		/* 
@@ -258,6 +263,14 @@ namespace hCraft {
 			unsigned char meta = 0, int extra = 0, player *pl = nullptr);
 		
 		void queue_physics (int x, int y, int z, int extra = 0);
+		void queue_physics_nolock (int x, int y, int z, int extra = 0);
+		
+		// does nothing if the block is already queued to be handled.
+		void queue_physics_once_nolock (int x, int y, int z, int extra = 0);
+		
+		
+		void start_physics ();
+		void stop_physics ();
 	};
 }
 

@@ -25,6 +25,10 @@
 #include <cassert>
 #include <cstring>
 #include <cctype>
+#include <algorithm>
+
+// physics:
+#include "physics/sand.hpp"
 
 
 namespace hCraft {
@@ -66,8 +70,9 @@ namespace hCraft {
 #define REGISTER_BLOCK(B)  \
 	{ B *a = new B ();        \
 		this->phblocks[a->id ()].reset (a); }
-			
+			REGISTER_BLOCK (physics::sand)
 		}
+		this->ph_on = true;
 	}
 	
 	/* 
@@ -143,6 +148,8 @@ namespace hCraft {
 		if (!this->th_running)
 			return;
 		
+		this->stop_physics ();
+		
 		this->th_running = false;
 		if (this->th->joinable ())
 			this->th->join ();
@@ -176,26 +183,39 @@ namespace hCraft {
 					 * Block updates.
 					 */
 					update_count = 0;
-					while (!this->updates.empty () && (update_count < block_update_cap))
+					while (!this->updates.empty () && (update_count++ < block_update_cap))
 						{
 							block_update &update = this->updates.front ();
 							
-							block_info *old_inf = block_info::from_id (
-								this->get_id (update.x, update.y, update.z));
+							block_data old_bd = this->get_block (update.x, update.y, update.z);
+							if (old_bd.id == update.id && old_bd.meta == update.meta)
+								{
+									// nothing modified
+									this->updates.pop_front ();
+									continue;
+								}
+							
+							block_info *old_inf = block_info::from_id (old_bd.id);
 							block_info *new_inf = block_info::from_id (update.id);
+							
+							physics_block *ph = nullptr; {
+								auto itr = this->phblocks.find (update.id);
+								if (itr != this->phblocks.end ())
+									ph = itr->second.get ();
+							}
 							
 							if (((this->width > 0) && ((update.x >= this->width) || (update.x < 0))) ||
 								((this->depth > 0) && ((update.z >= this->depth) || (update.z < 0))) ||
 								((update.y < 0) || (update.y > 255)))
 								{
-									this->updates.pop ();
+									this->updates.pop_front ();
 									continue;
 								}
 							
 							if ((this->get_id (update.x, update.y, update.z) == update.id) &&
 									(this->get_meta (update.x, update.y, update.z) == update.meta))
 								{
-									this->updates.pop ();
+									this->updates.pop_front ();
 									continue;
 								}
 							
@@ -206,7 +226,8 @@ namespace hCraft {
 								ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
 							
 							this->get_players ().send_to_all (packet::make_block_change (
-								update.x, update.y, update.z, update.id, update.meta), update.pl);
+								update.x, update.y, update.z, ph ? ph->vanilla_id () : update.id,
+								update.meta), update.pl);
 							
 							if (ch)
 								{
@@ -216,14 +237,30 @@ namespace hCraft {
 										}
 									
 									// physics
-									auto itr = this->phblocks.find (update.id);
-									if (itr != this->phblocks.end ())
-										this->phupdates.emplace (update.x, update.y, update.z,
-											update.extra, std::chrono::system_clock::now ());
+									if (ph)
+										this->queue_physics_nolock (update.x, update.y, update.z);
+									
+									// check neighbouring blocks
+									{
+										physics_block *nph;
+										
+										int xx, yy, zz;
+										for (xx = (update.x - 1); xx <= (update.x + 1); ++xx)
+											for (yy = (update.y - 1); yy <= (update.y + 1); ++yy)
+												for (zz = (update.z - 1); zz <= (update.z + 1); ++zz)
+													{
+														if ((yy < 0) || (yy > 255))
+															continue;
+														
+														nph = this->get_physics_at (xx, yy, zz);
+														if (nph)
+															nph->on_neighbour_modified (*this, xx, yy, zz,
+																update.x, update.y, update.z);
+													}
+									}
 								}
 							
-							this->updates.pop ();
-							++ update_count;
+							this->updates.pop_front ();
 						}
 					
 					/* 
@@ -234,30 +271,31 @@ namespace hCraft {
 					/* 
 					 * Physics.
 					 */
-					update_count = 0;
-					while (!phupdates.empty () && (update_count < ph_update_cap))
+					if (this->ph_on)
 						{
-							physics_update u = this->phupdates.front ();
-							this->phupdates.pop ();
-							
-							unsigned short id = this->get_id (u.x, u.y, u.z);
-							physics_block *ph; {
-								auto itr = this->phblocks.find (id);
-								if (itr == this->phblocks.end ())
-									continue;
-								ph = itr->second.get ();
-							}
-							
-							if ((u.last_tick + std::chrono::milliseconds (ph->tick_rate ()))
-								> std::chrono::system_clock::now ())
+							update_count = 0;
+							while (!phupdates.empty () && (update_count++ < ph_update_cap))
 								{
-									this->phupdates.push (u);
-									continue;
+									physics_update u = this->phupdates.front ();
+									this->phupdates.pop_front ();
+							
+									unsigned short id = this->get_id (u.x, u.y, u.z);
+									physics_block *ph; {
+										auto itr = this->phblocks.find (id);
+										if (itr == this->phblocks.end ())
+											continue;
+										ph = itr->second.get ();
+									}
+							
+									if ((u.last_tick + std::chrono::milliseconds (ph->tick_rate ()))
+										> std::chrono::system_clock::now ())
+										{
+											this->phupdates.push_back (u);
+											continue;
+										}
+							
+									ph->tick (*this, u.x, u.y, u.z, u.extra);						
 								}
-							
-							ph->tick (*this, u.x, u.y, u.z, u.extra);
-							++ update_count;
-							
 						}
 				}
 				
@@ -616,6 +654,41 @@ namespace hCraft {
 	}
 	
 	
+	bool
+	world::has_physics_at (int x, int y, int z)
+	{
+		unsigned short id = this->get_id (x, y, z);
+		return (this->phblocks.find (id) != this->phblocks.end ());
+	}
+	
+	physics_block*
+	world::get_physics_at (int x, int y, int z)
+	{
+		unsigned short id = this->get_id (x, y, z);
+		auto itr = this->phblocks.find (id);
+		return ((itr == this->phblocks.end ())
+			? nullptr
+			: itr->second.get ());
+	}
+	
+	unsigned short
+	world::get_final_id_nolock (int x, int y, int z)
+	{
+		unsigned short id = this->get_id (x, y, z);
+		for (auto itr = std::begin (this->updates); itr != std::end (this->updates); ++itr)
+			{
+				block_update &u = *itr;
+				if (u.x == x && u.y == y && u.z == z)
+					{
+						id = u.id;
+						break;
+					}
+			}
+		
+		return id;
+	}
+	
+	
 	
 //----
 	
@@ -628,21 +701,61 @@ namespace hCraft {
 		unsigned char meta, player *pl)
 	{
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace (x, y, z, id, meta, 0, pl);
+		this->updates.emplace_back (x, y, z, id, meta, 0, pl);
 	}
 	
 	void
 	world::queue_update_nolock (int x, int y, int z, unsigned short id,
 		unsigned char meta, int extra, player *pl)
 	{
-		this->updates.emplace (x, y, z, id, meta, extra, pl);
+		this->updates.emplace_back (x, y, z, id, meta, extra, pl);
 	}
 	
 	void
 	world::queue_physics (int x, int y, int z, int extra)
 	{
+		if (!this->ph_on) return;
+		
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->phupdates.emplace (x, y, z, extra, std::chrono::system_clock::now ());
+		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+	}
+	
+	void
+	world::queue_physics_nolock (int x, int y, int z, int extra)
+	{
+		if (!this->ph_on) return;
+		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+	}
+	
+	void
+	world::queue_physics_once_nolock (int x, int y, int z, int extra)
+	{
+		if (!this->ph_on) return;
+		if (std::find_if (std::begin (this->phupdates), std::end (this->phupdates),
+			[x, y, z] (const physics_update& u) -> bool
+				{
+					return (u.x == x && u.y == y && u.z == z);
+				}) != std::end (this->phupdates))
+			return;
+		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+	}
+	
+	
+	void
+	world::start_physics ()
+	{
+		if (this->ph_on) return;
+		this->ph_on = true;
+	}
+	
+	void
+	world::stop_physics ()
+	{
+		if (!this->ph_on) return;
+		this->ph_on = false;
+		
+		std::lock_guard<std::mutex> guard {this->update_lock};
+		this->phupdates.clear ();
 	}
 }
 
