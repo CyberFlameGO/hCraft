@@ -811,6 +811,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "tp");
 		_add_command (this->perms, this->commands, "nick");
 		_add_command (this->perms, this->commands, "wunload");
+		_add_command (this->perms, this->commands, "physics");
 	}
 	
 	void
@@ -872,6 +873,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wcreate");
 		grp_executive->add ("command.world.wload");
 		grp_executive->add ("command.world.wunload");
+		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->set_text_color ('c');
 		

@@ -51,6 +51,7 @@ namespace hCraft {
 	static command* create_c_wunload () { return new commands::c_wunload (); }
 	static command* create_c_world () { return new commands::c_world (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
+	static command* create_c_physics () { return new commands::c_physics (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -68,6 +69,7 @@ namespace hCraft {
 			{ "tp", create_c_tp },
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
+			{ "physics", create_c_physics },
 			};
 		
 		auto itr = creators.find (name);
@@ -666,9 +668,9 @@ namespace hCraft {
 		int i;
 		
 		pl->message ("§6Showing help for command §e" + std::string (this->get_name ()) + "§f:");
-		for (; *usage && *help; ++ usage, ++ help)
+		for (i = 1; *usage && *help; ++ usage, ++ help, ++ i)
 			{
-				ss << "  §f(§c" << (i + 1) << "§f): " << color_string (*usage);
+				ss << "  §f(§c" << i << "§f): " << color_string (*usage);
 				pl->message_spaced (ss.str ());
 				ss.str (std::string ()); ss.clear ();
 				

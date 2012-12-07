@@ -106,7 +106,7 @@ namespace hCraft {
 		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
 		std::deque<physics_update> phupdates;
 		std::mutex update_lock;
-		bool ph_on;
+		bool ph_on, ph_paused;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -271,6 +271,7 @@ namespace hCraft {
 		
 		void start_physics ();
 		void stop_physics ();
+		void pause_physics ();
 	};
 }
 

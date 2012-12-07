@@ -114,6 +114,7 @@ namespace hCraft {
 		};
 		
 		
+		
 		/* 
 		 * /wload -
 		 * 
@@ -195,6 +196,7 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
 		
 		
 		/* 
@@ -280,6 +282,7 @@ namespace hCraft {
 		};
 		
 		
+		
 		/* 
 		 * /world - 
 		 * 
@@ -357,6 +360,7 @@ namespace hCraft {
 		};
 		
 		
+		
 		/* 
 		 * /tp -
 		 * 
@@ -426,6 +430,73 @@ namespace hCraft {
 			}
 			
 			const char* get_exec_permission () { return "command.world.tp"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		
+		/* 
+		 * /physics -
+		 * 
+		 * Changes the current state of physics of the player's world.
+		 * 
+		 * Permissions:
+		 *   - command.world.physics
+		 *       Needed to execute the command.
+		 */
+		class c_physics: public command
+		{
+		public:
+			const char* get_name () { return "physics"; }
+			
+			const char*
+			get_summary ()
+				{ return "Changes the current state of physics of the player's world."; }
+			
+			const char**
+			get_usage ()
+			{
+				static const char *usage[] =
+					{
+						"/physics on/resume",
+						"/physics stop",
+						"/physics pause",
+						"/physics [--help/--summary]",
+						nullptr,
+					};
+				return usage;
+			}
+			
+			const char**
+			get_help ()
+			{
+				static const char *help[] =
+					{
+						"(Re)starts block physics.",
+					
+						"Completely stops and removes all further physics updates.",
+					
+						"Temporarily pauses block updates, can be resumed using \"/physics on/resume\".",
+					
+						"Same as calling >/help< on >physics< (\"/help [-s] physics\")",
+						nullptr,
+					};
+				return help;
+			}
+			
+			const char**
+			get_examples ()
+			{
+				static const char *examples[] =
+					{
+						nullptr,
+					};
+				return examples;
+			}
+			
+			const char* get_exec_permission () { return "command.world.physics"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

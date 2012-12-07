@@ -73,6 +73,7 @@ namespace hCraft {
 			REGISTER_BLOCK (physics::sand)
 		}
 		this->ph_on = true;
+		this->ph_paused = false;
 	}
 	
 	/* 
@@ -271,7 +272,7 @@ namespace hCraft {
 					/* 
 					 * Physics.
 					 */
-					if (this->ph_on)
+					if (this->ph_on && !this->ph_paused)
 						{
 							update_count = 0;
 							while (!phupdates.empty () && (update_count++ < ph_update_cap))
@@ -744,8 +745,9 @@ namespace hCraft {
 	void
 	world::start_physics ()
 	{
-		if (this->ph_on) return;
+		//if (this->ph_on) return;
 		this->ph_on = true;
+		this->ph_paused = false;
 	}
 	
 	void
@@ -753,9 +755,17 @@ namespace hCraft {
 	{
 		if (!this->ph_on) return;
 		this->ph_on = false;
+		this->ph_paused = false;
 		
 		std::lock_guard<std::mutex> guard {this->update_lock};
 		this->phupdates.clear ();
+	}
+	
+	void
+	world::pause_physics ()
+	{
+		if (!this->ph_on || this->ph_paused) return;
+		this->ph_paused = true;
 	}
 }
 
