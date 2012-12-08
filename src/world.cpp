@@ -72,8 +72,7 @@ namespace hCraft {
 		this->phblocks[a->id ()].reset (a); }
 			REGISTER_BLOCK (physics::sand)
 		}
-		this->ph_on = true;
-		this->ph_paused = false;
+		this->ph_state = PHY_ON;
 	}
 	
 	/* 
@@ -272,7 +271,7 @@ namespace hCraft {
 					/* 
 					 * Physics.
 					 */
-					if (this->ph_on && !this->ph_paused)
+					if (this->ph_state == PHY_ON)
 						{
 							update_count = 0;
 							while (!phupdates.empty () && (update_count++ < ph_update_cap))
@@ -715,7 +714,7 @@ namespace hCraft {
 	void
 	world::queue_physics (int x, int y, int z, int extra)
 	{
-		if (!this->ph_on) return;
+		if (this->ph_state == PHY_OFF) return;
 		
 		std::lock_guard<std::mutex> guard {this->update_lock};
 		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
@@ -724,14 +723,14 @@ namespace hCraft {
 	void
 	world::queue_physics_nolock (int x, int y, int z, int extra)
 	{
-		if (!this->ph_on) return;
+		if (this->ph_state == PHY_OFF) return;
 		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
 	}
 	
 	void
 	world::queue_physics_once_nolock (int x, int y, int z, int extra)
 	{
-		if (!this->ph_on) return;
+		if (this->ph_state == PHY_OFF) return;
 		if (std::find_if (std::begin (this->phupdates), std::end (this->phupdates),
 			[x, y, z] (const physics_update& u) -> bool
 				{
@@ -745,17 +744,14 @@ namespace hCraft {
 	void
 	world::start_physics ()
 	{
-		//if (this->ph_on) return;
-		this->ph_on = true;
-		this->ph_paused = false;
+		this->ph_state = PHY_ON;
 	}
 	
 	void
 	world::stop_physics ()
 	{
-		if (!this->ph_on) return;
-		this->ph_on = false;
-		this->ph_paused = false;
+		if (this->ph_state == PHY_OFF) return;
+		this->ph_state = PHY_OFF;
 		
 		std::lock_guard<std::mutex> guard {this->update_lock};
 		this->phupdates.clear ();
@@ -764,8 +760,8 @@ namespace hCraft {
 	void
 	world::pause_physics ()
 	{
-		if (!this->ph_on || this->ph_paused) return;
-		this->ph_paused = true;
+		if (this->ph_state == PHY_PAUSED) return;
+		this->ph_state = PHY_PAUSED;
 	}
 }
 

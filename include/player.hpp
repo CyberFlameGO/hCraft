@@ -233,7 +233,7 @@ namespace hCraft {
 		 * Marks the player invalid, forcing the server that spawned the player to
 		 * eventually destroy it.
 		 */
-		void disconnect (bool silent = false);
+		void disconnect (bool silent = false, bool wait_for_callbacks_to_finish = true);
 		
 		/* 
 		 * Kicks the player with the given message.

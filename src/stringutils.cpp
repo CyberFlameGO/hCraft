@@ -89,6 +89,36 @@ namespace hCraft {
 			
 			return char_count == 0;
 		}
+		
+		
+		/* 
+		 * Case-insensitive string equality check.
+		 */
+		bool
+		iequals (const std::string& a, const char *b)
+		{
+			int len = a.length (), i = 0;
+			for (; i < len; ++i)
+				{
+					char ca = a[i];
+					char cb = b[i];
+					if (cb == 0)
+						return false;
+					
+					if (std::tolower (ca) != std::tolower (cb))
+						return false;
+				}
+			
+			if (b[i] != 0)
+				return false;
+			return true;
+		}
+		
+		bool
+		iequals (const std::string& a, const std::string& b)
+		{
+			return iequals (a, b.c_str ());
+		}
 	}
 }
 

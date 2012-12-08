@@ -50,6 +50,13 @@ namespace hCraft {
 		 * both ends.
 		 */
 		bool is_empty (const std::string& s);
+		
+		
+		/* 
+		 * Case-insensitive string equality check.
+		 */
+		bool iequals (const std::string& a, const char *b);
+		bool iequals (const std::string& a, const std::string& b);
 	}
 }
 

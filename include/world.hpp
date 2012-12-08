@@ -86,6 +86,13 @@ namespace hCraft {
 		}
 	};
 	
+	enum world_physics_state
+	{
+		PHY_ON,
+		PHY_OFF,
+		PHY_PAUSED,
+	};
+	
 	
 	
 	/* 
@@ -106,7 +113,7 @@ namespace hCraft {
 		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
 		std::deque<physics_update> phupdates;
 		std::mutex update_lock;
-		bool ph_on, ph_paused;
+		world_physics_state ph_state;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -140,6 +147,8 @@ namespace hCraft {
 		
 		inline entity_pos get_spawn () const { return this->spawn_pos; }
 		inline void set_spawn (const entity_pos& pos) { this->spawn_pos = pos; }
+		
+		inline world_physics_state physics_state () const { return this->ph_state; }
 		
 	private:
 		/* 

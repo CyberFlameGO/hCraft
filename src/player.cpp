@@ -195,7 +195,7 @@ namespace hCraft {
 									catch (const std::exception& ex)
 										{
 											pl->log (LT_ERROR) << "Exception: " << ex.what () << std::endl;
-											pl->disconnect ();
+											pl->disconnect (false, false);
 										}
 								}, data);
 						
@@ -273,7 +273,7 @@ namespace hCraft {
 	 * eventually destroy it.
 	 */
 	void
-	player::disconnect (bool silent)
+	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
 		this->fail = true;
@@ -283,10 +283,11 @@ namespace hCraft {
 		bufferevent_setcb (this->bufev, nullptr, nullptr, nullptr, nullptr);
 		
 		// wait for the I/O to stop.
-		while (this->is_reading () || this->is_writing () || this->handlers_scheduled.load () > 0)
-			{
-				std::this_thread::sleep_for (std::chrono::milliseconds (1));
-			}
+		if (wait_for_callbacks_to_finish)
+			while (this->is_reading () || this->is_writing () || this->handlers_scheduled.load () > 0)
+				{
+					std::this_thread::sleep_for (std::chrono::milliseconds (1));
+				}
 		
 		if (!silent)
 			log () << this->get_username () << " has disconnected." << std::endl;

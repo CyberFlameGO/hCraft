@@ -19,6 +19,7 @@
 #include "worldc.hpp"
 #include "../server.hpp"
 #include "../player.hpp"
+#include "stringutils.hpp"
 
 
 namespace hCraft {
@@ -48,18 +49,33 @@ namespace hCraft {
 			world *wr = pl->get_world ();
 			
 			std::string& opt = reader.arg (0);
-			if (opt == "on" || opt == "resume")
+			if (sutils::iequals (opt, "on") || sutils::iequals (opt, "resume"))
 				{
+					if (wr->physics_state () == PHY_ON)
+						{
+							pl->message ("§c * §ePhysics are already on§f.");
+							return;
+						}
 					wr->start_physics ();
 					wr->get_players ().message ("§a * §6Physics have been turned §aON§6.");
 				}
-			else if (opt == "off")
+			else if (sutils::iequals (opt, "off"))
 				{
+					if (wr->physics_state () == PHY_OFF)
+						{
+							pl->message ("§c * §ePhysics are already off§f.");
+							return;
+						}
 					wr->stop_physics ();
 					wr->get_players ().message ("§a * §6Physics have been turned §cOFF§6.");
 				}
-			else if (opt == "pause")
+			else if (sutils::iequals (opt, "pause"))
 				{
+					if (wr->physics_state () == PHY_PAUSED)
+						{
+							pl->message ("§c * §ePhysics are already paused§f.");
+							return;
+						}
 					wr->pause_physics ();
 					wr->get_players ().message ("§a * §6Physics have been §7PAUSED§6.");
 				}
