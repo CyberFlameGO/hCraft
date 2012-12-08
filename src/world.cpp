@@ -550,7 +550,7 @@ namespace hCraft {
 				this->prov->close ();
 				this->put_chunk (x, z, ch);
 				ch->recalc_heightmap ();
-				ch->relight ();
+				//ch->relight ();
 				return ch;
 			}
 		

@@ -127,8 +127,7 @@ namespace hCraft {
 		if (this_block.sl != nl)
 			{
 				ch->set_sky_light (bx, y, bz, nl);
-				//std::cout << "  [" << x << " " << y << " " << z << "] id: " << this_block.id << ", sl: " << (int)this_block.sl << " -> " << (int)nl << "." << std::endl;
-			
+				
 				lm.enqueue_nolock (x + 1, y, z);
 				lm.enqueue_nolock (x - 1, y, z);
 				lm.enqueue_nolock (x, y + 1, z);
