@@ -881,6 +881,8 @@ namespace hCraft {
 		grp_owner->set_color ('6');
 		grp_owner->set_text_color ('c');
 		grp_owner->add ("*");
+		
+		groups.default_rank.set ("@guest", groups);
 	}
 	
 	static void
