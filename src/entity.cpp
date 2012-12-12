@@ -117,6 +117,13 @@ namespace hCraft {
 	entity::entity (int eid)
 	{
 		this->eid = eid;
+		
+		this->pos.set (0.0, 0.0, 0.0, 0.0f, 0.0f, true);
+		this->on_fire = false;
+		this->crouched = false;
+		this->riding = false;
+		this->sprinting = false;
+		this->right_action = false;
 	}
 	
 	/* 

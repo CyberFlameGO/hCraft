@@ -350,15 +350,12 @@ namespace hCraft {
 			std::mutex lock;
 			std::condition_variable cv;
 			
-			int min_conns;
-			int max_conns;
-			
 		public:
 			/* 
 			 * Constructs a new connection pool, and creates @{min} connections
 			 * on database @{db_name}.
 			 */
-			connection_pool (int min, int max, const char *db_name);
+			connection_pool (int count, const char *db_name);
 			
 			/* 
 			 * Class destructor.

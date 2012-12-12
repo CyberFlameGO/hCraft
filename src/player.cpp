@@ -37,6 +37,8 @@
 #include <iomanip>
 #include <cstdlib>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -48,6 +50,7 @@ namespace hCraft {
 		: srv (srv), log (srv.get_logger ()), sock (sock),
 			entity (srv.next_entity_id ())
 	{
+		//std::cout << "construct: start""\n";
 		std::strcpy (this->ip, ip);
 		
 		this->username[0] = '@';
@@ -80,7 +83,7 @@ namespace hCraft {
 		this->bufev  = bufferevent_socket_new (evbase, sock,
 			BEV_OPT_CLOSE_ON_FREE);
 		if (!this->bufev)
-			{ this->fail = true; return; }
+			{ this->fail = true; this->get_server ().schedule_destruction (this); return; }
 		
 		// set timeouts
 		{
@@ -98,6 +101,7 @@ namespace hCraft {
 		bufferevent_setcb (this->bufev, &hCraft::player::handle_read,
 			&hCraft::player::handle_write, &hCraft::player::handle_event, this);
 		bufferevent_enable (this->bufev, EV_READ | EV_WRITE);
+		//std::cout << "construct: end""\n";
 	}
 	
 	/* 
@@ -105,6 +109,7 @@ namespace hCraft {
 	 */
 	player::~player ()
 	{
+		//std::cout << "destruct: start""\n";
 		this->disconnect ();
 		
 		while (this->is_disconnecting ())
@@ -119,6 +124,7 @@ namespace hCraft {
 					this->out_queue.pop ();
 				}
 		}
+		//std::cout << "destruct: end""\n";
 	}
 	
 	
@@ -179,7 +185,7 @@ namespace hCraft {
 							[pl] (void *ctx)
 								{
 									std::unique_ptr<unsigned char[]> data (static_cast<unsigned char *> (ctx));
-									
+									//std::cout << "handle: start""\n";
 									try
 										{
 											int err = pl->handle (data.get ());
@@ -197,6 +203,7 @@ namespace hCraft {
 											pl->log (LT_ERROR) << "Exception: " << ex.what () << std::endl;
 											pl->disconnect (false, false);
 										}
+									//std::cout << "handle: end""\n";
 								}, data);
 						
 						pl->total_read = 0;
@@ -276,18 +283,21 @@ namespace hCraft {
 	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
+		//std::cout << "disconnect: start""\n";
+		this->fail_time = std::chrono::system_clock::now ();
 		this->fail = true;
 		this->disconnecting = true;
 		
 		bufferevent_disable (this->bufev, EV_READ | EV_WRITE);
 		bufferevent_setcb (this->bufev, nullptr, nullptr, nullptr, nullptr);
 		
+		/*
 		// wait for the I/O to stop.
 		if (wait_for_callbacks_to_finish)
-			while (this->is_reading () || this->is_writing () || this->handlers_scheduled.load () > 0)
+			while (this->is_reading () || this->is_writing () || this->is_handling_packets ())
 				{
 					std::this_thread::sleep_for (std::chrono::milliseconds (1));
-				}
+				}*/
 		
 		if (!silent)
 			log () << this->get_username () << " has disconnected." << std::endl;
@@ -321,9 +331,10 @@ namespace hCraft {
 		bufferevent_free (this->bufev);
 		
 		// and finally
-		if (this->logged_in)
-			this->get_server ().schedule_destruction (this);
+		//if (this->logged_in)
+		this->get_server ().schedule_destruction (this);
 		this->disconnecting = false;
+		//std::cout << "disconnect: end""\n";
 	}
 	
 	

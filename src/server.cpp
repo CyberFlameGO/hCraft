@@ -28,8 +28,7 @@
 
 namespace hCraft {
 	
-	static const size_t sql_pool_size = 6;
-	
+	static const size_t sql_pool_size = 8;
 	
 	// constructor.
 	server::initializer::initializer (std::function<void ()>&& init,
@@ -70,7 +69,7 @@ namespace hCraft {
 	 */
 	server::server (logger &log)
 		: log (log), perms (), groups (perms),
-			spool (0, sql_pool_size, "database.sqlite")
+			spool (sql_pool_size, "database.sqlite")
 	{
 		// add <init, destory> pairs
 		
@@ -187,6 +186,7 @@ namespace hCraft {
 		struct sockaddr *addr, int len, void *ptr)
 	{
 		server &srv = *static_cast<server *> (ptr);
+		//std::cout << "accept: start""\n";
 		
 		// get IP address
 		char ip[16];
@@ -205,6 +205,7 @@ namespace hCraft {
 			std::lock_guard<std::mutex> guard {srv.player_lock};
 			srv.connecting.insert (pl);
 		}
+		//std::cout << "accept: end""\n";
 	}
 	
 	
@@ -224,34 +225,23 @@ namespace hCraft {
 			[] (player *pl) -> bool
 				{
 					return pl->bad ();
-				}, true);
+				});
 		
-		// handle players that aren't in the logged-in player list yet/anymore.
-		{
-			std::lock_guard<std::mutex> guard {srv.player_lock};
-			
-			for (auto itr = srv.connecting.begin (); itr != srv.connecting.end (); )
-				{
-					player *pl = *itr;
-					if (pl->bad ())
-						{
-							itr = srv.connecting.erase (itr);
-							delete pl;
-						}
-					else
-						++ itr;
-				}
-			
-			for (auto itr = std::begin (srv.to_destroy);
-					 itr != std::end (srv.to_destroy);
-					 ++itr)
-				{
-					player *pl = *itr;
-					delete pl;
-				}
-			srv.to_destroy.clear ();
-		}
-		
+		// destroy all players that have been idle (no I/O) for over a minute.
+		std::lock_guard<std::mutex> guard {srv.player_lock};
+		for (auto itr = std::begin (srv.to_destroy); itr != std::end (srv.to_destroy);)
+			{
+				player *pl = *itr;
+				if (((std::chrono::system_clock::now () - pl->disconnection_time ()) >
+					std::chrono::seconds (30)) && !pl->is_reading () && !pl->is_writing ()
+					&& !pl->is_handling_packets ())
+					{
+						itr = srv.to_destroy.erase (itr);
+						delete pl;
+					}
+				else
+					++ itr;
+			}
 	}
 	
 	
@@ -761,7 +751,7 @@ namespace hCraft {
 		this->id_counter = 0;
 		
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
-			.run_forever (250);
+			.run_forever (30000);
 		this->tpool.start (6); // 6 pooled threads
 	}
 	
@@ -1418,34 +1408,34 @@ namespace hCraft {
 		 * Kick all connected players.
 		 */
 		{
-			std::vector<player *> remove_vec;
+			std::unordered_set<player *> remove_vec;
 			
-			log (LT_SYSTEM) << "Counting connected players..." << std::endl;
+			log (LT_SYSTEM) << "Counting disconnected players..." << std::endl;
 			{
 				std::lock_guard<std::mutex> guard {this->player_lock};
 		
 				this->get_players ().remove_if (
 					[&remove_vec] (player *pl)
 						{
-							remove_vec.push_back (pl);
+							remove_vec.insert (pl);
 							return true;
 						});
 			
 				for (auto itr = this->connecting.begin (); itr != this->connecting.end (); ++itr)
-					remove_vec.push_back (*itr);
+					remove_vec.insert (*itr);
 				this->connecting.clear ();
 			
 				for (auto itr = std::begin (this->to_destroy);
 						 itr != std::end (this->to_destroy);
 						 ++itr)
-					remove_vec.push_back (*itr);
+					remove_vec.insert (*itr);
 				this->to_destroy.clear ();
 			}
 			
-			log (LT_INFO) << "  - " << remove_vec.size () << " connected player(s)." << std::endl;
+			log (LT_INFO) << "  - " << remove_vec.size () << " player(s)." << std::endl;
 			for (player *pl : remove_vec)
 				delete pl;
-			log (LT_INFO) << "  - All players have been disconnected." << std::endl;
+			log (LT_INFO) << "  - All players have been disconnected/freed." << std::endl;
 		}
 	}
 	

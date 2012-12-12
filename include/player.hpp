@@ -26,7 +26,6 @@
 #include "rank.hpp"
 #include "messages.hpp"
 #include "window.hpp"
-//#include "sql.hpp"
 
 #include <atomic>
 #include <queue>
@@ -67,6 +66,7 @@ namespace hCraft {
 		bool logged_in;
 		bool handshake;
 		bool fail; // true if the player is no longer valid, and must be disposed of.
+		std::chrono::time_point<std::chrono::system_clock> fail_time;
 		
 		char username[17];
 		char colored_username[24];
@@ -195,7 +195,10 @@ namespace hCraft {
 		
 		inline bool is_reading () { return this->reading; }
 		inline bool is_writing () { return this->writing; }
+		inline bool is_handling_packets () { return (this->handlers_scheduled.load () > 0); }
 		inline bool is_disconnecting () { return this->disconnecting; }
+		inline std::chrono::time_point<std::chrono::system_clock> disconnection_time ()
+			{ return this->fail_time; }
 		
 		inline world* get_world () { return this->curr_world; }
 		static constexpr int chunk_radius () { return 10; }

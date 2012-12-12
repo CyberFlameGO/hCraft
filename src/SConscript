@@ -43,6 +43,7 @@ hCraft_sources = Split("""
 		commands/physics.cpp
 		
 		physics/sand.cpp
+		physics/langtons_ant.cpp
 		""")
 
 hCraft_libs = Split("""

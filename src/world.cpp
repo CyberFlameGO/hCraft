@@ -29,6 +29,7 @@
 
 // physics:
 #include "physics/sand.hpp"
+#include "physics/langtons_ant.hpp"
 
 
 namespace hCraft {
@@ -71,6 +72,7 @@ namespace hCraft {
 	{ B *a = new B ();        \
 		this->phblocks[a->id ()].reset (a); }
 			REGISTER_BLOCK (physics::sand)
+			REGISTER_BLOCK (physics::langtons_ant)
 		}
 		this->ph_state = PHY_ON;
 	}
@@ -238,7 +240,7 @@ namespace hCraft {
 									
 									// physics
 									if (ph)
-										this->queue_physics_nolock (update.x, update.y, update.z);
+										this->queue_physics_nolock (update.x, update.y, update.z, update.extra);
 									
 									// check neighbouring blocks
 									{

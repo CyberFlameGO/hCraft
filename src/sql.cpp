@@ -18,7 +18,8 @@
 
 #include "sql.hpp"
 #include <sqlite3.h>
-
+#include <chrono>
+#include <thread>
 #include <iostream> // DEBUG
 
 
@@ -127,7 +128,7 @@ namespace hCraft {
 		connection::execute (const char *cmd)
 		{
 			if (!this->_open)
-				throw sql_error ("connection is not open");
+				throw sql_error ("connection not open");
 			if (!cmd) return;
 			
 			row r;
@@ -236,11 +237,32 @@ namespace hCraft {
 			if (!this->conn.is_open ())
 				throw sql_error ("cannot prepare statement on closed connection");
 			
-			int err;
-			err = sqlite3_prepare_v2 (this->conn.handle (), query, -1, &this->stmt,
-				tail);
-			if (err != SQLITE_OK)
-				throw sql_error ("failed to prepare statement: "
+			int tries = 0;
+			static const int max_tries = 10;
+			bool success = false;
+			
+			do
+				{
+					int err;
+					err = sqlite3_prepare_v2 (this->conn.handle (), query, -1, &this->stmt,
+						tail);
+					if (err != SQLITE_OK)
+						{
+							if (err == SQLITE_BUSY)
+								{
+									++ tries;
+									std::this_thread::sleep_for (std::chrono::milliseconds (30));
+									std::cout << "BUSY! Trying again! (" << tries << "/" << max_tries << " tries)." << std::endl;
+								}
+							else
+								break;
+						}
+					else
+						success = true;
+				}
+			while (!success && (tries < max_tries));
+			if (!success)
+				sql_error ("failed to prepare statement: "
 					+ std::string (sqlite3_errmsg (this->conn.handle ())));
 			
 			this->col_count = sqlite3_column_count (this->stmt);
@@ -454,14 +476,14 @@ namespace hCraft {
 		 * Constructs a new connection pool, and creates @{min} connections
 		 * on database @{db_name}.
 		 */
-		connection_pool::connection_pool (int min, int max, const char *db_name)
+		connection_pool::connection_pool (int count, const char *db_name)
 			: db_name (db_name), lock ()
 		{
-			this->min_conns = min;
-			this->max_conns = max;
+			if (count <= 0) count = 1;
+			this->conns.reserve (count);
 			
 			// create initial connections
-			for (int i = 0; i < min; ++i)
+			for (int i = 0; i < count; ++i)
 				{
 					this->conns.emplace_back (db_name);
 					this->free_conns.push_back (&(this->conns.back ()));
@@ -485,12 +507,6 @@ namespace hCraft {
 		connection_pool::push (connection& conn)
 		{
 			std::lock_guard<std::mutex> guard {this->lock};
-			if (this->free_conns.size () == this->max_conns)
-				{
-					conn.close ();
-					return;
-				}
-			
 			this->free_conns.push_back (&conn);
 			if (!this->free_conns.empty ())
 				this->cv.notify_one ();
@@ -507,12 +523,6 @@ namespace hCraft {
 			std::vector<connection *>& free_list = this->free_conns;
 			if (free_list.empty ())
 				{
-					if (this->conns.size () < this->max_conns)
-						{
-							this->conns.emplace_back (this->db_name.c_str ());
-							return this->conns.front ();
-						}
-					
 					this->cv.wait (guard, [&free_list] () { return !free_list.empty (); });
 				}
 			

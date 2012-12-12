@@ -27,9 +27,6 @@ namespace hCraft {
 		void
 		sand::tick (world &w, int x, int y, int z, int extra)
 		{
-			if (w.get_id (x, y, z) != BT_SAND)
-				return;
-			
 			if (y == 0)
 				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }
 			
