@@ -802,6 +802,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "nick");
 		_add_command (this->perms, this->commands, "wunload");
 		_add_command (this->perms, this->commands, "physics");
+		_add_command (this->perms, this->commands, "cuboid");
 	}
 	
 	void
@@ -836,6 +837,7 @@ namespace hCraft {
 		grp_builder->inherit (grp_member);
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
+		grp_builder->add ("command.draw.cuboid");
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->set_color ('b');
@@ -1432,10 +1434,10 @@ namespace hCraft {
 				this->to_destroy.clear ();
 			}
 			
-			log (LT_INFO) << "  - " << remove_vec.size () << " player(s)." << std::endl;
+			log (LT_INFO) << "  - " << remove_vec.size () << " instance(s)." << std::endl;
 			for (player *pl : remove_vec)
 				delete pl;
-			log (LT_INFO) << "  - All players have been disconnected/freed." << std::endl;
+			log (LT_INFO) << "  - All player instances have been destroyed." << std::endl;
 		}
 	}
 	

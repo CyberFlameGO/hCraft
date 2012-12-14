@@ -26,6 +26,7 @@
 #include "rank.hpp"
 #include "messages.hpp"
 #include "window.hpp"
+#include "callback.hpp"
 
 #include <atomic>
 #include <queue>
@@ -46,6 +47,12 @@ namespace hCraft {
 		GT_SURVIVAL = 0,
 		GT_CREATIVE = 1,
 		GT_ADVENTURE = 2,
+	};
+	
+	struct player_extra_data
+	{
+		void *data;
+		void (*dctor)(void *);
 	};
 	
 	
@@ -106,6 +113,11 @@ namespace hCraft {
 		std::mutex visible_player_lock;
 		
 		std::ostringstream msgbuf;
+		
+		std::vector<block_pos> marked_blocks;
+		std::vector<callback<bool (player *, block_pos[], int)> > mark_callbacks;
+		std::unordered_map<std::string, player_extra_data> extra_data;
+		std::mutex data_lock;
 		
 	private:
 		/* 
@@ -182,6 +194,10 @@ namespace hCraft {
 		 * Loads information about the player from the server's SQL database.
 		 */
 		void load_data ();
+		
+	//----
+		
+		bool have_marking_callbacks ();
 		
 	public:
 		inline server& get_server () { return this->srv; }
@@ -325,6 +341,24 @@ namespace hCraft {
 		 * Modifies the player's nickname.
 		 */
 		void set_nickname (const char *nick, bool modify_sql = true);
+		
+	//----
+		
+		/* 
+		 * Gets the marking callback that is executed after @{n} blocks are marked.
+		 */
+		callback<bool (player *, block_pos[], int)>&
+		get_nth_marking_callback (int n);
+		
+		/* 
+		 * These three functions can be used to store additional general-purpose
+		 * data for various things (such as, say, drawing operations).
+		 */
+		
+		void create_data (const char *name, void *data,
+			void (*dctor) (void *) = nullptr);
+		void delete_data (const char *name, bool destruct = true);
+		void* get_data (const char *name);
 	};
 }
 

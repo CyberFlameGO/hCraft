@@ -17,8 +17,12 @@
  */
 
 #include "blocks.hpp"
+#include "cistring.hpp"
 #include <cstring>
 #include <vector>
+#include <unordered_map>
+#include <sstream>
+#include <cctype>
 
 
 namespace hCraft {
@@ -98,6 +102,30 @@ namespace hCraft {
 		{ 0x36, "chest", 12.5f, 15, 0, 64, false, BS_NONSOLID },
 	};
 	
+	static std::unordered_map<cistring, int> name_map {
+		{ "air", 0x00 },
+		{ "stone", 0x01 },
+		{ "grass", 0x02 },
+		{ "dirt", 0x03 },
+		{ "cobble", 0x04 },
+		{ "wood", 0x05 },
+		{ "sapling", 0x06 },
+		{ "bedrock", 0x07 },
+		{ "water", 0x08 },
+		{ "still-water", 0x09 },
+		{ "lava", 0x0A },
+		{ "still-lava", 0x0B },
+		{ "sand", 0x0C },
+		{ "gravel", 0x0D },
+		{ "gold-ore", 0x0E },
+		{ "iron-ore", 0x0F },
+		{ "coal-ore", 0x10 },
+		{ "trunk", 0x11 },
+		{ "leaves", 0x12 },
+		{ "sponge", 0x13 },
+		{ "glass", 0x14 },
+	};
+	
 	
 	
 	/* 
@@ -110,6 +138,43 @@ namespace hCraft {
 		if (id >= block_list.size ())
 			return nullptr;
 		return &block_list[id];
+	}
+	
+	/* 
+	 * Returns the block info structure that corresponds with the given block
+	 * name.
+	 */
+	block_info*
+	block_info::from_name (const char *name)
+	{
+		auto itr = name_map.find (name);
+		if (itr == name_map.end ())
+			return nullptr;
+		return block_info::from_id (itr->second);
+	}
+	
+	/* 
+	 * Attempts to find the block info structure associated with the specified
+	 * string. Inputs such as "cobble" and "4" will both return the same result.
+	 */
+	block_info*
+	block_info::from_id_or_name (const char *str)
+	{
+		// check if number
+		bool is_num = true;
+		const char *ptr = str;
+		while (*ptr)
+			if (!std::isdigit (*ptr++))
+				{ is_num = false; break; }
+		
+		if (is_num)
+			{
+				std::istringstream ss (str);
+				int num;
+				ss >> num;
+				return block_info::from_id (num);
+			}
+		return block_info::from_name (str);
 	}
 }
 

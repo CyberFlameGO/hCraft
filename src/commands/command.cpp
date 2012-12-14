@@ -23,6 +23,7 @@
 #include "chatc.hpp"
 #include "miscc.hpp"
 #include "worldc.hpp"
+#include "drawc.hpp"
 
 #include <unordered_map>
 #include <stdexcept>
@@ -53,6 +54,9 @@ namespace hCraft {
 	static command* create_c_tp () { return new commands::c_tp (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
 	
+	// draw commands:
+	static command* create_c_cuboid () { return new commands::c_cuboid (); }
+	
 	/* 
 	 * Returns a new instance of the command named @{name}.
 	 */
@@ -70,6 +74,7 @@ namespace hCraft {
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
+			{ "cuboid", create_c_cuboid },
 			};
 		
 		auto itr = creators.find (name);

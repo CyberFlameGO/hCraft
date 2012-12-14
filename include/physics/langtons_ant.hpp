@@ -16,47 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__UTILS_H_
-#define _hCraft__UTILS_H_
+#ifndef _hCraft__PHYSICS__LANGTONS_ANT_H_
+#define _hCraft__PHYSICS__LANGTONS_ANT_H_
+
+#include "physics.hpp"
 
 
 namespace hCraft {
 	
-	/* 
-	 * Utility functions and classes.
-	 */
-	namespace utils {
+	namespace physics {
 		
-		inline int
-		iabs (int x)
+		class langtons_ant: public physics_block
 		{
-			return (x < 0) ? -x : x;
-		}
+		public:
+			virtual int  id () override { return 48; }
+			virtual int  vanilla_id () override { return 48; }
+			virtual int  tick_rate () override { return 1; }
 		
-		inline int
-		div (int x, int y)
-		{
-			if (-13 / 5 == -2 && (x < 0) != (y < 0) && x % y != 0)
-	  		return x / y - 1;
-			return x / y;
-		}
-		
-		inline int
-		mod (int x, int y)
-		{
-			if (-13 / 5 == -2 && (x < 0) != (y < 0) && x % y != 0)
-	  		return x % y + y;
-			return x % y;
-		}
-		
-		
-		inline int
-		min (int a, int b)
-			{ return (a < b) ? a : b; }
-		
-		inline int
-		max (int a, int b)
-			{ return (a > b) ? a : b; }
+			virtual void tick (world &w, int x, int y, int z, int extra) override;
+		};
 	}
 }
 

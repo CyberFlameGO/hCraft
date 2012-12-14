@@ -213,6 +213,18 @@ namespace hCraft {
 		 * specified ID number.
 		 */
 		static block_info* from_id (unsigned short id);
+		
+		/* 
+		 * Returns the block info structure that corresponds with the given block
+		 * name.
+		 */
+		static block_info* from_name (const char *name);
+		
+		/* 
+		 * Attempts to find the block info structure associated with the specified
+		 * string. Inputs such as "cobble" and "4" will both return the same result.
+		 */
+		static block_info* from_id_or_name (const char *str);
 	};
 	
 	

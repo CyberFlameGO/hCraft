@@ -221,9 +221,10 @@ namespace hCraft {
 									continue;
 								}
 							
-							chunk *ch = this->get_chunk_at (update.x, update.z);
 							this->set_id_and_meta (update.x, update.y, update.z,
 								update.id, update.meta);
+							
+							chunk *ch = this->get_chunk_at (update.x, update.z);
 							if (new_inf->opaque != old_inf->opaque)
 								ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
 							

@@ -1040,6 +1040,83 @@ namespace hCraft {
 	
 //----
 	
+	bool
+	player::have_marking_callbacks ()
+	{
+		if (this->mark_callbacks.empty ())
+			return false;
+		
+		for (auto itr = this->mark_callbacks.begin (); itr != this->mark_callbacks.end (); ++itr)
+			{
+				auto& cb = *itr;
+				if (cb.size () > 0)
+					return true;
+			}
+		return false;
+	}
+	
+	callback<bool (player *, block_pos[], int)>&
+	player::get_nth_marking_callback (int n)
+	{
+		if (this->mark_callbacks.size () < n)
+			this->mark_callbacks.resize (n);
+		return this->mark_callbacks[n - 1];
+	}
+	
+	
+	
+	/* 
+	 * These three functions can be used to store additional general-purpose
+	 * data for various things (such as, say, drawing operations).
+	 */
+	 
+	void
+	player::create_data (const char *name, void *data, void (*dctor) (void *))
+	{
+		std::lock_guard<std::mutex> guard {this->data_lock};
+		
+		auto itr = this->extra_data.find (name);
+		if (itr != this->extra_data.end ())
+			{
+				if (itr->second.dctor)
+					itr->second.dctor (itr->second.data);
+				this->extra_data.erase (itr);
+			}
+		
+		player_extra_data d;
+		d.data = data;
+		d.dctor = dctor;
+		this->extra_data[name] = d;
+	}
+	
+	void
+	player::delete_data (const char *name, bool destruct)
+	{
+		std::lock_guard<std::mutex> guard {this->data_lock};
+		
+		auto itr = this->extra_data.find (name);
+		if (itr == this->extra_data.end ())
+			return;
+		
+		if (destruct)
+			itr->second.dctor (itr->second.data);
+		this->extra_data.erase (itr);
+	}
+	
+	void*
+	player::get_data (const char *name)
+	{
+		std::lock_guard<std::mutex> guard {this->data_lock};
+		auto itr = this->extra_data.find (name);
+		if (itr == this->extra_data.end ())
+			return nullptr;
+		return itr->second.data;
+	}
+	
+	
+	
+//----
+	
 	static bool
 	ms_passed (std::chrono::time_point<std::chrono::system_clock> pt, int ms)
 	{
@@ -1419,6 +1496,47 @@ namespace hCraft {
 					x, y, z,
 					pl->get_world ()->get_id (x, y, z),
 					pl->get_world ()->get_meta (x, y, z)));
+				return 0;
+			}
+		
+		/* 
+		 * Handle marking callbacks
+		 */
+		if (pl->have_marking_callbacks ())
+			{
+				// undo the change.
+				pl->send (packet::make_block_change (
+					x, y, z,
+					pl->get_world ()->get_id (x, y, z),
+					pl->get_world ()->get_meta (x, y, z)));
+				
+				pl->marked_blocks.emplace_back (x, y, z);
+				{
+					std::ostringstream ss;
+					ss << "§e[§6*§e] §6Marked§f: §e[§a" << x << " " << (int)y << " " << z << "§e]§f.";
+					pl->message (ss.str ());
+				}
+				
+				bool executed = false;
+				if (pl->mark_callbacks.size () >= pl->marked_blocks.size ())
+					{
+						// execute the callback(s)
+						for (int i = 0; i < pl->marked_blocks.size (); ++i)
+							{
+								auto& cb = pl->mark_callbacks[i];
+								if (cb.size () == 0) continue;
+								
+								block_pos *arr = new block_pos[i + 1];
+								for (int j = 0; j < (i + 1); ++j)
+									arr[j] = pl->marked_blocks[j];
+								cb (pl, arr, i + 1);
+								executed = true;
+							}
+					}
+				
+				if (executed)
+					pl->marked_blocks.clear ();
+				
 				return 0;
 			}
 		
