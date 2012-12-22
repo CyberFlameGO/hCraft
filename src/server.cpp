@@ -186,7 +186,6 @@ namespace hCraft {
 		struct sockaddr *addr, int len, void *ptr)
 	{
 		server &srv = *static_cast<server *> (ptr);
-		//std::cout << "accept: start""\n";
 		
 		// get IP address
 		char ip[16];
@@ -199,13 +198,10 @@ namespace hCraft {
 			}
 		
 		worker &w = srv.get_min_worker ();
-		player *pl = new player (srv, w.evbase, sock, ip);
 		
-		{
-			std::lock_guard<std::mutex> guard {srv.player_lock};
-			srv.connecting.insert (pl);
-		}
-		//std::cout << "accept: end""\n";
+		std::lock_guard<std::mutex> guard {srv.player_lock};
+		player *pl = new player (srv, w.evbase, sock, ip);
+		srv.connecting.insert (pl);
 	}
 	
 	

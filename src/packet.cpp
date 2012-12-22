@@ -1046,10 +1046,10 @@ namespace hCraft {
 		pack->put_string ("§1", false, false);
 		
 		pack->put_short (0); // delimiter
-		pack->put_string ("49", false, false);
+		pack->put_string ("51", false, false);
 		
 		pack->put_short (0); // delimiter
-		pack->put_string ("1.4.5", false, false);
+		pack->put_string ("1.4.6", false, false);
 		
 		pack->put_short (0); // delimiter
 		pack->put_string (motd, true, false);

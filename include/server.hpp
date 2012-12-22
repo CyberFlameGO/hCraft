@@ -272,6 +272,8 @@ namespace hCraft {
 		inline permission_manager& get_perms () { return this->perms; }
 		inline group_manager& get_groups () { return this->groups; }
 		
+		inline std::mutex& get_player_lock () { return this->player_lock; }
+		
 		inline sql::connection_pool& sql () { return this->spool; }
 		inline void execute_sql (const std::string& str)
 		{

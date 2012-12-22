@@ -328,7 +328,10 @@ namespace hCraft {
 					}
 			}
 		
-		bufferevent_free (this->bufev);
+		{	
+			std::lock_guard<std::mutex> guard ((this->get_server ().get_player_lock ()));
+			bufferevent_free (this->bufev);
+		}
 		
 		// and finally
 		//if (this->logged_in)
@@ -1182,9 +1185,9 @@ namespace hCraft {
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
 		int protocol_version = reader.read_byte ();
-		if (protocol_version != 49)
+		if (protocol_version != 51)
 			{
-				if (protocol_version < 49)
+				if (protocol_version < 51)
 					pl->kick ("§cOutdated client", "outdated protocol version");
 				else
 					pl->kick ("§ahCraft has not been updated yet", "newer protocol version");
