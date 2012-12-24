@@ -174,6 +174,7 @@ namespace hCraft {
 			}
 		
 		// never reached.
+		return nullptr;
 	}
 	
 	

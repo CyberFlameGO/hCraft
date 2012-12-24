@@ -48,7 +48,7 @@ namespace hCraft {
 			return;
 	
 		this->updates.emplace (x, y, z, a);
-		if (this->updates.size () >= this->limit)
+		if ((int)this->updates.size () >= this->limit)
 			{
 				this->overloaded = true;
 				this->log (LT_WARNING) << "World \"" << this->wr->get_name () <<
@@ -157,10 +157,6 @@ namespace hCraft {
 			{
 				light_update u = this->updates.front ();
 				this->updates.pop ();
-				
-				unsigned short u_id = this->wr->get_id (u.x, u.y, u.z);
-				char u_sl = this->wr->get_sky_light (u.x, u.y, u.z);
-				block_info *u_inf = block_info::from_id (u_id);
 				
 				calc_sky_light (*this, u.x, u.y, u.z, u.a);
 				++ this->handled_since_empty;

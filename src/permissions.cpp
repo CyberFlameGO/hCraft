@@ -19,8 +19,6 @@
 #include "permissions.hpp"
 #include <cstring>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -127,7 +125,6 @@ namespace hCraft {
 		for ( ; *ptr != '\0' && depth < 5; ++ depth)
 			{
 				const std::unordered_map<std::string, int>& id_map = this->id_maps[depth];
-				const std::vector<std::string>& name_map = this->name_maps[depth];
 				
 				const char *dot = std::strchr (ptr, '.');
 				if (dot)

@@ -152,6 +152,8 @@ namespace hCraft {
 	class command
 	{
 	public:
+		virtual ~command () { } // destructor
+		
 		/* 
 		 * Returns the name of the command (the same one used to execute it, /<name>).
 		 */

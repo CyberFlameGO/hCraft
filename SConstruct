@@ -1,6 +1,6 @@
 
 env = Environment(CPPPATH  = '#/include:#/include/commands',
-									CCFLAGS  = '-g -O0',
+									CCFLAGS  = '-g -Wall -O0',
 									CXXFLAGS = '-std=c++11 -D_GLIBCXX_USE_NANOSLEEP',
 									DEBUG    = True)
 

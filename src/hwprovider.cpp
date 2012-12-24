@@ -341,7 +341,7 @@ namespace hCraft {
 		out.reserve (std::strlen (world_name) + 4);
 		
 		int c;
-		while (c = *world_name++)
+		while ((c = (int)(*world_name++)))
 			{
 				if (c == ' ')
 					out.push_back ('_');
@@ -629,6 +629,8 @@ namespace hCraft {
 		return 2;
 	}
 	
+	/*
+	// Unused
 	static int
 	_write_int (unsigned char *ptr, unsigned int val)
 	{
@@ -638,6 +640,7 @@ namespace hCraft {
 		ptr[3] = (val >> 24) & 0xFF;
 		return 4;
 	}
+	*/
 	
 	
 	static unsigned short
@@ -647,6 +650,8 @@ namespace hCraft {
 				 | ((unsigned short)ptr[1] << 8);
 	}
 	
+	/*
+	// Unused
 	static unsigned int
 	_read_int (const unsigned char *ptr)
 	{
@@ -655,6 +660,7 @@ namespace hCraft {
 				 | ((unsigned int)ptr[2] << 16)
 				 | ((unsigned int)ptr[3] << 24);
 	}
+	*/
 	
 	
 	
@@ -769,7 +775,7 @@ namespace hCraft {
 		if (data_size % 4096 != 0)
 			++ sectors_needed;
 		
-		int i, sector_size;
+		size_t i, sector_size;
 		
 		for (i = 0; i < sectors_needed; ++i)
 			{
@@ -785,7 +791,7 @@ namespace hCraft {
 				write_to_sector (hch, i, data + (4096 * i), sector_size, writer);
 			}
 		
-		if (hch->size != data_size)
+		if ((unsigned int)hch->size != data_size)
 			{
 				hch->size = data_size;
 				writer.seek (hch->offset * 512);
@@ -815,7 +821,7 @@ namespace hCraft {
 		delete[] data;
 		
 		bool created = false;
-		hw_chunk *hch = find_or_create_chunk (x, z, sblocks, writer, &created);
+		hw_chunk *hch = find_or_create_chunk (x, z, sblocks, writer, true, &created);
 		if (hch)
 			write_in_sectors (hch, compressed, compressed_size, writer);
 		
@@ -938,7 +944,8 @@ namespace hCraft {
 	{
 		reader.seek (512);
 		
-		int sb_x, sb_z, sb_offset;
+		int sb_x, sb_z;
+		unsigned int sb_offset;
 		for (int i = 0; i < 4096; ++i)
 			{
 				sb_x = reader.read_int ();
@@ -955,7 +962,8 @@ namespace hCraft {
 				sblock->offset = sb_offset;
 				
 				int saved_pos = reader.tell ();
-				int b_x, b_z, b_offset;
+				int b_x, b_z;
+				unsigned int b_offset;
 				reader.seek (sblock->offset * 512);
 				for (int i = 0; i < 64; ++i)
 					{
@@ -973,7 +981,8 @@ namespace hCraft {
 						block->offset = b_offset;
 						
 						int saved_pos = reader.tell ();
-						int r_x, r_z, r_offset;
+						int r_x, r_z;
+						unsigned int r_offset;
 						reader.seek (block->offset * 512);
 						for (int i = 0; i < 1024; ++i)
 							{
@@ -991,7 +1000,8 @@ namespace hCraft {
 								region->offset = r_offset;
 								
 								int saved_pos = reader.tell ();
-								int c_x, c_z, c_offset;
+								int c_x, c_z;
+								unsigned int c_offset;
 								reader.seek (region->offset * 512);
 								for (int i = 0; i < 1024; ++i)
 									{

@@ -103,7 +103,7 @@ namespace hCraft {
 	static bool
 	_is_int (const std::string& str)
 	{
-		int i = 0;
+		size_t i = 0;
 		if (str[0] == '-')
 			{
 				if (str.size () == 1)
@@ -170,10 +170,10 @@ namespace hCraft {
 	command_reader::command_reader (const std::string& str)
 	{
 		// extract the command name.
-		int i = 1;
+		size_t i = 1;
 		std::string::size_type sp = str.find_first_of (' ');
 		this->name.reserve (((sp == std::string::npos) ? str.size () : sp) + 1);
-		for (int j = ((sp == std::string::npos) ? str.size () : sp); i < j; ++i)
+		for (size_t j = ((sp == std::string::npos) ? str.size () : sp); i < j; ++i)
 			this->name.push_back (str[i]);
 		
 		// extract the arguments as a whole.
@@ -226,7 +226,7 @@ namespace hCraft {
 		player *err)
 	{
 		std::ostringstream oss;
-		int i;
+		size_t i;
 		bool found_end = false;
 		
 		for (i = 1; i < iarg.size (); ++i)
@@ -356,7 +356,7 @@ namespace hCraft {
 									}
 									
 								/* short option(s) */
-								for (int i = 1; i < str.size (); ++i)
+								for (size_t i = 1; i < str.size (); ++i)
 									{
 										char optc = str[i];
 										auto itr = std::find_if (this->options.begin (), this->options.end (),
@@ -488,7 +488,7 @@ namespace hCraft {
 			at_name = true;
 		
 		int c;
-		while (c = *ptr++)
+		while ((c = (int)(*ptr++)))
 			{
 				if (!is_marked && !in_quotes && c == '-')
 					{
@@ -653,7 +653,6 @@ namespace hCraft {
 	{
 		const char **usages = this->get_usage ();
 		const char **usage  = usages;
-		int i;
 		
 		pl->message ("§6Usage for command §e" + std::string (this->get_name ()) + "§f:");
 		for (; *usage; ++usage)

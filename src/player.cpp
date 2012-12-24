@@ -47,8 +47,8 @@ namespace hCraft {
 	 */
 	player::player (server &srv, struct event_base *evbase, evutil_socket_t sock,
 		const char *ip)
-		: srv (srv), log (srv.get_logger ()), sock (sock),
-			entity (srv.next_entity_id ())
+		: entity (srv.next_entity_id ()),
+			srv (srv), log (srv.get_logger ()), sock (sock)
 	{
 		//std::cout << "construct: start""\n";
 		std::strcpy (this->ip, ip);
@@ -665,7 +665,6 @@ namespace hCraft {
 	void
 	player::move_to (entity_pos dest)
 	{
-		block_pos b_dest = dest;
 		int w_width = this->get_world ()->get_width ();
 		int w_depth = this->get_world ()->get_depth ();
 		if ((w_width > 0) || (w_depth > 0))
@@ -747,7 +746,6 @@ namespace hCraft {
 	void
 	player::teleport_to (entity_pos dest)
 	{
-		block_pos b_dest = dest;
 		this->move_to (dest);
 		this->send (packet::make_player_pos_and_look (
 			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
@@ -1061,7 +1059,7 @@ namespace hCraft {
 	callback<bool (player *, block_pos[], int)>&
 	player::get_nth_marking_callback (int n)
 	{
-		if (this->mark_callbacks.size () < n)
+		if ((int)this->mark_callbacks.size () < n)
 			this->mark_callbacks.resize (n);
 		return this->mark_callbacks[n - 1];
 	}
@@ -1120,12 +1118,13 @@ namespace hCraft {
 	
 //----
 	
+	/*
 	static bool
 	ms_passed (std::chrono::time_point<std::chrono::system_clock> pt, int ms)
 	{
 		auto now = std::chrono::system_clock::now ();
 		return ((pt + std::chrono::milliseconds (ms)) <= now);
-	}
+	}*/
 	
 	
 	
@@ -1405,12 +1404,12 @@ namespace hCraft {
 		if (!pl->logged_in)
 			{ return -1; }
 		
-		double x, y, z, stance;
+		double x, y, z;
 		bool on_ground;
 		
 		x = reader.read_double ();
 		y = reader.read_double ();
-		stance = reader.read_double ();
+		reader.read_double (); // stance
 		z = reader.read_double ();
 		on_ground = reader.read_byte ();
 		
@@ -1451,19 +1450,18 @@ namespace hCraft {
 		if (!pl->logged_in)
 			{ return -1; }
 		
-		double x, y, z, stance;
+		double x, y, z;
 		float r, l;
 		bool on_ground;
 		
 		x = reader.read_double ();
 		y = reader.read_double ();
-		stance = reader.read_double ();
+		reader.read_double (); // stance
 		z = reader.read_double ();
 		r = reader.read_float ();
 		l = reader.read_float ();
 		on_ground = reader.read_byte ();
 		
-		entity_pos curr_pos = pl->get_pos ();
 		entity_pos new_pos {x, y, z, r, l, on_ground};
 		pl->move_to (new_pos);
 		
@@ -1478,17 +1476,15 @@ namespace hCraft {
 		if (!pl->logged_in)
 			{ return -1; }
 		
-		char status;
 		int x;
 		unsigned char y;
 		int z;
-		char face;
 		
-		status = reader.read_byte ();
+		reader.read_byte (); // status
 		x = reader.read_int ();
 		y = reader.read_byte ();
 		z = reader.read_int ();
-		face = reader.read_byte ();
+		reader.read_byte (); // face
 		
 		int w_width = pl->get_world ()->get_width ();
 		int w_depth = pl->get_world ()->get_depth ();
@@ -1524,13 +1520,13 @@ namespace hCraft {
 				if (pl->mark_callbacks.size () >= pl->marked_blocks.size ())
 					{
 						// execute the callback(s)
-						for (int i = 0; i < pl->marked_blocks.size (); ++i)
+						for (size_t i = 0; i < pl->marked_blocks.size (); ++i)
 							{
 								auto& cb = pl->mark_callbacks[i];
 								if (cb.size () == 0) continue;
 								
 								block_pos *arr = new block_pos[i + 1];
-								for (int j = 0; j < (i + 1); ++j)
+								for (size_t j = 0; j < (i + 1); ++j)
 									arr[j] = pl->marked_blocks[j];
 								cb (pl, arr, i + 1);
 								executed = true;
@@ -1559,9 +1555,9 @@ namespace hCraft {
 		int z = reader.read_int ();
 		char direction = reader.read_byte ();
 		slot_item item = reader.read_slot ();
-		char cursor_x = reader.read_byte ();
-		char cursor_y = reader.read_byte ();
-		char cursor_z = reader.read_byte ();
+		reader.read_byte (); // cursor X
+		reader.read_byte (); // cursor Y
+		reader.read_byte (); // cursor Z
 		
 		/*
 		if (pl->is_crouched ())
@@ -1630,7 +1626,7 @@ namespace hCraft {
 		if (!pl->logged_in)
 			{ return -1; }
 		
-		int eid = reader.read_int ();
+		reader.read_int (); // entity ID
 		char animation = reader.read_byte ();
 		
 		pl->inv.update ();

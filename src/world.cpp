@@ -113,7 +113,7 @@ namespace hCraft {
 	{
 		const char *ptr = wname;
 		int len = 0, c;
-		while (c = *ptr++)
+		while ((c = (int)(*ptr++)))
 			{
 				if (len++ == 32)
 					return false;
@@ -172,9 +172,6 @@ namespace hCraft {
 		const static int ph_update_cap    = 200;
 		
 		int update_count;
-		
-		bool nolight_msg = false;
-		int total_update_count = 0;
 		
 		while (this->th_running)
 			{
@@ -269,7 +266,7 @@ namespace hCraft {
 					/* 
 					 * Lighting updates.
 					 */
-					int handled = this->lm.update (light_update_cap);
+					this->lm.update (light_update_cap);
 					
 					/* 
 					 * Physics.

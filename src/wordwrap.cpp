@@ -21,8 +21,6 @@
 #include <cctype>
 #include <cstring>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -42,7 +40,7 @@ namespace hCraft {
 				while (w.size () > 0)
 					{
 						int rem = max_line - line.tellp ();
-						if (w.size () <= rem)
+						if ((int)w.size () <= rem)
 							rem = w.size ();
 						else if (rem < 5)
 							{
@@ -99,7 +97,7 @@ namespace hCraft {
 		int word_length = 0;
 		int space_count = 0, prev_space_count = 0;
 		
-		while (c = *in++)
+		while ((c = (int)(*in++)))
 			{
 				if (c == ' ')
 					{
@@ -177,7 +175,6 @@ namespace hCraft {
 		-- ptr;
 		
 		// count spaces
-		int space_start = ptr - in;
 		int space_count = 0;
 		while (*ptr++ == ' ')
 			++ space_count;

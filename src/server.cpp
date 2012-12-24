@@ -50,13 +50,14 @@ namespace hCraft {
 	
 	// constructor.
 	server::worker::worker (struct event_base *base, std::thread&& th)
-		: evbase (base), th (std::move (th)), event_count (0)
+		: evbase (base), event_count (0), th (std::move (th))
 		{ }
 	
 	// move constructor.
 	server::worker::worker (worker&& w)
-		: evbase (w.evbase), th (std::move (w.th)),
-			event_count (w.event_count.load ())
+		: evbase (w.evbase), 
+			event_count (w.event_count.load ()),
+			th (std::move (w.th))
 		{ }
 	
 	
@@ -68,8 +69,10 @@ namespace hCraft {
 	 * Constructs a new server.
 	 */
 	server::server (logger &log)
-		: log (log), perms (), groups (perms),
-			spool (sql_pool_size, "database.sqlite")
+		: log (log), 
+			spool (sql_pool_size, "database.sqlite"),
+			perms (),
+			groups (perms)
 	{
 		// add <init, destory> pairs
 		
@@ -672,24 +675,7 @@ namespace hCraft {
 	void
 	server::init_sql ()
 	{
-		int err;
-		char* errmsg;
-		
 		log () << "Opening SQL database (at \"database.sqlite\")" << std::endl;
-		
-		/*
-		this->db.open ("database.db");
-		
-		// 
-		// Create tables.
-		// 
-		this->db.execute (
-			"CREATE TABLE IF NOT EXISTS `players` (`id` INTEGER PRIMARY KEY "
-			"AUTOINCREMENT, `name` TEXT, `groups` TEXT, `nick` TEXT);"
-			
-			"CREATE TABLE IF NOT EXISTS `autoloaded-worlds` (`name` TEXT);"
-			);
-		*/
 		
 		sql::connection& conn = this->sql ().pop ();
 		conn.execute (
@@ -697,29 +683,6 @@ namespace hCraft {
 			"AUTOINCREMENT, `name` TEXT, `groups` TEXT, `nick` TEXT);"
 			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
-		
-		/*
-		// TEST
-		{
-			sql::transaction ta (conn);
-			std::ostringstream ss;
-			
-			for (int i = 0; i < 100000; ++i)
-				{
-					ss.str (std::string ()); ss.clear ();
-					ss << i;
-					
-					auto stmt = conn.query (
-						"INSERT INTO `players` (`name`, `groups`, `nick`) VALUES "
-						"(:name, :groups, :nick)");
-					stmt.bind (":name", ss.str ().c_str ());
-					stmt.bind (":groups", "@guest");
-					stmt.bind (":nick", "Nobody");
-					stmt.execute ();
-				}
-			
-			ta.commit ();
-		}*/
 		
 		this->sql ().push (conn); 
 	}
@@ -961,7 +924,7 @@ namespace hCraft {
 		if (node && node->Type () == YAML::NodeType::Sequence)
 			{
 				std::string parent;
-				for (int i = 0; i < node->size (); ++i)
+				for (size_t i = 0; i < node->size (); ++i)
 					{
 						(*node)[i] >> parent;
 						
@@ -1061,7 +1024,7 @@ namespace hCraft {
 		if (node && node->Type () == YAML::NodeType::Sequence)
 			{
 				std::string perm;
-				for (int i = 0; i < node->size (); ++i)
+				for (size_t i = 0; i < node->size (); ++i)
 					{
 						(*node)[i] >> perm;
 						perms.push_back (std::move (perm));

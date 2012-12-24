@@ -355,6 +355,7 @@ namespace hCraft {
 				case TAG_STRING: return nbt_tag_string::decode (data, false, read);
 				case TAG_LIST: return nbt_tag_list::decode (data, false, read);
 				case TAG_COMPOUND: return nbt_tag_compound::decode (data, false, read);
+				case TAG_INT_ARRAY: /* TODO */ return nullptr;
 			}
 		
 		return nullptr;

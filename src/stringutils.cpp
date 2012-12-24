@@ -47,7 +47,7 @@ namespace hCraft {
 			for (i = s.size () - 1; i >= 0; --i)
 				if (!std::isspace (s[i]))
 					break;
-			if (i != s.size () + 1)
+			if (i != (int)(s.size () + 1))
 				s.erase (i + 1, s.size () - (i + 1));
 			return s;
 		}
@@ -71,7 +71,7 @@ namespace hCraft {
 			int char_count = s.size ();
 			int i, j;
 			
-			for (i = 0; i < s.size (); ++i)
+			for (i = 0; i < (int)s.size (); ++i)
 				{
 					if (s[i] == ' ')
 						-- char_count;

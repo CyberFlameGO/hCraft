@@ -49,8 +49,6 @@ namespace hCraft {
 		 */
 		connection::connection (const char *db_name)
 		{
-			int err;
-		
 			this->_open = false;
 			this->db = nullptr;
 		

@@ -384,8 +384,8 @@ namespace hCraft {
 		short tmp;
 		
 		int c;
-		int need = 0;
-		while (c = *str++)
+		unsigned int need = 0;
+		while ((c = (int)(*str++)))
 			{
 				switch (c)
 					{

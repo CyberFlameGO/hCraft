@@ -59,7 +59,7 @@ namespace hCraft {
 		if (lo)
 			col_start = lo - str;
 		
-		while (c = *str++)
+		while ((c = (int)(*str++)))
 			{
 				std::cout << (char)c;
 				++ col;
@@ -82,6 +82,7 @@ namespace hCraft {
 			}
 		
 		this->str (std::string ());
+		return 0;
 	}
 	
 	
@@ -90,7 +91,7 @@ namespace hCraft {
 	 * Class constructor.
 	 */
 	logger::logger_strm::logger_strm (std::mutex& lock)
-		: buf (lock), std::ostream (&buf)
+		: std::ostream (&buf), buf (lock)
 	{
 		
 	}
