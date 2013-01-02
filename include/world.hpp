@@ -21,7 +21,7 @@
 
 #include "position.hpp"
 #include "chunk.hpp"
-#include "worldgenerator.hpp"
+#include "generation/worldgenerator.hpp"
 #include "worldprovider.hpp"
 #include "lighting.hpp"
 #include "physics/physics.hpp"
@@ -39,6 +39,7 @@ namespace hCraft {
 	class logger;
 	class player;
 	class playerlist;
+	class world_transaction;
 	
 	
 	/* 
@@ -50,12 +51,13 @@ namespace hCraft {
 		int y;
 		int z;
 		int extra;
+		void *ptr;
 		unsigned short id;
 		unsigned char  meta;
 		player *pl; // the player that initated the update.
 		
 		block_update (int x, int y, int z, unsigned short id, unsigned char meta,
-			int extra, player *pl)
+			int extra, void *ptr, player *pl)
 		{
 			this->x = x;
 			this->y = y;
@@ -64,6 +66,7 @@ namespace hCraft {
 			this->meta = meta;
 			this->pl = pl;
 			this->extra = extra;
+			this->ptr = ptr;
 		}
 	};
 	
@@ -73,9 +76,10 @@ namespace hCraft {
 		int y;
 		int z;
 		int extra;
+		void *ptr;
 		std::chrono::time_point<std::chrono::system_clock> last_tick;
 		
-		physics_update (int x, int y, int z, int extra,
+		physics_update (int x, int y, int z, int extra, void *ptr,
 			std::chrono::time_point<std::chrono::system_clock> lt)
 			: last_tick (lt)
 		{
@@ -83,6 +87,7 @@ namespace hCraft {
 			this->y = y;
 			this->z = z;
 			this->extra = extra;
+			this->ptr = ptr;
 		}
 	};
 	
@@ -109,6 +114,7 @@ namespace hCraft {
 		std::unique_ptr<std::thread> th;
 		bool th_running;
 		
+		std::deque<world_transaction *> tr_updates;
 		std::deque<block_update> updates;
 		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
 		std::deque<physics_update> phupdates;
@@ -149,6 +155,7 @@ namespace hCraft {
 		inline void set_spawn (const entity_pos& pos) { this->spawn_pos = pos; }
 		
 		inline world_physics_state physics_state () const { return this->ph_state; }
+		inline std::mutex& get_update_lock () { return this->update_lock; }
 		
 	private:
 		/* 
@@ -269,13 +276,22 @@ namespace hCraft {
 		void queue_update (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, player *pl = nullptr);
 		void queue_update_nolock (int x, int y, int z, unsigned short id,
-			unsigned char meta = 0, int extra = 0, player *pl = nullptr);
+			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
+			player *pl = nullptr);
 		
-		void queue_physics (int x, int y, int z, int extra = 0);
-		void queue_physics_nolock (int x, int y, int z, int extra = 0);
+		void queue_update (world_transaction *tr);
+		
+		void queue_lighting_nolock (int x, int y, int z)
+			{ this->lm.enqueue_nolock (x, y, z); }
+		
+		void queue_physics (int x, int y, int z, int extra = 0,
+			void *ptr = nullptr);
+		void queue_physics_nolock (int x, int y, int z, int extra = 0,
+			void *ptr = nullptr);
 		
 		// does nothing if the block is already queued to be handled.
-		void queue_physics_once_nolock (int x, int y, int z, int extra = 0);
+		void queue_physics_once_nolock (int x, int y, int z, int extra = 0,
+			void *ptr = nullptr);
 		
 		
 		void start_physics ();

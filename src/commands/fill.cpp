@@ -18,7 +18,10 @@
 
 #include "commands/drawc.hpp"
 #include "player.hpp"
-#include <iostream> // DEBUG
+#include "world.hpp"
+#include "world_transaction.hpp"
+#include <sstream>
+#include <mutex>
 
 
 namespace hCraft {
@@ -41,38 +44,85 @@ namespace hCraft {
 		
 			if (!reader.parse_args (this, pl))
 					return;
-			if (reader.no_args () || reader.arg_count () > 1)
+			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
 			
 			if (!reader.is_arg_block (0))
 				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
 			
-			block_data out_bd = reader.arg_as_block (0);
-			if (out_bd.id > 145 || out_bd.meta > 15)
+			block_data bd_out, bd_in;
+			
+			bd_out = reader.arg_as_block (0);
+			if (bd_out.id > 145 || bd_out.meta > 15)
 				{
 					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
 					return;
 				}
 			
-			// fill all selections
-			world *wr = pl->get_world ();
-			for (world_selection *sel : pl->selections)
+			if (reader.arg_count () == 2)
 				{
-					if (!sel->visible ()) continue;
-					
-					block_pos min_p = sel->min ();
-					block_pos max_p = sel->max ();
-					
-					for (int x = min_p.x; x <= max_p.x; ++x)
-						for (int y = min_p.y; y <= max_p.y; ++y)
-							for (int z = min_p.z; z <= max_p.z; ++z)
-								{
-									if (sel->contains (x, y, z))
-										{
-											wr->queue_update (x, y, z, out_bd.id, out_bd.meta);
-										}
-								}
+					bd_in = bd_out;
+					bd_out = reader.arg_as_block (1);
+					if (bd_out.id > 145 || bd_out.meta > 15)
+						{
+							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
+							return;
+						}
 				}
+			else
+				{ bd_in.id = 0xFFFF; bd_in.meta = 0; }
+			
+			int block_counter = 0;
+			int selection_counter = 0;
+			
+			// fill all selections
+			{
+				world *wr = pl->get_world ();
+				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+					{
+						world_selection *sel = itr->second;
+						if (!sel->visible ()) continue;
+						bool sel_cont = false;
+					
+						block_pos min_p = sel->min ();
+						block_pos max_p = sel->max ();
+					
+						world_transaction *tr = new world_transaction (min_p, max_p);
+					
+						for (int x = min_p.x; x <= max_p.x; ++x)
+							for (int y = min_p.y; y <= max_p.y; ++y)
+								for (int z = min_p.z; z <= max_p.z; ++z)
+									{
+										if (sel->contains (x, y, z))
+											{
+												block_data bd = wr->get_block (x, y, z);
+												if (bd_in.id != 0xFFFF && (bd.id != bd_in.id || bd.meta != bd_in.meta))
+													continue;
+												if (bd.id == bd_out.id && bd.meta == bd_out.meta)
+													continue;
+												
+												//wr->queue_update_nolock (x, y, z, bd_out.id, bd_out.meta);
+												tr->set_id_and_meta (x, y, z, bd_out.id, bd_out.meta);
+												
+												++ block_counter;
+												
+												if (!sel_cont)
+													++ selection_counter;
+												sel_cont = true;
+											}
+									}
+					
+						pl->get_world ()->queue_update (tr);
+					}
+			}
+			
+			{
+				std::ostringstream ss;
+				ss << "§a" << block_counter << " §eblock" << ((block_counter == 1) ? "" : "s")
+					 << " have been replaced (§c" << selection_counter << " §eselection"
+					 << ((selection_counter == 1) ? "" : "s") << ")";
+				pl->message (ss.str ());
+			}
 		}
 	}
 }

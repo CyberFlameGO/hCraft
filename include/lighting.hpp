@@ -39,14 +39,12 @@ namespace hCraft {
 		int x; 
 		int y;
 		int z;
-		bool a;
 		
-		light_update (int xx, int yy, int zz, bool aa = true)
+		light_update (int xx, int yy, int zz)
 		{
 			this->x = xx;
 			this->y = yy;
 			this->z = zz;
-			this->a = aa;
 		}
 	};
 	
@@ -88,7 +86,7 @@ namespace hCraft {
 		 * Pushes a lighting update to the update queue.
 		 */
 		void enqueue (int x, int y, int z);
-		void enqueue_nolock (int x, int y, int z, bool a = true); // not thread-safe
+		void enqueue_nolock (int x, int y, int z); // not thread-safe
 	};
 }
 

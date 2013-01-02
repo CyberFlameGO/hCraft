@@ -39,7 +39,11 @@ namespace hCraft {
 	 */
 	class world_selection
 	{
+	protected:
+		bool hidden;
+		
 	public:
+		world_selection () { hidden = true; }
 		virtual ~world_selection () { } // destructor
 		
 		
@@ -64,13 +68,27 @@ namespace hCraft {
 		 * Sets the @{n}th point to @{pt}.
 		 */
 		virtual void set (int n, block_pos pt) = 0;
+		virtual void set_update (int n, block_pos pt, player *pl)
+			{
+				this->hide (pl);
+				this->set (n, pt);
+				this->show (pl);
+			}
 		
 		
 		/* 
 		 * Draws a minimal wireframe version of the selection for the specified
 		 * player (usually with water and brown mushrooms).
 		 */
-		virtual void preview (player *pl) { };
+		virtual void show (player *pl) { this->hidden = false; };
+		virtual void hide (player *pl) { this->hidden = true; };
+		virtual bool visible () { return !this->hidden; }
+		
+		
+		/* 
+		 * Moves the selection @{units} blocks into the direction @{dir}.
+		 */
+		virtual void move (direction dir, int units) = 0;
 	};
 }
 

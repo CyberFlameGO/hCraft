@@ -77,6 +77,7 @@ namespace hCraft {
 		this->curr_chunk = chunk_pos (0, 0);
 		this->ping_waiting = false;
 		
+		this->curr_sel = nullptr;
 		this->last_ping = std::chrono::system_clock::now ();
 		
 		this->evbase = evbase;
@@ -333,6 +334,14 @@ namespace hCraft {
 			bufferevent_free (this->bufev);
 		}
 		
+		// dispose of selection
+		for (auto itr =  std::begin (this->selections);
+		 				 	itr != std::end (this->selections);
+		 				 	++itr)
+		 	delete itr->second;
+		this->selections.clear ();
+		this->curr_sel = nullptr;
+		
 		// and finally
 		//if (this->logged_in)
 		this->get_server ().schedule_destruction (this);
@@ -411,6 +420,17 @@ namespace hCraft {
 	{
 		std::lock_guard<std::mutex> guard {this->join_lock};
 		bool had_prev_world = (this->curr_world != nullptr);
+		
+		if (had_prev_world && (this->curr_world != w))
+			{
+				// destroy selections
+				for (auto itr = this->selections.begin (); itr != this->selections.end (); ++itr)
+					{
+						world_selection *sel = itr->second;
+						delete sel;
+					}
+				this->selections.clear ();
+			}
 		
 		/* 
 		 * Unload chunks from previous world.
@@ -653,6 +673,18 @@ namespace hCraft {
 			}
 		
 		to_load.clear ();
+	}
+	
+	/* 
+	 * Checks whether the specified chunk is within the visible chunk range
+	 * of the player.
+	 */
+	bool
+	player::can_see_chunk (int x, int z)
+	{
+		std::unique_lock<std::mutex> guard {this->world_lock};
+		auto itr = this->known_chunks.find (chunk_pos (x, z));
+		return (itr != this->known_chunks.end ());
 	}
 	
 //--
@@ -1067,6 +1099,56 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Used by world selections:
+	 */
+	
+	void
+	player::sb_add (int x, int y, int z)
+	{
+		auto itr = this->sel_blocks.find (selection_block (x, y, z));
+		if (itr != this->sel_blocks.end ())
+			{ ++ itr->counter; return; }
+		
+		this->send_sb (x, y, z);
+		this->sel_blocks.insert (selection_block (x, y, z, 1));
+	}
+	
+	void
+	player::sb_remove (int x, int y, int z)
+	{
+		auto itr = this->sel_blocks.find (selection_block (x, y, z));
+		if (itr == this->sel_blocks.end ())
+			return;
+		
+		-- itr->counter;
+		if (itr->counter == 0)
+			{
+				this->sel_blocks.erase (itr);
+				block_data bd = this->get_world ()->get_block (x, y, z);
+				this->send (packet::make_block_change (x, y, z, bd.id, bd.meta));
+			}
+	}
+	
+	bool
+	player::sb_exists (int x, int y, int z)
+	{
+		return (this->sel_blocks.find (selection_block (x, y, z))
+			!= this->sel_blocks.end ());
+	}
+	
+	void
+	player::send_sb (int x, int y, int z)
+	{
+		static const int id_table[] = { 39, 9, 9, 39 };
+		unsigned long long n = 0;
+		n += utils::iabs (x); n += utils::iabs (y); n += utils::iabs (z);
+		n %= 4;
+		this->send (packet::make_block_change (x, y, z, id_table[n], 0));
+	}
+	
+	
+	
+	/* 
 	 * These three functions can be used to store additional general-purpose
 	 * data for various things (such as, say, drawing operations).
 	 */
@@ -1379,6 +1461,16 @@ namespace hCraft {
 	}
 	
 	int
+	player::handle_packet_07 (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in)
+			{ return -1; }
+		
+		
+		return 0;
+	}
+	
+	int
 	player::handle_packet_0a (player *pl, packet_reader reader)
 	{
 		if (!pl->handshake)
@@ -1498,6 +1590,13 @@ namespace hCraft {
 				return 0;
 			}
 		
+		if (pl->sb_exists (x, y, z))
+			{
+				// modifying a selection block
+				pl->send_sb (x, y, z);
+				return 0;
+			}
+		
 		/* 
 		 * Handle marking callbacks
 		 */
@@ -1510,11 +1609,6 @@ namespace hCraft {
 					pl->get_world ()->get_meta (x, y, z)));
 				
 				pl->marked_blocks.emplace_back (x, y, z);
-				{
-					std::ostringstream ss;
-					ss << "§e[§6*§e] §6Marked§f: §e[§a" << x << " " << (int)y << " " << z << "§e]§f.";
-					pl->message (ss.str ());
-				}
 				
 				bool executed = false;
 				if (pl->mark_callbacks.size () >= pl->marked_blocks.size ())
@@ -1559,17 +1653,6 @@ namespace hCraft {
 		reader.read_byte (); // cursor Y
 		reader.read_byte (); // cursor Z
 		
-		/*
-		if (pl->is_crouched ())
-			{
-				int xx, yy, zz, r = 3;
-				for (xx = (x - r); xx <= (x + r); ++xx)
-					for (yy = (y - r); yy <= (y + r); ++yy)
-						for (zz = (z - r); zz <= (z + r); ++zz)
-							pl->get_world ()->queue_update (xx, yy, zz, 0, 0);
-				return 0;
-			}*/
-		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
 				// Held item must be updated, or not enough room.
@@ -1591,6 +1674,25 @@ namespace hCraft {
 				case 3: ++ nz; break;
 				case 4: -- nx; break;
 				case 5: ++ nx; break;
+			}
+		
+		int w_width = pl->get_world ()->get_width ();
+		int w_depth = pl->get_world ()->get_depth ();
+		if (((w_width > 0) && ((nx >= w_width) || (nx < 0))) ||
+				((w_depth > 0) && ((nz >= w_depth) || (nz < 0))))
+			{
+				pl->send (packet::make_block_change (
+					nx, ny, nz,
+					pl->get_world ()->get_id (nx, ny, nz),
+					pl->get_world ()->get_meta (nx, ny, nz)));
+				return 0;
+			}
+			
+		if (pl->sb_exists (nx, ny, nz))
+			{
+				// modifying a selection block
+				pl->send_sb (nx, ny, nz);
+				return 0;
 			}
 		
 		pl->get_world ()->queue_update (nx, ny, nz,
@@ -1780,7 +1882,7 @@ namespace hCraft {
 		static int (*handlers[0x100]) (player *, packet_reader) =
 			{
 				handle_packet_00, handle_packet_xx, handle_packet_02, handle_packet_03, // 0x03
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x07
+				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_07, // 0x07
 				handle_packet_xx, handle_packet_xx, handle_packet_0a, handle_packet_0b, // 0x0B
 				handle_packet_0c, handle_packet_0d, handle_packet_0e, handle_packet_0f, // 0x0F
 				

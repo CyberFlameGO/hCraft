@@ -21,7 +21,7 @@
 #include "../player.hpp"
 #include "../world.hpp"
 #include "../worldprovider.hpp"
-#include "../worldgenerator.hpp"
+#include "../generation/worldgenerator.hpp"
 #include <chrono>
 #include <functional>
 
@@ -55,7 +55,7 @@ namespace hCraft {
 				return;
 			
 			if (reader.no_args () || reader.arg_count () > 1)
-				{ this->show_usage (pl); return; }
+				{ this->show_summary (pl); return; }
 			
 		//----
 			/* 

@@ -57,6 +57,10 @@ namespace hCraft {
 		 */
 		bool iequals (const std::string& a, const char *b);
 		bool iequals (const std::string& a, const std::string& b);
+		
+		
+		bool is_int (const std::string& str);
+		int  to_int (const std::string& str);
 	}
 }
 

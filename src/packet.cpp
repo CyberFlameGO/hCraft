@@ -19,11 +19,16 @@
 #include "packet.hpp"
 #include "chunk.hpp"
 #include "entity.hpp"
+#include "utils.hpp"
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
 #include <sstream>
 #include <string>
+
+// DEBUG
+#include <iostream>
+#include <iomanip>
 
 
 namespace hCraft {
@@ -122,6 +127,16 @@ namespace hCraft {
 	
 	
 	
+	static bool
+	is_chat_code (char c)
+	{
+		if (std::isxdigit (c))
+			return true;
+		if (((c >= 'k') && (c <= 'o')) || (c == 'r'))
+			return true;
+		return false;
+	}
+	
 	static void
 	sanitize_string (const char *str, std::string& out)
 	{
@@ -141,7 +156,7 @@ namespace hCraft {
 					{
 						if ((i + 2) < in_len)
 							{
-								if (!std::isxdigit (str[i + 2]))
+								if (!is_chat_code (str[i + 2]))
 									//goto not_color_code;
 									continue;
 								
@@ -737,6 +752,20 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_entity_velocity (int eid, short vx, short vy, short vz)
+	{
+		packet *pack = new packet (11);
+		
+		pack->put_byte (0x1C);
+		pack->put_int (eid);
+		pack->put_short (vx);
+		pack->put_short (vy);
+		pack->put_short (vz);
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_destroy_entity (int eid)
 	{
 		packet* pack = new packet (6);
@@ -918,6 +947,31 @@ namespace hCraft {
 		pack->put_short (0); // add bitmap
 		pack->put_int (sizeof unload_sequence);
 		pack->put_bytes (unload_sequence, sizeof unload_sequence);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_multi_block_change (int cx, int cz,
+		const std::vector<block_change_record>& records)
+	{
+		packet* pack = new packet (15 + (records.size () * 4));
+		int srec = utils::min (records.size (), 65535);
+		
+		pack->put_byte (0x34);
+		pack->put_int (cx);
+		pack->put_int (cz);
+		pack->put_short (srec);
+		pack->put_int (srec * 4);
+		
+		for (int i = 0; i < srec; ++i)
+			{
+				block_change_record rec = records[i];
+				pack->put_byte ((rec.x << 4) | rec.z);
+				pack->put_byte (rec.y);
+				pack->put_byte (rec.id >> 4);
+				pack->put_byte (((rec.id & 0xF) << 4) | rec.meta);
+				}
 		
 		return pack;
 	}

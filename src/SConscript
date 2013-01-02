@@ -12,8 +12,6 @@ hCraft_sources = Split("""
 		chunk.cpp
 		world.cpp
 		blocks.cpp
-		worldgenerator.cpp
-		flatgrass.cpp
 		stringutils.cpp
 		wordwrap.cpp
 		threadpool.cpp
@@ -29,6 +27,11 @@ hCraft_sources = Split("""
 		slot.cpp
 		sql.cpp
 		lighting.cpp
+		manual.cpp
+		world_transaction.cpp
+		
+		generation/worldgenerator.cpp
+		generation/flatgrass.cpp
 		
 		commands/command.cpp
 		commands/help.cpp
@@ -41,7 +44,10 @@ hCraft_sources = Split("""
 		commands/nick.cpp
 		commands/wunload.cpp
 		commands/physics.cpp
-		commands/cuboid.cpp
+		commands/selection.cpp
+		commands/fill.cpp
+		
+		selection/cuboid_selection.cpp
 		
 		physics/sand.cpp
 		physics/langtons_ant.cpp

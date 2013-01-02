@@ -45,43 +45,27 @@ namespace hCraft {
 				{ return "Broadcasts an IRC-style action message to all players in the "
 								"same world."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/me <action>",
-						"/me [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
-			{
-				static const char *help[] =
-					{
-						"Broadcasts an IRC-style action message (in the form of: \"* player action\" "
-						"to all players in the same world).",
-					
-						"Same as calling >/help< on >me< (\"/help [-s] me\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/me wants cookies",
-						"/me shrugs",
-						nullptr,
-					};
-				return examples;
-			}
+			{ return
+				".TH ME 1 \"/me\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+				"me - Broadcast IRC-style action messages "
+				".PP "
+				".SH SYNOPSIS "
+				"$g/me $yACTION .LN "
+				"$g/me $yOPTION "
+				".PP "
+				".SH DESCRIPTION "
+				"Broadcasts an IRC action message of the form $'* PLAYER ACTION$' with "
+				"PLAYER being the name of the player who executed the command and ACTION "
+				"being the text passed to the command as an argument. If OPTION is "
+				"specified, then execute according to it: "
+				".PP "
+				"$G--help $gDisplay help "
+				".PP "
+				"$G--summary $gDisplay a short description "
+				;}
 			
 			const char* get_exec_permission () { return "command.chat.me"; }
 			
@@ -108,43 +92,26 @@ namespace hCraft {
 			get_summary ()
 				{ return "Changes the nickname of a player to the one requested."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/nick <player> <nickname>",
-						"/nick [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
-			{
-				static const char *help[] =
-					{
-						"Changes the nickname of player <player> to <nickname>. If <nickname> "
-						"is not specified, then the player's nickname will be removed.",
-					
-						"Same as calling >/help< on >nick< (\"/help [-s] nick\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/nick dude123 Super Dude",
-						"/nick someone155",
-						nullptr,
-					};
-				return examples;
-			}
+			{ return
+				".TH NICK 1 \"/nick\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+				"nick - Modifies a player's nickname "
+				".PP "
+				".SH SYNOPSIS "
+				"$g/nick $yPLAYER $yNICKNAME .LN "
+				"$g/nick $yOPTION "
+				".PP "
+				".SH DESCRIPTION "
+				"Changes the nickname of player PLAYER to NICKNAME. If NICKNAME is not "
+				"specified, the player's nickname will be removed. If OPTION is "
+				"specified, execute according to it: "
+				".PP "
+				"$G--help $gDisplay help "
+				".PP "
+				"$G--summary $gDisplay a short description "
+				;}
 			
 			const char* get_exec_permission () { return "command.chat.nick"; }
 			

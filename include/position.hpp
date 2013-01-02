@@ -30,6 +30,19 @@ namespace hCraft {
 	
 	
 	
+	enum direction
+	{
+		DI_EAST,  // +x
+		DI_NORTH, // -z
+		DI_WEST,  // -x
+		DI_SOUTH, // +z
+		DI_UP,		// +y
+		DI_DOWN,  // -y
+		
+		DI_UNKNOWN,
+	};
+	
+	
 	/* 
 	 * Represents the position of an entity within a world.
 	 */
@@ -127,6 +140,10 @@ namespace hCraft {
 		block_pos& operator= (const entity_pos &other);
 		block_pos& operator= (const chunk_pos &other);
 		
+		bool
+		operator== (const block_pos &other) const
+			{ return this->x == other.x && this->y == other.y && this->z == other.z; }
+		
 	//----
 		
 		block_pos&
@@ -190,6 +207,18 @@ namespace hCraft {
 		operator() (const chunk_pos& cpos) const
 		{
 			return int_hash (cpos.x) ^ (int_hash (cpos.z) << 5);
+		}
+	};
+	
+	class block_pos_hash
+	{
+		std::hash<int> int_hash;
+		
+	public:
+		std::size_t
+		operator() (const block_pos& bpos) const
+		{
+			return int_hash (bpos.x) ^ (int_hash (bpos.y) << 11) ^ (int_hash (bpos.z) << 5);
 		}
 	};
 }

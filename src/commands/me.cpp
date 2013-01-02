@@ -43,14 +43,12 @@ namespace hCraft {
 			
 			if (!reader.parse_args (this, pl))
 				return;
-			
 			if (reader.no_args ())
-				{ this->show_usage (pl); return; }
+				{ this->show_summary (pl); return; }
 			
 			std::ostringstream ss;
 			ss << "§" << pl->get_rank ().main_group->get_color () << "* "
 				 << pl->get_username () << " " << reader.get_arg_string ();
-			
 			pl->get_world ()->get_players ().message (ss.str ());
 		}
 	}

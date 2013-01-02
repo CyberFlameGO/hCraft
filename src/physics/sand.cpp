@@ -25,7 +25,7 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		sand::tick (world &w, int x, int y, int z, int extra)
+		sand::tick (world &w, int x, int y, int z, int extra, void *ptr)
 		{
 			if (y == 0)
 				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }

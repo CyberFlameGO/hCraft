@@ -18,6 +18,7 @@
 
 #include "stringutils.hpp"
 #include <cctype>
+#include <sstream>
 
 
 namespace hCraft {
@@ -118,6 +119,36 @@ namespace hCraft {
 		iequals (const std::string& a, const std::string& b)
 		{
 			return iequals (a, b.c_str ());
+		}
+		
+		
+		
+		bool
+		is_int (const std::string& str)
+		{
+			bool minus = false;
+			for (char c : str)
+				{
+					if (c == '-')
+						{
+							if (minus)
+								return false;
+							minus = true;
+						}
+					else if (!std::isdigit (c))
+						return false;
+				}
+			
+			return true;
+		}
+		
+		int
+		to_int (const std::string& str)
+		{
+			std::istringstream ss (str);
+			int num;
+			ss >> num;
+			return num;
 		}
 	}
 }

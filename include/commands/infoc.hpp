@@ -46,51 +46,32 @@ namespace hCraft {
 				{ return "Displays general information about the server or about a "
 								 "specific command."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/help",
-						"/help [--summary/-s] <command>",
-						"/help [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
-			{
-				static const char *help[] =
-					{
-						"Displays general information, tips, tricks and hints about "
-						"the server and/or the software that is running it.",
-					
-						"Shows a detailed description, usage patterns, and examples (if "
-						"available) about the specified command (<command>) if --summary is "
-						"not specified. Otherwise, only a brief summary about the command "
-						"is shown.",
-					
-						"Same as calling >/help< on >help< (\"/help [-s] help\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/help",
-						"/help cuboid",
-						"/help -s ping",
-						"/help --help",
-						nullptr,
-					};
-				return examples;
-			}
+			{ return 
+				".TH HELP 1 \"/help\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+				"help - Displays in-depth information about server features, commands "
+				"and the server itself. "
+				".SH SYNOPSIS "
+				"$g/help $yCOMMAND PAGE .LN "
+				"$g/help .LN "
+				"$g/help $yOPTION "
+				".PP "
+				".SH DESCRIPTION "
+				"The first form displays general information, common usage and examples "
+				"(if any) about the command COMMAND. Since these manuals can be pretty "
+				"lengthy at times, they are displayed in pages. One can go through the "
+				"pages by providing the page number after the command name (e.g: $'/help "
+				"sel 2$'). The second form, when specified without any arguments at all "
+				"prints out information about the server itself and might contain links "
+				"to other manuals. The final form - if OPTION is specified, execute "
+				"accordingly: "
+				".PP "
+				"$G--help $gDisplays help "
+				".PP "
+				"$G--summary $gDisplays a short description "
+				;}
 			
 			const char* get_exec_permission () { return "command.info.help"; }
 			

@@ -27,6 +27,8 @@
 #include "messages.hpp"
 #include "window.hpp"
 #include "callback.hpp"
+#include "selection/world_selection.hpp"
+#include "cistring.hpp"
 
 #include <atomic>
 #include <queue>
@@ -35,11 +37,12 @@
 #include <chrono>
 #include <event2/event.h>
 #include <event2/bufferevent.h>
+#include <functional>
 
 
 namespace hCraft {
 	
-	class server;
+	class server; // forward dec
 	
 	
 	enum gamemode_type
@@ -54,6 +57,36 @@ namespace hCraft {
 		void *data;
 		void (*dctor)(void *);
 	};
+	
+	
+	
+	struct selection_block
+	{
+		int x, y, z;
+		mutable short counter;
+		
+		selection_block (int x, int y, int z, short counter = 0)
+			{ this->x = x; this->y = y; this->z = z; this->counter = counter; }
+		
+		bool
+		operator== (const selection_block& other) const
+			{ return this->x == other.x && this->y == other.y && this->z == other.z; }
+	};
+	
+	class selection_block_hash
+	{
+		std::hash<int> int_hash;
+		
+	public:
+		std::size_t
+		operator() (const selection_block& sb) const
+		{
+			return int_hash (sb.x) ^ (int_hash (sb.y) << 11) ^ (int_hash (sb.z) << 5);
+		}
+	};
+	
+	
+	
 	
 	
 	/* 
@@ -119,6 +152,11 @@ namespace hCraft {
 		std::unordered_map<std::string, player_extra_data> extra_data;
 		std::mutex data_lock;
 		
+	public:
+		std::unordered_map<cistring, world_selection *> selections;
+		world_selection *curr_sel;
+		std::unordered_set<selection_block, selection_block_hash> sel_blocks;
+		
 	private:
 		/* 
 		 * libevent callback functions:
@@ -135,6 +173,7 @@ namespace hCraft {
 		static int handle_packet_00 (player *pl, packet_reader reader);
 		static int handle_packet_02 (player *pl, packet_reader reader);
 		static int handle_packet_03 (player *pl, packet_reader reader);
+		static int handle_packet_07 (player *pl, packet_reader reader);
 		static int handle_packet_0a (player *pl, packet_reader reader);
 		static int handle_packet_0b (player *pl, packet_reader reader);
 		static int handle_packet_0c (player *pl, packet_reader reader);
@@ -278,12 +317,19 @@ namespace hCraft {
 		 */
 		void join_world_at (world *w, entity_pos destpos);
 		
-		
 		/* 
 		 * Loads new close chunks to the player and unloads those that are too
 		 * far away.
 		 */
 		void stream_chunks (int radius = player::chunk_radius ());
+		
+		/* 
+		 * Checks whether the specified chunk is within the visible chunk range
+		 * of the player.
+		 */
+		bool can_see_chunk (int x, int z);
+		
+		
 		
 		/* 
 		 * Teleports the player to the given position.
@@ -349,6 +395,16 @@ namespace hCraft {
 		 */
 		callback<bool (player *, block_pos[], int)>&
 		get_nth_marking_callback (int n);
+		
+		
+		/* 
+		 * Used by world selections:
+		 */
+		void sb_add (int x, int y, int z);
+		void sb_remove (int x, int y, int z);
+		bool sb_exists (int x, int y, int z);
+		void send_sb (int x, int y, int z);
+		
 		
 		/* 
 		 * These three functions can be used to store additional general-purpose

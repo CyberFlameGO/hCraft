@@ -45,7 +45,7 @@ namespace hCraft {
 				return;
 			
 			if (reader.arg_count () > 1)
-				{ this->show_usage (pl); return; }
+				{ this->show_summary (pl); return; }
 			
 			if (reader.has_args ())
 				{

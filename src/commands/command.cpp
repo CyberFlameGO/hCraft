@@ -18,6 +18,8 @@
 
 #include "command.hpp"
 #include "player.hpp"
+#include "manual.hpp"
+#include "blocks.hpp"
 
 #include "infoc.hpp"
 #include "chatc.hpp"
@@ -55,7 +57,8 @@ namespace hCraft {
 	static command* create_c_physics () { return new commands::c_physics (); }
 	
 	// draw commands:
-	static command* create_c_cuboid () { return new commands::c_cuboid (); }
+	static command* create_c_selection () { return new commands::c_selection (); }
+	static command* create_c_fill () { return new commands::c_fill (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -74,7 +77,8 @@ namespace hCraft {
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
-			{ "cuboid", create_c_cuboid },
+			{ "selection", create_c_selection },
+			{ "fill", create_c_fill },
 			};
 		
 		auto itr = creators.find (name);
@@ -148,7 +152,7 @@ namespace hCraft {
 	
 	
 	bool
-	command_reader::arg_is_int (int index)
+	command_reader::is_arg_int (int index)
 	{
 		return _is_int (this->arg (index));
 	}
@@ -157,6 +161,82 @@ namespace hCraft {
 	command_reader::arg_as_int (int index)
 	{
 		return _to_int (this->arg (index));
+	}
+	
+	
+	
+	bool
+	command_reader::is_arg_block (int index)
+	{
+		// Syntax: <name/id>[:metadata]
+		
+		int digit_count = 0;
+		int alpha_count = 0;
+		
+		const std::string& str = this->arg (index);
+		for (size_t i = 0; i < str.size (); ++i)
+			{
+				int c = str[i];
+				if (!(std::isalnum (c) || c == '_'))
+					{
+						// metadata
+						if (c == ':')
+							{
+								++ i;
+								for (; i < str.size (); ++i)
+									if (!std::isdigit (str[i]))
+										return false;
+								break;
+							}
+						else
+							return false;
+					}
+				else
+					{
+						if (std::isalpha (c))
+							++ alpha_count;
+						else if (std::isdigit (c))
+							++ digit_count;
+						if (alpha_count > 0 && digit_count > 0)
+							return false;
+					}
+			}
+		
+		return true;
+	}
+	
+	block_data
+	command_reader::arg_as_block (int index)
+	{
+		const std::string& str = this->arg (index);
+		std::ostringstream name, meta;
+		
+		bool have_meta = false;
+		for (size_t i = 0; i < str.size (); ++i)
+			{
+				if (str[i] == ':')
+					{
+						have_meta = true;
+						++ i;
+						for (; i < str.size (); ++i)
+							meta << (char)str[i];
+					}
+				else
+					name << (char)str[i];
+			}
+		
+		int id = 0, m = 0;
+		block_info *binf = block_info::from_id_or_name (name.str ().c_str ());
+		if (!binf)
+			return block_data (0xFFFF, 0xFF, 0, 0);
+		id = binf->id;
+		
+		if (have_meta)
+			{
+				std::istringstream imeta ((meta.str ()));
+				imeta >> m;
+			}
+		return block_data (id, m, 0, 0);
 	}
 	
 	
@@ -180,6 +260,8 @@ namespace hCraft {
 		this->args.reserve ((str.size () - i) + 1);
 		for (++i; i < str.size (); ++i)
 			this->args.push_back (str[i]);
+		
+		this->arg_offset = 0;
 	}
 	
 	
@@ -246,7 +328,7 @@ namespace hCraft {
 			}
 		
 		char c;
-		ss >> std::noskipws;
+		//ss >> std::noskipws;
 		while (!found_end && !ss.fail () && !ss.eof ())
 			{
 				ss >> c;
@@ -255,7 +337,7 @@ namespace hCraft {
 				else
 					oss << c;
 			}
-		ss >> std::skipws;
+		//s >> std::skipws;
 		
 		if (!found_end)
 			{
@@ -277,7 +359,7 @@ namespace hCraft {
 	{
 		if (handle_help)
 			{
-				this->add_option ("help", "h");
+				this->add_option ("help", "h", true);
 				this->add_option ("summary", "s");
 			}
 		
@@ -287,11 +369,23 @@ namespace hCraft {
 		std::string opt_arg;
 		bool has_str = false;
 		
+		int strm_pos;
+		
+		ss >> std::noskipws;
+		
 		// read options
 		while (!ss.fail () && !ss.eof ())
 			{
+				strm_pos = ss.tellg ();
 				if (!has_str)
 					{
+						while (!ss.fail () && !ss.eof ())
+							{
+								if (ss.get () != ' ')
+									{ ss.unget (); break; }
+							}
+						
+						strm_pos = ss.tellg ();
 						str.clear ();
 						ss >> str;
 					}
@@ -300,9 +394,9 @@ namespace hCraft {
 				if (str.empty ())
 					break;
 				
-				if (str[0] == '-')
+				if (str[0] == '\\')
 					{
-						if (str.size () > 1 && str[1] == '-')
+						if (str.size () > 1 && str[1] == '\\')
 							{
 								if (str.size () == 2)
 									break; // end of option list.
@@ -389,21 +483,34 @@ namespace hCraft {
 																return false;
 															}
 															
-														ss >> str;
-														if (str[0] == '-')
+														{
+															while (!ss.fail () && !ss.eof ())
+																{
+																	if (ss.get () != ' ')
+																		{ ss.unget (); break; }
+																}
+															
+															str.clear ();
+															ss >> str;
+														}
+														
+														if (!str.empty ())
 															{
-																has_str = true;
-															}
-														else
-															{
-																opt.found_arg = true;
-																if (str[0] == '"')
+																if (str[0] == '\\')
 																	{
-																		if (!_read_string (ss, str, str, err))
-																			return false;
+																		has_str = true;
 																	}
+																else if (str[0] != ' ')
+																	{
+																		opt.found_arg = true;
+																		if (str[0] == '"')
+																			{
+																				if (!_read_string (ss, str, str, err))
+																					return false;
+																			}
 																
-																opt.arg = std::move (str);
+																		opt.arg = std::move (str);
+																	}
 															}
 													}
 											}
@@ -420,21 +527,39 @@ namespace hCraft {
 									return false;
 							}
 						
+						int pos_start = strm_pos;
+						int pos_end   = ss.tellg ();
+						
 						this->non_opts.push_back (str);
+						this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
 					}
 			}
 		
 		// read non-option arguments
 		while (!ss.fail () && !ss.eof ())
 			{
+				while (!ss.fail () && !ss.eof ())
+					{
+						if (ss.get () != ' ')
+							{ ss.unget (); break; }
+					}
+				
+				strm_pos = ss.tellg ();
+				str.clear ();
 				ss >> str;
 				if (str.empty ()) break;
+				
 				if (str[0] == '"')
 					{
 						if (!_read_string (ss, str, str, err))
 							return false;
 					}
+				
+				int pos_start = strm_pos;
+				int pos_end   = ss.tellg ();
+				
 				this->non_opts.push_back (str);
+				this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
 			}
 		
 		for (option& opt : this->options)
@@ -451,196 +576,73 @@ namespace hCraft {
 				if (this->opt ("summary")->found ())
 					{ cmd->show_summary (err); return false; }
 				else if (this->opt ("help")->found ())
-					{ cmd->show_help (err); return false; }
+					{
+						option& opt = *this->opt ("help");
+						if (opt.got_arg ())
+							{
+								if (!opt.is_int ())
+									{ err->message ("§c * §eInvalid page number§: §c" + opt.as_string ()); return false; }
+								int page = opt.as_int ();
+								cmd->show_help (err, page, 12);
+							}
+						else
+							cmd->show_help (err, 1, 12);
+						return false;
+					}
 			}
-		
+					
 		return true;
+	}
+	
+	
+	
+	/* 
+	 * Returns the next argument from the argument string.
+	 */
+	std::string
+	command_reader::next ()
+	{
+		if (this->arg_offset >= this->arg_count ())
+			return std::string ();
+		return this->non_opts [this->arg_offset++];
+	}
+	
+	bool
+	command_reader::has_next ()
+	{
+		return (this->arg_offset < (int)this->non_opts.size ());
+	}
+	
+	/* 
+	 * Returns everything that has not been read yet from the argument string.
+	 */
+	std::string
+	command_reader::rest ()
+	{
+		return all_from (this->arg_offset);
 	}
 	
 	
 	
 //------------
 	
-	static bool
-	is_punc (char c)
-	{
-		switch (c)
-			{
-				case '`': case '\'': case '[': case ']': case '(': case ')':
-				case '{': case '}': case '<': case '>': case ':': case ',':
-				case '-': case '.': case '?': case '"': case ';': case '/':
-				case '!':
-					return true;
-			}
-		return false;
-	}
-	
-	static std::string
-	color_string (const char *in)
-	{
-		std::ostringstream ss;
-		bool at_name = false, at_flag = false, at_opt = false, in_word = false;
-		bool in_quotes = false, is_marked = false;
-		char last_col = 'f';
-		
-		const char *ptr = in;
-		if (*ptr == '/')
-			at_name = true;
-		
-		int c;
-		while ((c = (int)(*ptr++)))
-			{
-				if (!is_marked && !in_quotes && c == '-')
-					{
-						int n = *ptr;
-						if ((ptr != in) && !std::isalnum (*(ptr - 2)))
-							{
-								if (n == '-' || std::isalpha (n))
-									{
-										at_flag = true;
-										if (last_col != 'c')
-											{
-												ss << "§c";
-												last_col = 'c';
-											}
-										if (n == '-')
-											{ ss << "--"; ++ ptr; }
-										else
-											ss << '-';
-										continue;
-									}
-							}
-						
-					}
-				else if (c == '<')
-					{
-						if (is_marked)
-							{ is_marked = false; continue; }
-						
-						int n = *ptr;
-						if (n != 0 && std::isalpha (n))
-							at_opt = true;
-						if (last_col != '7')
-							{
-								ss << "§7";
-								last_col = '7';
-							}
-						ss << '<';
-						continue;
-					}
-				else if (c == '>')
-					{
-						if (at_opt)
-							ss << '>';
-						else
-							{
-								if (last_col != '6')
-									{
-										ss << "§6";
-										last_col = '6';
-									}
-								is_marked = true;
-							}
-						continue;
-					}
-				else if (!is_marked && c == '"')
-					{
-						if (last_col != 'e')
-							{
-								ss << "§e";
-								last_col = 'e';
-							}
-						ss << '"';
-						in_quotes = !in_quotes;
-						continue;
-					}
-				
-				if (in_quotes)
-					{
-						if (last_col != 'b')
-							{
-								ss << "§b";
-								last_col = 'b';
-							}
-					}
-				else if (is_marked)
-					{
-						if (last_col != '6')
-							{
-								ss << "§6";
-								last_col = '6';
-							}
-					}
-				else
-					{
-						if (is_punc (c))
-							{
-								char col = (*ptr == ' ' || *ptr == '\0') ? 'f' : (at_flag ? '4' : 'f');
-								if (last_col != col)
-									{
-										ss << "§" << col;
-										last_col = col;
-									}
-							}
-						else if (std::isalpha (c))
-							{
-								char col = at_name ? '6' : ((at_flag) ? 'c' : ((at_opt) ? '7' : 'e'));
-								if (last_col != col)
-									{
-										ss << "§" << col;
-										last_col = col;
-									}
-						
-								in_word = true;
-							}
-						else if (std::isdigit (c))
-							{
-								if (!in_word)
-									{
-										if (last_col != 'c')
-											{
-												ss << "§c";
-												last_col = 'c';
-											}
-									}
-							}
-						else if (c == '>')
-							{
-								at_opt = false;
-							}
-						else if (c == ' ')
-							{
-								in_word = false;
-								at_name = false;
-								at_flag = false;
-								at_opt  = false;
-							}
-					}
-				
-				ss << (char)c;
-			}
-		
-		return ss.str ();
-	}
-	
-	
 	void
 	command::show_summary (player *pl)
 	{
-		pl->message ("§6Summary for command §e" + std::string (this->get_name ()) + "§f:");
-		pl->message_spaced ("    " + color_string (this->get_summary ()));
+		pl->message ("§6Summary for command §a" + std::string (this->get_name ()) + "§f:");
+		pl->message_spaced ("§e    " + std::string (this->get_summary ()));
 		if (this->get_aliases ()[0] != nullptr)
 			{
 				std::ostringstream ss;
-				ss << "§8  Aliases§7: ";
+				ss << "§e    Aliases§f: ";
 				
 				const char **aliases = this->get_aliases();
 				int count = 0;
 				while (*aliases)
 					{
 						if (count > 0)
-							ss << "§7, ";
-						ss << "§c" << (*aliases++);
+							ss << "§f, ";
+						ss << "§a" << (*aliases++);
 						++ count;
 					}
 				
@@ -649,66 +651,44 @@ namespace hCraft {
 	}
 	
 	void
-	command::show_usage (player *pl)
+	command::show_help (player *pl, int page, int lines_per_page)
 	{
-		const char **usages = this->get_usage ();
-		const char **usage  = usages;
+		std::vector<std::string> manual;
+		man::format (manual, 60, this->get_help ());
 		
-		pl->message ("§6Usage for command §e" + std::string (this->get_name ()) + "§f:");
-		for (; *usage; ++usage)
-			pl->message_spaced ("    " + color_string (*usage));
-	}
-	
-	void
-	command::show_help (player *pl)
-	{
-		const char **usages = this->get_usage ();
-		const char **usage  = usages;
+		int page_count = manual.size () / lines_per_page;
+		if (manual.size () % lines_per_page != 0)
+			++ page_count;
+		if (manual.size () <= 1)
+			{ pl->message ("§aThis command has no help written for it yet."); return; }
+		if (page < 1 || page > page_count)
+			{ pl->message ("§c* §eNo such page§f."); return; }
 		
-		const char **helpa  = this->get_help ();
-		const char **help   = helpa;
+		-- page;
+		if (page < 0) page = 0;
 		
-		std::ostringstream ss;
-		int i;
-		
-		pl->message ("§6Showing help for command §e" + std::string (this->get_name ()) + "§f:");
-		for (i = 1; *usage && *help; ++ usage, ++ help, ++ i)
+		if ((int)manual.size () <= lines_per_page)
 			{
-				ss << "  §f(§c" << i << "§f): " << color_string (*usage);
-				pl->message_spaced (ss.str ());
-				ss.str (std::string ()); ss.clear ();
-				
-				ss << "    " << color_string (*help);
-				pl->message_spaced (ss.str ());
-				ss.str (std::string ()); ss.clear ();
+				for (auto& str : manual)
+					pl->message (str);
+				return;
 			}
 		
-		if (this->get_aliases ()[0])
+		for (size_t i = 0; i < (size_t)lines_per_page; ++i)
 			{
-				std::ostringstream ss;
-				ss << "§8Aliases§7: ";
+				size_t j = page * lines_per_page + i;
+				if (j >= manual.size ())
+					break;
 				
-				const char **aliases = this->get_aliases();
-				int count = 0;
-				while (*aliases)
-					{
-						if (count > 0)
-							ss << "§7, ";
-						ss << "§c" << (*aliases++);
-						++ count;
-					}
-				
-				pl->message (ss.str ());
+				pl->message (manual[j]);
 			}
-			
-		pl->message ("§8Examples§7:");
-		const char **examples = this->get_examples ();
-		for (const char **ex = examples; *ex; ++ex)
-			{
-				ss << "    §7" << (*ex);
-				pl->message_spaced (ss.str ());
-				ss.str (std::string ()); ss.clear ();
-			}
+		
+		{
+			std::ostringstream ss;
+			ss << "§6                                                      PAGE " << (page + 1)
+				 << "/§8" << page_count;
+			pl->message (ss.str ());
+		}
 	}
 	
 	

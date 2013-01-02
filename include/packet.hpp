@@ -31,6 +31,14 @@ namespace hCraft {
 	class entity_metadata;
 	
 	
+	struct block_change_record
+	{
+		unsigned char x, z, y;
+		unsigned short id;
+		unsigned char meta;
+	};
+	
+	
 	/* 
 	 * A byte array wrapper that provides methods to encode binary data into it.
 	 */
@@ -112,6 +120,8 @@ namespace hCraft {
 			double y, double z, float r, float l, short current_item,
 			entity_metadata& meta);
 		
+		static packet* make_entity_velocity (int eid, short vx, short vy, short vz);
+		
 		static packet* make_destroy_entity (int eid);
 		
 		static packet* make_entity_relative_move (int eid, char dx, char dy, char dz);
@@ -129,6 +139,9 @@ namespace hCraft {
 		static packet* make_chunk (int x, int z, chunk *ch);
 		
 		static packet* make_empty_chunk (int x, int z);
+		
+		static packet* make_multi_block_change (int cx, int cz,
+			const std::vector<block_change_record>& records);
 		
 		static packet* make_block_change (int x, unsigned char y, int z,
 			unsigned short id, unsigned char meta);

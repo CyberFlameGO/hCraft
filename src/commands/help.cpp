@@ -43,7 +43,7 @@ namespace hCraft {
 			
 			// we handle --help and --summary ourselves, instead of passing the work
 			// to the command reader.
-			reader.add_option ("help", "h");
+			reader.add_option ("help", "h", true);
 			reader.add_option ("summary", "s");
 			if (!reader.parse_args (this, pl, false))
 				return;
@@ -51,11 +51,22 @@ namespace hCraft {
 			if (reader.opt ("summary")->found () && reader.no_args ())
 				{ this->show_summary (pl); return; }
 			else if (reader.opt ("help")->found ())
-				{ this->show_help (pl); return; }
+				{
+					auto& opt = *reader.opt ("help");
+					if (opt.got_arg ())
+						{
+							if (!opt.is_int ())
+								{ pl->message ("§c * §eInvalid page number§: §c" + opt.as_string ()); return; }
+							int page = opt.as_int ();
+							this->show_help (pl, page, 12);
+						}
+					else
+						this->show_help (pl, 1, 12);
+				}
 			
-			if (reader.arg_count () > 1)
-				{ this->show_usage (pl); return; }
-			else if (reader.arg_count () == 1)
+			if (reader.arg_count () > 2)
+				{ this->show_summary (pl); return; }
+			else if (reader.arg_count () > 0)
 				{
 					command *cmd = pl->get_server ().get_commands ().find (reader.arg (0).c_str ());
 					if (!cmd || !pl->has (cmd->get_exec_permission ()))
@@ -66,8 +77,16 @@ namespace hCraft {
 					
 					if (reader.opt ("summary")->found ())
 						cmd->show_summary (pl);
-					else
-						cmd->show_help (pl);
+					
+					int page = 1;
+					if (reader.arg_count () == 2)
+						{
+							if (!reader.is_arg_int (1))
+								{ pl->message ("§c * §eInvalid page number§: §c" + reader.arg (1)); return; }
+							page = reader.arg_as_int (1);
+						}
+					cmd->show_help (pl, page, 12);
+					
 					return;
 				}
 		}

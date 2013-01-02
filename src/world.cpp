@@ -21,6 +21,7 @@
 #include "player.hpp"
 #include "packet.hpp"
 #include "logger.hpp"
+#include "world_transaction.hpp"
 #include <stdexcept>
 #include <cassert>
 #include <cstring>
@@ -170,6 +171,7 @@ namespace hCraft {
 		const static int block_update_cap = 10000; // per tick
 		const static int light_update_cap = 10000; // per tick
 		const static int ph_update_cap    = 200;
+		const static int tr_update_cap    = 3;
 		
 		int update_count;
 		
@@ -177,6 +179,31 @@ namespace hCraft {
 			{
 				{
 					std::lock_guard<std::mutex> guard {this->update_lock};
+					
+					/* 
+					 * Transactions.
+					 */
+					update_count = 0;
+					while (!this->tr_updates.empty () && (update_count++ < tr_update_cap))
+						{
+							world_transaction *tr = this->tr_updates.front ();
+							this->tr_updates.pop_front ();
+							
+							tr->commit (this);
+							delete tr;
+							
+							// transactions write over selection blocks, so re-show them to all players.
+							this->get_players ().all (
+								[] (player *pl)
+									{
+										for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+											{
+												world_selection *sel = itr->second;
+												sel->hide (pl);
+												sel->show (pl);
+											}
+									});
+						}
 					
 					/* 
 					 * Block updates.
@@ -225,20 +252,27 @@ namespace hCraft {
 							if (new_inf->opaque != old_inf->opaque)
 								ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
 							
-							this->get_players ().send_to_all (packet::make_block_change (
-								update.x, update.y, update.z, ph ? ph->vanilla_id () : update.id,
-								update.meta), update.pl);
+							// update players
+							this->get_players ().all (
+								[ph, update] (player *pl)
+									{
+										if (!pl->sb_exists (update.x, update.y, update.z))
+											{
+												pl->send (packet::make_block_change (update.x, update.y, update.z,
+													ph ? ph->vanilla_id () : update.id, update.meta));
+											}
+									}, update.pl);
 							
 							if (ch)
 								{
 									if (auto_lighting)
 										{
-											this->lm.enqueue (update.x, update.y, update.z);
+											this->lm.enqueue_nolock (update.x, update.y, update.z);
 										}
 									
 									// physics
 									if (ph)
-										this->queue_physics_nolock (update.x, update.y, update.z, update.extra);
+										this->queue_physics_nolock (update.x, update.y, update.z, update.extra, update.ptr);
 									
 									// check neighbouring blocks
 									{
@@ -294,7 +328,7 @@ namespace hCraft {
 											continue;
 										}
 							
-									ph->tick (*this, u.x, u.y, u.z, u.extra);						
+									ph->tick (*this, u.x, u.y, u.z, u.extra, u.ptr);						
 								}
 						}
 				}
@@ -701,34 +735,43 @@ namespace hCraft {
 		unsigned char meta, player *pl)
 	{
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace_back (x, y, z, id, meta, 0, pl);
+		this->updates.emplace_back (x, y, z, id, meta, 0, nullptr, pl);
 	}
 	
 	void
 	world::queue_update_nolock (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, player *pl)
+		unsigned char meta, int extra, void *ptr, player *pl)
 	{
-		this->updates.emplace_back (x, y, z, id, meta, extra, pl);
+		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl);
 	}
 	
 	void
-	world::queue_physics (int x, int y, int z, int extra)
+	world::queue_update (world_transaction *tr)
+	{
+		std::lock_guard<std::mutex> guard {this->update_lock};
+		this->tr_updates.push_back (tr);
+	}
+	
+	void
+	world::queue_physics (int x, int y, int z, int extra, void *ptr)
 	{
 		if (this->ph_state == PHY_OFF) return;
 		
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+		this->phupdates.emplace_back (x, y, z, extra, ptr,
+			std::chrono::system_clock::now ());
 	}
 	
 	void
-	world::queue_physics_nolock (int x, int y, int z, int extra)
+	world::queue_physics_nolock (int x, int y, int z, int extra, void *ptr)
 	{
 		if (this->ph_state == PHY_OFF) return;
-		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+		this->phupdates.emplace_back (x, y, z, extra, ptr,
+			std::chrono::system_clock::now ());
 	}
 	
 	void
-	world::queue_physics_once_nolock (int x, int y, int z, int extra)
+	world::queue_physics_once_nolock (int x, int y, int z, int extra, void *ptr)
 	{
 		if (this->ph_state == PHY_OFF) return;
 		if (std::find_if (std::begin (this->phupdates), std::end (this->phupdates),
@@ -737,7 +780,8 @@ namespace hCraft {
 					return (u.x == x && u.y == y && u.z == z);
 				}) != std::end (this->phupdates))
 			return;
-		this->phupdates.emplace_back (x, y, z, extra, std::chrono::system_clock::now ());
+		this->phupdates.emplace_back (x, y, z, extra, ptr,
+			std::chrono::system_clock::now ());
 	}
 	
 	

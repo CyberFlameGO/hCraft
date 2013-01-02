@@ -761,7 +761,8 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "nick");
 		_add_command (this->perms, this->commands, "wunload");
 		_add_command (this->perms, this->commands, "physics");
-		_add_command (this->perms, this->commands, "cuboid");
+		_add_command (this->perms, this->commands, "selection");
+		_add_command (this->perms, this->commands, "fill");
 	}
 	
 	void
@@ -796,7 +797,8 @@ namespace hCraft {
 		grp_builder->inherit (grp_member);
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
-		grp_builder->add ("command.draw.cuboid");
+		grp_builder->add ("command.draw.selection");
+		grp_builder->add ("command.draw.fill");
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->set_color ('b');
@@ -1161,7 +1163,8 @@ namespace hCraft {
 				main_world = new world (this->get_config ().main_world, this->log, 
 					world_generator::create ("flatgrass"),
 					world_provider::create ("hw", "worlds", this->get_config ().main_world));
-				main_world->set_size (32, 32);
+				main_world->set_size (64, 64);
+				main_world->prepare_spawn (8);
 			}
 		else
 			{

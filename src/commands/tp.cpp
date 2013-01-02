@@ -48,7 +48,7 @@ namespace hCraft {
 			entity_pos curr_pos = pl->get_pos ();
 			
 			if (reader.no_args () || reader.arg_count () > 3)
-				{ this->show_usage (pl); return; }
+				{ this->show_summary (pl); return; }
 			else if (reader.arg_count () == 1)
 				{
 					/* 
@@ -98,9 +98,9 @@ namespace hCraft {
 					 */
 					int x, y, z;
 					
-					if (!reader.arg_is_int (0) ||
-							!reader.arg_is_int (1) ||
-							!reader.arg_is_int (2))
+					if (!reader.is_arg_int (0) ||
+							!reader.is_arg_int (1) ||
+							!reader.is_arg_int (2))
 						{
 							pl->message ("§eInvalid coordinates §f(§emust be integers§f).");
 							return;

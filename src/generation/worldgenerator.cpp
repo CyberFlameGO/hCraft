@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "worldgenerator.hpp"
+#include "generation/worldgenerator.hpp"
 #include <unordered_map>
 #include <string>
 #include <chrono>
 
 // generators:
-#include "flatgrass.hpp"
+#include "generation/flatgrass.hpp"
 
 
 namespace hCraft {

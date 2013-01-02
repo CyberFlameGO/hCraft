@@ -45,45 +45,34 @@ namespace hCraft {
 				{ return "Checks how much time it takes (in milliseconds) to ping and "
 								 "get a response from a player."; }
 		
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/ping",
-						"/ping <player>",
-						"/ping [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-		
-			const char**
+			const char*
 			get_help ()
-			{
-				static const char *help[] =
-					{
-						"Displays the amount of time (in milliseconds) to both send and retreive"
-						"a ping packet (keep alive) to/from the calling player.",
-				
-						"Measures ping time for <player> instead.",
-				
-						"Same as calling >/help< on >ping< (\"/help [-s] ping\")",
-					};
-				return help;
-			}
-		
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/ping",
-						"/ping user1234",
-						nullptr,
-					};
-				return examples;
-			}
+			{ return
+				".TH PING 1 \"/ping\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+				"ping - Ping a player and display the amount of time it took. "
+				".PP "
+				".SH SYNOPSIS "
+				"$g/ping $yPLAYER .LN "
+				"$g/ping .LN "
+				"$g/ping $yOPTION "
+				".PP "
+				".SH DESCRIPTION "
+				"Pings the player PLAYER and displays the amount of milliseconds it took "
+				"the operation to complete. Or more specifically, a $'keep-alive$' packet "
+				"is sent to the player and the amount of time it takes for a response ("
+				"another $'keep-alive$' packet) to appear is measured. This measuring is "
+				"not actually done on demand, but rather every five seconds. If PLAYER is "
+				"not specified, the player who executed the command is tested instead. "
+				"With OPTION, do as following: "
+				".PP "
+				"$G--help $gDisplay help "
+				".PP "
+				"$G--summary $gDisplay a short description "
+				".SH BUGS "
+				"Trying the command on a player who has been logged in for less than five "
+				"seconds will result in an inaccurate measurement. "
+				;}
 		
 			const char* get_exec_permission () { return "command.misc.ping"; }
 		

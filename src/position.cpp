@@ -52,9 +52,9 @@ namespace hCraft {
 	entity_pos&
 	entity_pos::operator= (const chunk_pos &other)
 	{
-		this->x = other.x * 16;
+		this->x = other.x << 4;
 		this->y = 0.0;
-		this->z = other.z * 16;
+		this->z = other.z << 4;
 		this->r = 0.0f;
 		this->l = 0.0f;
 		this->on_ground = true;
@@ -91,9 +91,9 @@ namespace hCraft {
 	block_pos&
 	block_pos::operator= (const chunk_pos &other)
 	{
-		this->x = other.x * 16;
+		this->x = other.x << 4;
 		this->y = 0;
-		this->z = other.z * 16;
+		this->z = other.z << 4;
 		return *this;
 	}
 	
@@ -115,16 +115,16 @@ namespace hCraft {
 	chunk_pos&
 	chunk_pos::operator= (const entity_pos &other)
 	{
-		this->x = fast_floor (other.x) / 16;
-		this->z = fast_floor (other.z) / 16;
+		this->x = fast_floor (other.x) >> 4;
+		this->z = fast_floor (other.z) >> 4;
 		return *this;
 	}
 	
 	chunk_pos&
 	chunk_pos::operator= (const block_pos &other)
 	{
-		this->x = other.x / 16;
-		this->z = other.z / 16;
+		this->x = other.x >> 4;
+		this->z = other.z >> 4;
 		return *this;
 	}
 }

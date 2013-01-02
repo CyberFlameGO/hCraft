@@ -100,7 +100,7 @@ namespace hCraft {
 		
 		
 		void
-		langtons_ant::tick (world &w, int x, int y, int z, int extra)
+		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr)
 		{
 			if (y == 0)
 				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }

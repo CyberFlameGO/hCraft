@@ -42,8 +42,8 @@ namespace hCraft {
 			if (!pl->perm ("command.chat.nick") || !reader.parse_args (this, pl))
 				return;
 			
-			if (reader.no_args () || reader.arg_count () > 2)
-				{ this->show_usage (pl); return; }
+			if (reader.no_args ())
+				{ this->show_summary (pl); return; }
 			
 			std::string target_name = reader.arg (0);
 			std::string nickname, prev_nickname;
@@ -66,8 +66,8 @@ namespace hCraft {
 			rank rnk (row.at (2).as_cstr (), pl->get_server ().get_groups ());
 			prev_nickname.assign (row.at (3).as_cstr ());
 			pl->get_logger () (LT_DEBUG) << "C" << std::endl;
-			if (reader.arg_count () == 2)
-				nickname.assign (reader.arg (1));
+			if (reader.arg_count () >= 2)
+				nickname.assign (reader.all_from (1));
 			else
 				nickname.assign (row.at (1).as_cstr ());
 			if (nickname.empty () || nickname.length () > 36)

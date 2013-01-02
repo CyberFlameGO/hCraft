@@ -33,7 +33,8 @@ namespace hCraft {
 			virtual int  vanilla_id () override { return 12; }
 			virtual int  tick_rate () override { return 150; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra) override;
+			virtual void tick (world &w, int x, int y, int z, int extra,
+				void *ptr) override;
 			virtual void on_neighbour_modified (world &w, int x, int y, int z,
 				int nx, int ny, int nz) override;
 		};

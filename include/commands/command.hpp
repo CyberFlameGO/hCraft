@@ -22,6 +22,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include "chunk.hpp"
 
 
 namespace hCraft {
@@ -84,6 +86,8 @@ namespace hCraft {
 		std::string args;
 		std::vector<option> options;
 		std::vector<std::string> non_opts;
+		std::vector<std::pair<int, int>> non_opts_info;
+		int arg_offset;
 		
 	public:
 		inline std::vector<option>& get_flags () { return this->options; }
@@ -94,6 +98,28 @@ namespace hCraft {
 		inline int  arg_count () { return this->non_opts.size (); }
 		inline std::string& arg (int n) { return this->non_opts[n]; }
 		inline const std::string& get_arg_string () { return this->args; }
+		
+		inline int arg_start (int n) {
+			if (n < 0 || n >= arg_count ()) return -1;
+			return this->non_opts_info[n].first;
+		}
+		inline int arg_end (int n) {
+			if (n < 0 || n >= arg_count ()) return -1;
+			return this->non_opts_info[n].second;
+		}
+		
+		inline int seek (int n = 0) { int off = this->arg_offset; this->arg_offset = n; return off; }
+		
+		std::string all_from (int n)
+			{ if (n < 0 || n >= arg_count ()) return std::string ();
+				return this->args.substr (
+					this->non_opts_info[n].first,
+					this->args.size () - this->non_opts_info[n].first); }
+		std::string all_after (int n)
+			{ if (n < 0 || n >= arg_count ()) return std::string ();
+				return this->args.substr (
+					this->non_opts_info[n].second,
+					this->args.size () - this->non_opts_info[n].second); }
 		
 		inline bool no_flags () { return this->options.size () == 0; }
 		inline bool has_flags () { return this->options.size () > 0; }
@@ -141,8 +167,25 @@ namespace hCraft {
 		
 	//----
 		
-		bool arg_is_int (int index);
+		bool is_arg_int (int index);
 		int arg_as_int (int index);
+		
+		bool is_arg_block (int index);
+		block_data arg_as_block (int index);
+		
+		
+	//----
+		
+		/* 
+		 * Returns the next argument from the argument string.
+		 */
+		std::string next ();
+		bool has_next ();
+		
+		/* 
+		 * Returns everything that has not been read yet from the argument string.
+		 */
+		std::string rest ();
 	};
 	
 	
@@ -171,19 +214,9 @@ namespace hCraft {
 		virtual const char* get_summary () = 0;
 		
 		/* 
-		 * Returns a null-terminated array of usage patterns.
+		 * Returns the MAN page (as a string) for this command.
 		 */
-		virtual const char** get_usage () = 0;
-		
-		/* 
-		 * Returns a null-terminated array of usage pattern descriptions.
-		 */
-		virtual const char** get_help () = 0;
-		
-		/* 
-		 * Returns a null terminated array of command invocation examples.
-		 */
-		virtual const char** get_examples () = 0;
+		virtual const char* get_help () = 0;
 		
 		/* 
 		 * Returns the permission node needed to execute the command.
@@ -193,8 +226,7 @@ namespace hCraft {
 	//----
 		
 		virtual void show_summary (player *pl);
-		virtual void show_usage (player *pl);
-		virtual void show_help (player *pl);
+		virtual void show_help (player *pl, int page, int lines_per_page);
 		
 	//----
 		

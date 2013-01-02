@@ -42,12 +42,12 @@ namespace hCraft {
 	
 	
 	void
-	lighting_manager::enqueue_nolock (int x, int y, int z, bool a)
+	lighting_manager::enqueue_nolock (int x, int y, int z)
 	{
 		if (this->overloaded)
 			return;
 	
-		this->updates.emplace (x, y, z, a);
+		this->updates.emplace (x, y, z);
 		if ((int)this->updates.size () >= this->limit)
 			{
 				this->overloaded = true;
@@ -63,7 +63,7 @@ namespace hCraft {
 	lighting_manager::enqueue (int x, int y, int z)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
-		this->enqueue_nolock (x, y, z, false);
+		this->enqueue_nolock (x, y, z);
 	}
 	
 	
@@ -83,7 +83,7 @@ namespace hCraft {
 	
 	
 	static char
-	calc_sky_light (lighting_manager &lm, int x, int y, int z, bool a)
+	calc_sky_light (lighting_manager &lm, int x, int y, int z)
 	{
 		world *wr = lm.get_world ();
 		
@@ -158,14 +158,13 @@ namespace hCraft {
 				light_update u = this->updates.front ();
 				this->updates.pop ();
 				
-				calc_sky_light (*this, u.x, u.y, u.z, u.a);
+				calc_sky_light (*this, u.x, u.y, u.z);
 				++ this->handled_since_empty;
 			}
 		
 		if (this->updates.empty () && (this->handled_since_empty > 0))
 			{
 				this->overloaded = false;
-				//this->log (LT_DEBUG) << "Handled " << this->handled_since_empty << " updates." << std::endl;
 				this->handled_since_empty = 0;
 			}
 		

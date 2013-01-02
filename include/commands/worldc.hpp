@@ -55,56 +55,11 @@ namespace hCraft {
 			get_summary ()
 				{ return "Creates a new world, and if requested, also loads it into the "
 								 "server's world list."; }
-			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/wcreate [--load] <world>",
-						"/wcreate [--load] [--provider <prov>] [--generator <gen>, "
-							"--seed <seed>] [--width <width>] [--depth <depth>] <world>",
-						"/wcreate [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+								 
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Creates a new infinite world called <world> using the default "
-						"world provider \"hw\" (HWv1) and world generator \"flatgrass\". "
-						"If flag --load is specified, the created world will then be "
-						"immediately loaded into the server's world list.",
-					
-						"A more detailed form of the above: the user can choose the size "
-						"of the new world, possibly making it finite; and use a custom "
-						"world provider and/or a generator (a seed number to the generator "
-						"can be provided using --seed). To get a list of currently "
-						"supported providers: do \"/wproviders\". As for generators, "
-						"execute \"/wgenerators\".",
-					
-						"Same as calling >/help< on >wcreate< (\"/help [-s] wcreate\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/wcreate world2",
-						"/wcreate -w 256 -d 256 testworld",
-						"/wcreate --provider=\"mcsharp\" -w 512 -d 512 another-world",
-						"/wcreate --provider=\"hw\" default-world",
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.wcreate"; }
@@ -146,49 +101,10 @@ namespace hCraft {
 			get_summary ()
 				{ return "Loads a world from disk into the server's online world list."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/wload <world>",
-						"/wload [--autoload] <world>",
-						"/wload [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Loads world <world> from disk into the server's world list, enabling "
-						"players to teleport to it using the \"/world\" command. >NOTE: Two "
-						"worlds with the same name cannot be loaded at once.<",
-						
-						"Same as above, but also adds the world into the server's >autoload< "
-						"list. This will make the server automatically load the world at "
-						"startup.",
-						
-						"Same as calling >/help< on >wload< (\"/help [-s] wload\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/wload test",
-						"/wload --autoload mfb3",
-						"/wload -a mfb5",
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.wload"; }
@@ -232,47 +148,10 @@ namespace hCraft {
 								 "world list, optionally removing it from the autoload list as "
 								 "well."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/wunload <world>",
-						"/wunload [--autoload] <world>",
-						"/wunload [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Attempts to remove world <world> from the server's online world list. "
-						">NOTE: The world is SAVED before being unloaded.<",
-						
-						"Same as above, but also removes the world from the autoload list (if "
-						"present).",
-						
-						"Same as calling >/help< on >wunload< (\"/help [-s] wunload\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/wunload --autoload mfb3",
-						"/wunload super-world",
-						"/wunload -a mfb4",
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.wunload"; }
@@ -312,45 +191,10 @@ namespace hCraft {
 			get_summary ()
 				{ return "Teleports the player to a requested world."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/world",
-						"/world <world>",
-						"/world [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Displays the name of the world that the player is currently in.",
-					
-						"Teleports the player to world <world>.",
-					
-						"Same as calling >/help< on >world< (\"/help [-s] world\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/world",
-						"/world main",
-						"/world freebuild-2",
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.world"; }
@@ -381,52 +225,10 @@ namespace hCraft {
 			get_summary ()
 				{ return "Teleports the player to a requested location."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/tp <player>",
-						"/tp <player> <dest-player>",
-						"/tp <x> <y> <z>",
-						"/tp <player> <x> <y> <z>",
-						"/tp [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Teleports the calling player to the location of player <player>.",
-					
-						"Teleports the player <player> to the location of player <dest-player>.",
-					
-						"Teleports the calling player to the exact coordinates <x> <y> <z>.",
-					
-						"Teleports the player <player> to the exact coordinates <x> <y> <z>.",
-					
-						"Same as calling >/help< on >tp< (\"/help [-s] tp\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						"/tp dude123",
-						"/tp randomguy dude123",
-						"/tp -61 80 5",
-						"/tp dude123 -1000 100 1000",
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.tp"; }
@@ -455,45 +257,10 @@ namespace hCraft {
 			get_summary ()
 				{ return "Changes the current state of physics of the player's world."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/physics on/resume",
-						"/physics stop",
-						"/physics pause",
-						"/physics [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"(Re)starts block physics.",
-					
-						"Completely stops and removes all further physics updates.",
-					
-						"Temporarily pauses block updates, can be resumed using \"/physics on/resume\".",
-					
-						"Same as calling >/help< on >physics< (\"/help [-s] physics\")",
-						nullptr,
-					};
-				return help;
-			}
-			
-			const char**
-			get_examples ()
-			{
-				static const char *examples[] =
-					{
-						nullptr,
-					};
-				return examples;
+				return "";
 			}
 			
 			const char* get_exec_permission () { return "command.world.physics"; }

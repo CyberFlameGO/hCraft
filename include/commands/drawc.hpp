@@ -26,62 +26,85 @@ namespace hCraft {
 	namespace commands {
 		
 		/* 
-		 * /cuboid -
+		 * /selection -
 		 * 
-		 * Fills a rectangular cuboid area with a specified block.
+		 * A multipurpose command for changing the current selection(s) managed
+		 * by the calling player.
 		 * 
 		 * Permissions:
-		 *   - command.draw.cuboid
+		 *   - command.draw.selection
 		 *       Needed to execute the command.
 		 */
-		class c_cuboid: public command
+		class c_selection: public command
 		{
 		public:
-			const char* get_name () { return "cuboid"; }
+			const char* get_name () { return "selection"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						"sel",
+						"s",
+						nullptr,
+					};
+				return aliases;
+			}
 			
 			const char*
 			get_summary ()
-				{ return "Fills a rectangular cuboid area with a specified block."; }
+				{ return "A multipurpose command for changing the current selection(s) managed by the calling player."; }
 			
-			const char**
-			get_usage ()
-			{
-				static const char *usage[] =
-					{
-						"/cuboid <block>",
-						"/cuboid [--help/--summary]",
-						nullptr,
-					};
-				return usage;
-			}
-			
-			const char**
+			const char*
 			get_help ()
 			{
-				static const char *help[] =
-					{
-						"Requires the user to mark two blocks. The area between the marked "
-						"blocks is then filled with the block <block>.",
-						
-						"Same as calling >/help< on >cuboid< (\"/help [-s] cuboid\")",
-						nullptr,
-					};
-				return help;
+				return "";
 			}
+			
+			const char* get_exec_permission () { return "command.draw.selection"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /fill -
+		 * 
+		 * Fills all visible selected regions with a block.
+		 * 
+		 * Permissions:
+		 *   - command.draw.fill
+		 *       Needed to execute the command.
+		 */
+		class c_fill: public command
+		{
+		public:
+			const char* get_name () { return "fill"; }
 			
 			const char**
-			get_examples ()
+			get_aliases ()
 			{
-				static const char *examples[] =
+				static const char *aliases[] =
 					{
-						"/cuboid 1",
-						"/cuboid air",
+						"f",
 						nullptr,
 					};
-				return examples;
+				return aliases;
 			}
 			
-			const char* get_exec_permission () { return "command.draw.cuboid"; }
+			const char*
+			get_summary ()
+				{ return "Fills all visible selected regions with a block."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.fill"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

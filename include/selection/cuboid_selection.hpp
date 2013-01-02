@@ -61,6 +61,20 @@ namespace hCraft {
 		 * Sets the @{n}th point to @{pt}.
 		 */
 		virtual void set (int n, block_pos pt);
+		
+		
+		/* 
+		 * Draws a minimal wireframe version of the selection for the specified
+		 * player (usually with water and brown mushrooms).
+		 */
+		virtual void show (player *pl);
+		virtual void hide (player *pl);
+		
+		
+		/* 
+		 * Moves the selection @{units} blocks into the direction @{dir}.
+		 */
+		virtual void move (direction dir, int units);
 	};
 }
 
