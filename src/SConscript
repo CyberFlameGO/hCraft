@@ -32,6 +32,7 @@ hCraft_sources = Split("""
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
+		generation/plains.cpp
 		
 		commands/command.cpp
 		commands/help.cpp
@@ -60,6 +61,7 @@ hCraft_libs = Split("""
 		yaml-cpp
 		z
 		sqlite3
+		noise
 		""")
 
 Import('env')

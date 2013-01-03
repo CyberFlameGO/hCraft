@@ -26,8 +26,6 @@
 
 #include "selection/cuboid_selection.hpp"
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	namespace commands {

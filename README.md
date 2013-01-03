@@ -34,6 +34,7 @@ an executable (can be found in the created "build" directory).
 *  [sqlite3](http://www.sqlite.org/)
 *  [zlib](http://www.zlib.net/)
 *  [yaml-cpp](http://code.google.com/p/yaml-cpp/)
+*  [libnoise](http://libnoise.sourceforge.net/)
 
 IRC
 ---

@@ -23,6 +23,7 @@
 
 // generators:
 #include "generation/flatgrass.hpp"
+#include "generation/plains.hpp"
 
 
 namespace hCraft {
@@ -52,6 +53,10 @@ namespace hCraft {
 	create_flatgrass (long seed)
 		{ return new flatgrass_world_generator (seed); }
 	
+	static world_generator*
+	create_plains (long seed)
+		{ return new plains_world_generator (seed); }
+	
 	
 	/* 
 	 * Finds and instantiates a new world generator from the given name.
@@ -61,6 +66,7 @@ namespace hCraft {
 	{
 		static std::unordered_map<std::string, world_generator* (*) (long)> generators {
 				{ "flatgrass", create_flatgrass },
+				{ "plains", create_plains },
 			};
 		
 		auto itr = generators.find (name);
