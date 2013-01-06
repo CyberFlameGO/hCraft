@@ -607,6 +607,14 @@ namespace hCraft {
 		return this->non_opts [this->arg_offset++];
 	}
 	
+	std::string
+	command_reader::peek_next ()
+	{
+		if (this->arg_offset >= this->arg_count ())
+			return std::string ();
+		return this->non_opts [this->arg_offset];
+	}
+	
 	bool
 	command_reader::has_next ()
 	{

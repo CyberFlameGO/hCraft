@@ -49,6 +49,7 @@ hCraft_sources = Split("""
 		commands/fill.cpp
 		
 		selection/cuboid_selection.cpp
+		selection/block_selection.cpp
 		
 		physics/sand.cpp
 		physics/langtons_ant.cpp

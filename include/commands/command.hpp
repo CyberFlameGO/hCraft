@@ -109,6 +109,7 @@ namespace hCraft {
 		}
 		
 		inline int seek (int n = 0) { int off = this->arg_offset; this->arg_offset = n; return off; }
+		inline int offset () { return this->arg_offset; }
 		
 		std::string all_from (int n)
 			{ if (n < 0 || n >= arg_count ()) return std::string ();
@@ -180,6 +181,7 @@ namespace hCraft {
 		 * Returns the next argument from the argument string.
 		 */
 		std::string next ();
+		std::string peek_next ();
 		bool has_next ();
 		
 		/* 

@@ -1163,7 +1163,7 @@ namespace hCraft {
 				main_world = new world (this->get_config ().main_world, this->log, 
 					world_generator::create ("plains"),
 					world_provider::create ("hw", "worlds", this->get_config ().main_world));
-				main_world->set_size (256, 256);
+				main_world->set_size (64, 64);
 				main_world->prepare_spawn (10);
 			}
 		else

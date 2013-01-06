@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "selection/cuboid_selection.hpp"
+#include "selection/block_selection.hpp"
 
 
 namespace hCraft {
@@ -260,30 +261,29 @@ namespace hCraft {
 					moves.push_back (std::make_pair (dir, units));
 				}
 			
-			int sel_count = 0;
+			std::vector<world_selection *> to_move;
 			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
 				{
 					world_selection *sel = itr->second;
 					if (sel->visible ())
-						sel->hide (pl);
+						{
+							sel->hide (pl);
+							to_move.push_back (sel);
+						}
 				}
 			for (auto& p : moves)
-				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				for (world_selection *sel : to_move)
 					{
-						world_selection *sel = itr->second;
-						if (sel->visible ())
-							{ sel->move (p.first, p.second); ++ sel_count; }
+						sel->move (p.first, p.second);
 					}
-			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+			for (world_selection *sel : to_move)
 				{
-					world_selection *sel = itr->second;
-					if (sel->visible ())
-						sel->show (pl);
+					sel->show (pl);
 				}
 			
 			{
 				std::ostringstream ss;
-				ss << "§a" << sel_count << " §eselections have been moved§f.";
+				ss << "§a" << to_move.size () << " §eselections have been moved§f.";
 				pl->message (ss.str ());
 			}
 		}
@@ -320,6 +320,151 @@ namespace hCraft {
 		}
 		
 		
+		static void
+		handle_all (player *pl, command_reader& reader)
+		{
+			std::vector<block_data> blocks;
+			enum {
+				R_INCLUDE,
+				R_EXCLUDE,
+			} state = R_INCLUDE;
+			
+			std::string n = reader.peek_next ();
+			if (sutils::iequals (n, "but") || sutils::iequals (n, "except"))
+				{
+					state = R_EXCLUDE;
+					reader.next ();
+				}
+			
+			while (reader.has_next ())
+				{
+					n = reader.next ();
+					if (!reader.is_arg_block (reader.offset () - 1))
+						{
+							std::ostringstream ss;
+							ss << "§c * §eInvalid block§f: §c" << n;
+							pl->message (ss.str ());
+							return;
+						}
+					
+					blocks.push_back (reader.arg_as_block (reader.offset () - 1));
+				}
+			
+			if (blocks.empty ())
+				{
+					pl->message ("§c * §ePlease specify which blocks to select§f.");
+					pl->message ("§c   > §eUsage§f: §e/sel all §b[but/except] §c<blocks>...");
+					return;
+				}
+			
+			int sx, sy, sz, ex, ey, ez;
+			sx = sy = sz =  2147483647;
+			ex = ey = ez = -2147483648;
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					if (sel->visible ())
+						{
+							block_pos pmin = sel->min (), pmax = sel->max ();
+							if (pmin.x < sx)
+								sx = pmin.x;
+							if (pmin.y < sy)
+								sy = pmin.y;
+							if (pmin.z < sz)
+								sz = pmin.z;
+							if (pmax.x > ex)
+								ex = pmax.x;
+							if (pmax.y > ey)
+								ey = pmax.y;
+							if (pmax.z > ez)
+								ez = pmax.z;
+						}
+				}
+			
+			{
+				std::ostringstream ss;
+				ss << "§eSelection boundaries§f: §b{" << sx << ", " << sy << ", " << sz
+					 << "} §eto §b{" << ex << ", " << ey << ", " << ez << "}§f.";
+				pl->message (ss.str ());
+			}
+			
+			int counter = 0;
+			world *wr = pl->get_world ();
+			block_selection *bsel = new block_selection (
+				block_pos (sx, sy, sz), block_pos (ex, ey, ez));
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					if (sel->visible ())
+						{
+							int x, y, z;
+							block_pos smin = sel->min (), smax = sel->max ();
+							for (x = smin.x; x <= smax.x; ++x)
+								for (y = smin.y; y <= smax.y; ++y)
+									for (z = smin.z; z <= smax.z; ++z)
+										{
+											if (sel->contains (x, y, z))
+												{
+													if (state == R_INCLUDE)
+														{
+															block_data bd = wr->get_block (x, y, z);
+															bool found = false;
+															for (block_data ibd : blocks)
+																if (ibd.id == bd.id && ibd.meta == bd.meta)
+																	{ found = true; break; }
+															if (found)
+																{
+																	bsel->set_block (x, y, z, true);
+																	++ counter;
+																}
+														}
+													else
+														{
+															block_data bd = wr->get_block (x, y, z);
+															bool found = false;
+															for (block_data ibd : blocks)
+																if (ibd.id == bd.id && ibd.meta == bd.meta)
+																	{ found = true; break; }
+															if (!found)
+																{
+																	bsel->set_block (x, y, z, true);
+																	++ counter;
+																}
+														}
+												}
+										}
+						}
+				}
+			
+			// clear all visible selections
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); )
+				{
+					world_selection *sel = itr->second;
+					if (sel->visible ())
+						{
+							sel->hide (pl);
+							itr = pl->selections.erase (itr);
+							delete sel;
+						}
+					else
+						++ itr;
+				}
+			
+			std::ostringstream ss;
+			ss << "@" << get_next_selection_number (pl);
+			std::string bsel_name = ss.str ();
+			pl->selections[bsel_name.c_str ()] = bsel;
+			pl->curr_sel = bsel;
+			
+			ss.str (std::string ()); ss.clear ();
+			ss << "§eCreated new selection §9" << bsel_name << "§f: §a" << counter << " §eblocks";
+			pl->message (ss.str ());
+			
+			bsel->show (pl);
+		}
+		
+		
+		
 		/* 
 		 * /selection -
 		 * 
@@ -353,6 +498,10 @@ namespace hCraft {
 			else if (sutils::iequals (str, "clear"))
 				{
 					handle_clear (pl, reader);
+				}
+			else if (sutils::iequals (str, "all"))
+				{
+					handle_all (pl, reader);
 				}
 			else if (sutils::iequals (str, "move"))
 				{

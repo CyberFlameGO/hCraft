@@ -144,7 +144,7 @@ namespace hCraft {
 	void
 	cuboid_selection::hide (player *pl)
 	{
-		world_selection::show (pl);
+		world_selection::hide (pl);
 		draw_wireframe (pl, this->p1, this->p2, false);
 	}
 	

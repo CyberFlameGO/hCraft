@@ -1139,11 +1139,15 @@ namespace hCraft {
 	void
 	player::send_sb (int x, int y, int z)
 	{
+		/*
 		static const int id_table[] = { 39, 9, 9, 39 };
 		unsigned long long n = 0;
 		n += utils::iabs (x); n += utils::iabs (y); n += utils::iabs (z);
 		n %= 4;
 		this->send (packet::make_block_change (x, y, z, id_table[n], 0));
+		*/
+		
+		this->send (packet::make_block_change (x, y, z, BT_STILL_WATER, 0));
 	}
 	
 	
