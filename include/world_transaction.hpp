@@ -74,14 +74,15 @@ namespace hCraft {
 		int x_start, x_end;
 		int z_start, z_end;
 		int cwidth, cdepth;
+		bool physics;
 		
 	public:
 		/* 
 		 * Constructs a new transaction to the modify the blocks within the given
 		 * area.
 		 */
-		world_transaction (chunk_pos p1, chunk_pos p2);
-		world_transaction (block_pos p1, block_pos p2);
+		world_transaction (chunk_pos p1, chunk_pos p2, bool enq_physics = false);
+		world_transaction (block_pos p1, block_pos p2, bool enq_physics = false);
 		
 		~world_transaction (); // destructor
 		

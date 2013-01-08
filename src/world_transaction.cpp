@@ -42,7 +42,7 @@ namespace hCraft {
 	 * Constructs a new transaction to the modify the blocks within the given
 	 * area.
 	 */
-	world_transaction::world_transaction (chunk_pos p1, chunk_pos p2)
+	world_transaction::world_transaction (chunk_pos p1, chunk_pos p2, bool enq_physics)
 	{
 		this->x_start = utils::min (p1.x, p2.x);
 		this->z_start = utils::min (p1.z, p2.z);
@@ -60,10 +60,11 @@ namespace hCraft {
 		this->chunks = new world_transaction_chunk* [this->cwidth * this->cdepth];
 		for (int i = 0; i < (this->cwidth * this->cdepth); ++i)
 			this->chunks[i] = nullptr;
+		this->physics = enq_physics;
 	}
 	
-	world_transaction::world_transaction (block_pos p1, block_pos p2)
-		: world_transaction (chunk_pos (p1), chunk_pos (p2))
+	world_transaction::world_transaction (block_pos p1, block_pos p2, bool enq_physics)
+		: world_transaction (chunk_pos (p1), chunk_pos (p2), enq_physics)
 	{
 	}
 	
@@ -146,9 +147,19 @@ namespace hCraft {
 																	records.push_back (rec);
 																}
 															
-															wch->set_id_and_meta (x, yy + y, z, id, meta);
+															int wx = (rcx << 4);
+															int wy = yy + y;
+															int wz = (rcz << 4);
+															
+															wch->set_id_and_meta (x, wy, z, id, meta);
 															//if (wr->auto_lighting)
-																wr->queue_lighting_nolock ((rcx << 4) + x, yy + y, (rcz << 4) + z);
+																wr->queue_lighting_nolock (wx, wy, wz);
+															if (this->physics)
+																{
+																	physics_block *ph = wr->get_physics_of (id);
+																	if (ph)
+																		wr->queue_physics_nolock (wx, wy, wz);
+																}
 														}
 												}
 								}

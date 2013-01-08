@@ -698,7 +698,12 @@ namespace hCraft {
 	physics_block*
 	world::get_physics_at (int x, int y, int z)
 	{
-		unsigned short id = this->get_id (x, y, z);
+		return this->get_physics_of (this->get_id (x, y, z));
+	}
+	
+	physics_block*
+	world::get_physics_of (int id)
+	{
 		auto itr = this->phblocks.find (id);
 		return ((itr == this->phblocks.end ())
 			? nullptr

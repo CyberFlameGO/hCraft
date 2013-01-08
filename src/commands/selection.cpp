@@ -26,6 +26,7 @@
 
 #include "selection/cuboid_selection.hpp"
 #include "selection/block_selection.hpp"
+#include "selection/sphere_selection.hpp"
 
 
 namespace hCraft {
@@ -123,6 +124,13 @@ namespace hCraft {
 					pl->selections[name.c_str ()] = sel;
 					pl->curr_sel = sel;
 					pl->message ("§eCreated new selection §b@§9" + name + " §eof type§f: §9cuboid");
+				}
+			else if (sutils::iequals (sel_type, "sphere") || sutils::iequals (sel_type, "s"))
+				{
+					world_selection *sel = new sphere_selection (curr_pos, curr_pos);
+					pl->selections[name.c_str ()] = sel;
+					pl->curr_sel = sel;
+					pl->message ("§eCreated new selection §b@§9" + name + " §eof type§f: §9sphere");
 				}
 			else
 				{
@@ -434,6 +442,12 @@ namespace hCraft {
 												}
 										}
 						}
+				}
+			
+			if (counter == 0)
+				{
+					pl->message ("§bNothing §ehas been selected");
+					return;
 				}
 			
 			// clear all visible selections

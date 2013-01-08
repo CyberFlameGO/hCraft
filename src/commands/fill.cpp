@@ -41,11 +41,14 @@ namespace hCraft {
 		{
 			if (!pl->perm ("command.draw.fill"))
 					return;
-		
+			
+			reader.add_option ("no-physics", "p");
 			if (!reader.parse_args (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
+			
+			bool do_physics = !reader.opt ("no-physics")->found ();
 			
 			if (!reader.is_arg_block (0))
 				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
@@ -65,7 +68,7 @@ namespace hCraft {
 					bd_out = reader.arg_as_block (1);
 					if (bd_out.id > 145 || bd_out.meta > 15)
 						{
-							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
+							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));
 							return;
 						}
 				}
@@ -87,7 +90,7 @@ namespace hCraft {
 						block_pos min_p = sel->min ();
 						block_pos max_p = sel->max ();
 					
-						world_transaction *tr = new world_transaction (min_p, max_p);
+						world_transaction *tr = new world_transaction (min_p, max_p, do_physics);
 					
 						for (int x = min_p.x; x <= max_p.x; ++x)
 							for (int y = min_p.y; y <= max_p.y; ++y)

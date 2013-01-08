@@ -265,6 +265,7 @@ namespace hCraft {
 		
 		bool has_physics_at (int x, int y, int z);
 		physics_block* get_physics_at (int x, int y, int z);
+		physics_block* get_physics_of (int id);
 		unsigned short get_final_id_nolock (int x, int y, int z);
 		
 	//----
