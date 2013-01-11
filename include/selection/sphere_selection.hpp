@@ -31,13 +31,18 @@ namespace hCraft {
 	class sphere_selection: public world_selection
 	{
 		block_pos cp; // center point
-		double radius;
+		double rad;
+		
+	public:
+		inline double radius () { return this->rad; }
+		inline block_pos center () { return this->cp; }
 		
 	public:
 		/* 
 		 * Constructs a new sphere selection from the two given points.
 		 */
 		sphere_selection (block_pos cp, block_pos op);
+		sphere_selection (block_pos cp, double rad);
 		
 		
 		/* 

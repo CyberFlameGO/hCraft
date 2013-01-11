@@ -26,10 +26,6 @@
 #include <sstream>
 #include <string>
 
-// DEBUG
-#include <iostream>
-#include <iomanip>
-
 
 namespace hCraft {
 	
@@ -1103,7 +1099,7 @@ namespace hCraft {
 		pack->put_string ("51", false, false);
 		
 		pack->put_short (0); // delimiter
-		pack->put_string ("1.4.6", false, false);
+		pack->put_string ("1.4.7", false, false);
 		
 		pack->put_short (0); // delimiter
 		pack->put_string (motd, true, false);

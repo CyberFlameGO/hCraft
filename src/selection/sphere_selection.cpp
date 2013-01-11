@@ -20,6 +20,7 @@
 #include "utils.hpp"
 #include "player.hpp"
 #include <cmath>
+#include <unordered_set>
 
 
 namespace hCraft {
@@ -30,10 +31,16 @@ namespace hCraft {
 	sphere_selection::sphere_selection (block_pos cp, block_pos op)
 		: cp (cp)
 	{
-		this->radius = std::sqrt (
+		this->rad = std::sqrt (
 			std::pow (op.x - cp.x, 2) + 
 			std::pow (op.y - cp.y, 2) + 
 			std::pow (op.z - cp.z, 2));
+	}
+	
+	sphere_selection::sphere_selection (block_pos cp, double rad)
+		: cp (cp)
+	{
+		this->rad = rad;
 	}
 	
 	
@@ -48,7 +55,7 @@ namespace hCraft {
 		int dy = y - this->cp.y;
 		int dz = z - this->cp.z;
 		
-		return ((dx * dx) + (dy * dy) + (dz * dz)) <= (radius * radius);
+		return ((dx * dx) + (dy * dy) + (dz * dz)) <= (rad * rad);
 	}
 	
 	
@@ -59,15 +66,15 @@ namespace hCraft {
 	block_pos
 	sphere_selection::min ()
 	{
-		return block_pos (this->cp.x - this->radius, this->cp.y - this->radius,
-			this->cp.z - this->radius);
+		return block_pos (this->cp.x - this->rad, this->cp.y - this->rad,
+			this->cp.z - this->rad);
 	}
 	
 	block_pos
 	sphere_selection::max ()
 	{
-		return block_pos (this->cp.x + this->radius, this->cp.y + this->radius,
-			this->cp.z + this->radius);
+		return block_pos (this->cp.x + this->rad, this->cp.y + this->rad,
+			this->cp.z + this->rad);
 	}
 	
 	
@@ -86,7 +93,7 @@ namespace hCraft {
 					break;
 				case 1:
 					// the other point
-					this->radius = std::sqrt (
+					this->rad = std::sqrt (
 						std::pow (pt.x - this->cp.x, 2) + 
 						std::pow (pt.y - this->cp.y, 2) + 
 						std::pow (pt.z - this->cp.z, 2));
@@ -98,6 +105,32 @@ namespace hCraft {
 	
 	
 	
+	static void
+	_show (player *pl, sphere_selection *sel, bool show)
+	{
+		std::unordered_set<block_pos, block_pos_hash> bset;
+		
+		if (sel->radius () <= 1.0)
+			return;
+		sphere_selection s2 (sel->center (), sel->radius () - 1.0);
+		
+		block_pos pmin = sel->min (), pmax = sel->max ();
+		for (int x = pmin.x; x <= pmax.x; ++x)
+			for (int y = pmin.y; y <= pmax.y; ++y)
+				for (int z = pmin.z; z <= pmax.z; ++z)
+					{
+						if (sel->contains (x, y, z) && !s2.contains (x, y, z))
+							bset.emplace (x, y, z);
+					}
+		
+		if (show)
+			for (block_pos b : bset)
+				pl->sb_add (b.x, b.y, b.z);
+		else
+			for (block_pos b : bset)
+				pl->sb_remove (b.x, b.y, b.z);
+	}
+	
 	/* 
 	 * Draws a minimal wireframe version of the selection for the specified
 	 * player (usually with water and brown mushrooms).
@@ -106,16 +139,14 @@ namespace hCraft {
 	sphere_selection::show (player *pl)
 	{
 		world_selection::show (pl);
-		
-		// TODO
+		_show (pl, this, true);
 	}
 	
 	void
 	sphere_selection::hide (player *pl)
 	{
 		world_selection::hide (pl);
-		
-		// TODO
+		_show (pl, this, false);
 	}
 	
 	
