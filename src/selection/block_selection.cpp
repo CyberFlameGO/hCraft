@@ -80,7 +80,7 @@ namespace hCraft {
 		this->width = pmax.x - pmin.x + 1;
 		this->height = pmax.y - pmin.y + 1;
 		this->depth = pmax.z - pmin.z + 1;
-
+		
 		std::vector<bool> prev_blocks (this->blocks);
 		int volume = this->width * this->height * this->depth;
 		this->blocks.resize (volume);
@@ -102,6 +102,51 @@ namespace hCraft {
 				
 						if (prev_blocks[(((y - dy) - ppmin.y) * pdepth + ((z - dz) - ppmin.z)) * pwidth
 							+ ((x - dx) - ppmin.x)])
+							this->blocks[((y - pmin.y) * this->depth + (z - pmin.z))
+								* this->width + (x - pmin.x)] = true;
+					}
+	}
+	
+	void
+	block_selection::scale (block_pos a, block_pos b)
+	{
+		block_pos pp1 = this->p1, pp2 = this->p2;
+		block_pos ppmin = this->min (), ppmax = this->max ();
+		
+		this->p1 = a;
+		this->p2 = b;
+		if (pp1 == this->p1 && pp2 == this->p2)
+			return;
+		
+		block_pos pmin = this->min (), pmax = this->max ();
+		this->width = pmax.x - pmin.x + 1;
+		this->height = pmax.y - pmin.y + 1;
+		this->depth = pmax.z - pmin.z + 1;
+		
+		std::vector<bool> prev_blocks (this->blocks);
+		int volume = this->width * this->height * this->depth;
+		this->blocks.resize (volume);
+		for (int i = 0; i < volume; ++i)
+			this->blocks[i] = false;
+		
+		int x, y, z;
+		int pwidth = ppmax.x - ppmin.x + 1;
+		int pheight = ppmax.y - ppmin.y + 1;
+		int pdepth = ppmax.z - ppmin.z + 1;
+		
+		double scale_x = (double)pwidth / this->width;
+		double scale_y = (double)pheight / this->height;
+		double scale_z = (double)pdepth / this->depth;
+		
+		int px, py, pz;
+		for (x = pmin.x; x <= pmax.x; ++x)
+			for (y = pmin.y; y <= pmax.y; ++y)
+				for (z = pmin.z; z <= pmax.z; ++z)
+					{
+						px = (x - pmin.x) * scale_x;
+						py = (y - pmin.y) * scale_y;
+						pz = (z - pmin.z) * scale_z;
+						if (prev_blocks[(py * pdepth + pz) * pwidth + px])
 							this->blocks[((y - pmin.y) * this->depth + (z - pmin.z))
 								* this->width + (x - pmin.x)] = true;
 					}
@@ -152,13 +197,57 @@ namespace hCraft {
 	void
 	block_selection::expand (int x, int y, int z)
 	{
+		block_pos a = this->p1, b = this->p2;
+		bool x_1max = ((utils::max (this->p1.x, this->p2.x)) == this->p1.x);
+		bool y_1max = ((utils::max (this->p1.y, this->p2.y)) == this->p1.y);
+		bool z_1max = ((utils::max (this->p1.z, this->p2.z)) == this->p1.z);
 		
+		int xx = x, yy = y, zz = z;
+		
+		if (x_1max)
+			xx = -x;
+		a.x -= xx;
+		b.x += xx;
+		
+		if (y_1max)
+			yy = -y;
+		a.y -= yy;
+		b.y += yy;
+		
+		if (z_1max)
+			zz = -z;
+		a.z -= zz;
+		b.z += zz;
+		
+		this->scale (a, b);
 	}
 	
 	void
 	block_selection::contract (int x, int y, int z)
 	{
+		block_pos a = this->p1, b = this->p2;
+		bool x_1max = !((utils::max (this->p1.x, this->p2.x)) == this->p1.x);
+		bool y_1max = !((utils::max (this->p1.y, this->p2.y)) == this->p1.y);
+		bool z_1max = !((utils::max (this->p1.z, this->p2.z)) == this->p1.z);
 		
+		int xx = x, yy = y, zz = z;
+		
+		if (x_1max)
+			xx = -x;
+		a.x -= xx;
+		b.x += xx;
+		
+		if (y_1max)
+			yy = -y;
+		a.y -= yy;
+		b.y += yy;
+		
+		if (z_1max)
+			zz = -z;
+		a.z -= zz;
+		b.z += zz;
+		
+		this->scale (a, b);
 	}
 	
 	

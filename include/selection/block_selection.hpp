@@ -39,6 +39,7 @@ namespace hCraft {
 		
 	private:
 		void reconstruct (block_pos a, block_pos b);
+		void scale (block_pos a, block_pos b);
 		
 	public:
 		/* 
