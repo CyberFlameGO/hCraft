@@ -19,7 +19,6 @@
 #include "selection/cuboid_selection.hpp"
 #include "utils.hpp"
 #include "player.hpp"
-#include <unordered_set>
 
 
 namespace hCraft {
@@ -84,6 +83,61 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Expands\Contracts the selection in the given direction.
+	 */
+	void
+	cuboid_selection::expand (int x, int y, int z)
+	{
+		bool x_1max = ((utils::max (this->p1.x, this->p2.x)) == this->p1.x);
+		bool y_1max = ((utils::max (this->p1.y, this->p2.y)) == this->p1.y);
+		bool z_1max = ((utils::max (this->p1.z, this->p2.z)) == this->p1.z);
+		
+		int xx = x, yy = y, zz = z;
+		
+		if (x_1max)
+			xx = -x;
+		this->p1.x -= xx;
+		this->p2.x += xx;
+		
+		if (y_1max)
+			yy = -y;
+		this->p1.y -= yy;
+		this->p2.y += yy;
+		
+		if (z_1max)
+			zz = -z;
+		this->p1.z -= zz;
+		this->p2.z += zz;
+	}
+	
+	void
+	cuboid_selection::contract (int x, int y, int z)
+	{
+		bool x_1max = !((utils::max (this->p1.x, this->p2.x)) == this->p1.x);
+		bool y_1max = !((utils::max (this->p1.y, this->p2.y)) == this->p1.y);
+		bool z_1max = !((utils::max (this->p1.z, this->p2.z)) == this->p1.z);
+		
+		int xx = x, yy = y, zz = z;
+		
+		if (x_1max)
+			xx = -x;
+		this->p1.x -= xx;
+		this->p2.x += xx;
+		
+		if (y_1max)
+			yy = -y;
+		this->p1.y -= yy;
+		this->p2.y += yy;
+		
+		if (z_1max)
+			zz = -z;
+		this->p1.z -= zz;
+		this->p2.z += zz;
+	}
+	
+	
+	
 	static void
 	draw_wireframe (player *pl, block_pos p1, block_pos p2, bool add)
 	{
@@ -95,30 +149,30 @@ namespace hCraft {
 		int ez = utils::max (p1.z, p2.z);
 		int x, y, z;
 		
-		std::unordered_set<block_pos, block_pos_hash> buf;
+		std::vector<block_pos> buf;
 		
 		for (x = sx; x <= ex; ++x)
 			{
-				buf.emplace (x, p1.y, p1.z);
-				buf.emplace (x, p1.y, p2.z);
-				buf.emplace (x, p2.y, p1.z);
-				buf.emplace (x, p2.y, p2.z);
+				buf.emplace_back (x, p1.y, p1.z);
+				buf.emplace_back (x, p1.y, p2.z);
+				buf.emplace_back (x, p2.y, p1.z);
+				buf.emplace_back (x, p2.y, p2.z);
 			}
 		
 		for (y = sy; y <= ey; ++y)
 			{
-				buf.emplace (p1.x, y, p1.z);
-				buf.emplace (p1.x, y, p2.z);
-				buf.emplace (p2.x, y, p1.z);
-				buf.emplace (p2.x, y, p2.z);
+				buf.emplace_back (p1.x, y, p1.z);
+				buf.emplace_back (p1.x, y, p2.z);
+				buf.emplace_back (p2.x, y, p1.z);
+				buf.emplace_back (p2.x, y, p2.z);
 			}
 		
 		for (z = sz; z <= ez; ++z)
 			{
-				buf.emplace (p1.x, p1.y, z);
-				buf.emplace (p1.x, p2.y, z);
-				buf.emplace (p2.x, p1.y, z);
-				buf.emplace (p2.x, p2.y, z);
+				buf.emplace_back (p1.x, p1.y, z);
+				buf.emplace_back (p1.x, p2.y, z);
+				buf.emplace_back (p2.x, p1.y, z);
+				buf.emplace_back (p2.x, p2.y, z);
 			}
 		
 		if (add)

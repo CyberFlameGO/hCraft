@@ -52,8 +52,6 @@ namespace hCraft {
 		 */
 		virtual bool contains (int x, int y, int z);
 		
-		void set_block (int x, int y, int z, bool include = true);
-		
 		
 		/* 
 		 * Returns the minimum and maximum points of this selection.
@@ -72,6 +70,13 @@ namespace hCraft {
 		 * Sets the @{n}th point to @{pt}.
 		 */
 		virtual void set (int n, block_pos pt);
+		void set_block (int x, int y, int z, bool include = true);
+		
+		/* 
+		 * Expands\Contracts the selection in the given direction.
+		 */
+		virtual void expand (int x, int y, int z);
+		virtual void contract (int x, int y, int z);
 		
 		
 		/* 

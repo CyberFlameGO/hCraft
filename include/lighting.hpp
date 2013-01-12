@@ -70,7 +70,7 @@ namespace hCraft {
 		/* 
 		 * Constructs a new lighting manager on top of the given world.
 		 */
-		lighting_manager (logger &log, world *wr, int limit = 500000);
+		lighting_manager (logger &log, world *wr, int limit = 2000000);
 		
 		
 		/* 

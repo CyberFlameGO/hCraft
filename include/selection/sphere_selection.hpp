@@ -68,6 +68,12 @@ namespace hCraft {
 		 */
 		virtual void set (int n, block_pos pt);
 		
+		/* 
+		 * Expands\Contracts the selection in the given direction.
+		 */
+		virtual void expand (int x, int y, int z);
+		virtual void contract (int x, int y, int z);
+		
 		
 		/* 
 		 * Draws a minimal wireframe version of the selection for the specified

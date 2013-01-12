@@ -105,23 +105,72 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Expands\Contracts the selection in the given direction.
+	 */
+	void
+	sphere_selection::expand (int x, int y, int z)
+	{
+		int d = utils::max (utils::max (utils::max (x, 0), y), z);
+		this->rad += d;
+	}
+	
+	void
+	sphere_selection::contract (int x, int y, int z)
+	{
+		int d = utils::max (utils::max (utils::max (x, 0), y), z);
+		this->rad -= d;
+	}
+	
+	
+	
 	static void
 	_show (player *pl, sphere_selection *sel, bool show)
 	{
 		std::unordered_set<block_pos, block_pos_hash> bset;
 		
 		if (sel->radius () <= 1.0)
-			return;
+			{
+				block_pos c = sel->center ();
+				if (show)
+					pl->sb_add (c.x, c.y, c.z);
+				else
+					pl->sb_remove (c.x, c.y, c.z);
+				return;
+			}
 		sphere_selection s2 (sel->center (), sel->radius () - 1.0);
 		
 		block_pos pmin = sel->min (), pmax = sel->max ();
+		
+		// #1
+		int y_cont = 0;
+		for (int y = pmin.y; y <= pmax.y; ++y)
+			{
+				++ y_cont;
+				if (y_cont % 4 != 0)
+					continue;
+				for (int x = pmin.x; x <= pmax.x; ++x)
+					for (int z = pmin.z; z <= pmax.z; ++z)
+						{
+							if (sel->contains (x, y, z) && !s2.contains (x, y, z))
+								bset.emplace (x, y, z);
+						}
+			}
+		
+		// #2
+		int x_cont = 0;
 		for (int x = pmin.x; x <= pmax.x; ++x)
-			for (int y = pmin.y; y <= pmax.y; ++y)
-				for (int z = pmin.z; z <= pmax.z; ++z)
-					{
-						if (sel->contains (x, y, z) && !s2.contains (x, y, z))
-							bset.emplace (x, y, z);
-					}
+			{
+				++ x_cont;
+				if (x_cont % 4 != 0)
+					continue;
+				for (int y = pmin.y; y <= pmax.y; ++y)
+					for (int z = pmin.z; z <= pmax.z; ++z)
+						{
+							if (sel->contains (x, y, z) && !s2.contains (x, y, z))
+								bset.emplace (x, y, z);
+						}
+			}
 		
 		if (show)
 			for (block_pos b : bset)

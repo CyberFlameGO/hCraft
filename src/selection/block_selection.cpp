@@ -147,6 +147,23 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Expands\Contracts the selection in the given direction.
+	 */
+	void
+	block_selection::expand (int x, int y, int z)
+	{
+		
+	}
+	
+	void
+	block_selection::contract (int x, int y, int z)
+	{
+		
+	}
+	
+	
+	
+	/* 
 	 * Sets the @{n}th point to @{pt}.
 	 */
 	void

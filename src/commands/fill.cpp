@@ -86,7 +86,7 @@ namespace hCraft {
 						world_selection *sel = itr->second;
 						if (!sel->visible ()) continue;
 						bool sel_cont = false;
-					
+						
 						block_pos min_p = sel->min ();
 						block_pos max_p = sel->max ();
 					

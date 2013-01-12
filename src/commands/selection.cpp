@@ -20,6 +20,7 @@
 #include "player.hpp"
 #include "position.hpp"
 #include "stringutils.hpp"
+#include "cistring.hpp"
 #include <vector>
 #include <sstream>
 #include <utility>
@@ -479,6 +480,186 @@ namespace hCraft {
 		
 		
 		
+		static void
+		handle_expand_contract (player *pl, command_reader& reader, bool do_expand)
+		{
+			if (!reader.has_next ())
+				{
+					pl->message ("§c * §eUsage§f: §e/sel expand/contract §c<<x/y/z> <units>>...");
+					return;
+				}
+			
+			enum axis { A_X = 1, A_Y = 2, A_Z = 4 };
+			struct ax_mod { int ax; int units; };
+			std::vector<ax_mod> changes;
+			
+			while (reader.has_next ())
+				{
+					std::string ax_str    = reader.next ();
+					if (!reader.has_next ())
+						{
+							pl->message ("§c * §eUsage§f: §e/sel expand/contract §c<<x/y/z> <units>>...");
+							return;
+						}
+					std::string units_str = reader.next ();
+					if (!sutils::is_int (units_str))
+						{
+							pl->message ("§c * §eInvalid number§f: §c" + units_str);
+							return;
+						}
+					
+					int units = sutils::to_int (units_str);
+					if ((units > 100000) || (units < -100000))
+						{
+							pl->message ("§c * §eThe §cunits §evalue is too high/low");
+							return;
+						}
+					
+					int ax = 0;
+					for (char c : ax_str)
+						{
+							switch (c)
+								{
+									case 'x': ax |= A_X; break;
+									case 'y': ax |= A_Y; break;
+									case 'z': ax |= A_Z; break;
+									default:
+										pl->message ("§c * §eInvalid direction§f, §emust be §cxyz");
+										return;
+								}
+						}
+					
+					changes.push_back (ax_mod {ax, units});
+				}
+			
+			std::unordered_set<world_selection *> sels;
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					if (!sel->visible ())
+						continue;
+					
+					sels.insert (sel);
+					sel->hide (pl);
+				}
+			
+			for (ax_mod m : changes)
+				{
+					int xx = (m.ax & A_X) ? m.units : 0;
+					int yy = (m.ax & A_Y) ? m.units : 0;
+					int zz = (m.ax & A_Z) ? m.units : 0;
+					
+					for (world_selection *sel : sels)
+						{
+							if (do_expand)
+								sel->expand (xx, yy, zz);
+							else
+								sel->contract (xx, yy, zz);
+						}
+				}
+			
+			for (world_selection *sel : sels)
+				sel->show (pl);
+			
+			std::ostringstream ss;
+			ss << "§eAll §9visible §eselections have been §b"
+				 << (do_expand ? "expanded" : "contracted") << " §e(§c"
+				 << sels.size () << " §eselections)";
+			pl->message (ss.str ());
+		}
+		
+		
+		
+		static void
+		handle_show_hide (player *pl, command_reader& reader, bool do_show)
+		{
+			std::unordered_set<world_selection *> sel_list;
+			bool list_except = false, list_all = false;
+			
+			if (reader.has_next ())
+				{
+					std::string str = reader.peek_next ();
+					if (str == "but" || str == "except")
+						{
+							list_except = true;
+							reader.next ();
+						}
+					else if (str == "all")
+						{
+							list_all = true;
+							list_except = true;
+							reader.next ();
+						}
+				}
+			
+			if (!list_all)
+				{
+					if (!reader.has_next ())
+						{
+							pl->message ("§c * §eUsage§f: §e/sel show/hide <all / <[but/except] <selection>...>>");
+							return;
+						}
+					
+					while (reader.has_next ())
+						{
+							std::string str = reader.next ();
+							if (str[0] != '@')
+								{
+									pl->message ("§c * §eInvalid selection name§f: §c" + str);
+									return;
+								}
+							str.erase (str.begin ());
+							auto itr = pl->selections.find (str.c_str ());
+							if (itr == pl->selections.end ())
+								{
+									pl->message ("§c * §eNo such selection§f: §c" + str);
+									return;
+								}
+							
+							sel_list.insert (itr->second);
+						}
+				}
+			
+			// collect selections
+			std::unordered_set<world_selection *> final_set;
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					auto i2 = sel_list.find (sel);
+					if (list_except) {
+						if (i2 == sel_list.end ())
+							final_set.insert (sel);
+					} else {
+						if (i2 != sel_list.end ())
+							final_set.insert (sel);
+					}
+				}
+			
+			int count = 0;
+			for (auto itr = final_set.begin (); itr != final_set.end (); ++ itr)
+				{
+					world_selection *sel = *itr;
+					if (sel->visible () != do_show)
+						{
+							++ count;
+							if (do_show)
+								sel->show (pl);
+							else
+								sel->hide (pl);
+						}
+				}
+			
+			// message
+			std::ostringstream ss;
+			ss << "§c" << count << " §eselection"
+				 << (count == 1 ? " " : "s ")
+		   	 << (count == 1 ? "has" : "have") << " been made "
+				 << (do_show ? "§9visible" : "§8hidden");
+			pl->message (ss.str ());
+		}
+		
+		
+		
 		/* 
 		 * /selection -
 		 * 
@@ -520,6 +701,22 @@ namespace hCraft {
 			else if (sutils::iequals (str, "move"))
 				{
 					handle_move (pl, reader);
+				}
+			else if (sutils::iequals (str, "expand"))
+				{
+					handle_expand_contract (pl, reader, true);
+				}
+			else if (sutils::iequals (str, "contract"))
+				{
+					handle_expand_contract (pl, reader, false);
+				}
+			else if (sutils::iequals (str, "show"))
+				{
+					handle_show_hide (pl, reader, true);
+				}
+			else if (sutils::iequals (str, "hide"))
+				{
+					handle_show_hide (pl, reader, false);
 				}
 			else
 				{

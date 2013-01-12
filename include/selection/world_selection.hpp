@@ -75,6 +75,12 @@ namespace hCraft {
 				this->show (pl);
 			}
 		
+		/* 
+		 * Expands\Contracts the selection in the given direction.
+		 */
+		virtual void expand (int x, int y, int z) = 0;
+		virtual void contract (int x, int y, int z) = 0;
+		
 		
 		/* 
 		 * Draws a minimal wireframe version of the selection for the specified
