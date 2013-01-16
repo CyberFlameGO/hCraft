@@ -20,7 +20,7 @@
 #include <memory>
 #include <fstream>
 #include <cstring>
-#include <yaml-cpp/yaml.h>
+//#include <yaml-cpp/yaml.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <algorithm>
@@ -456,6 +456,7 @@ namespace hCraft {
 		out.port = 25565;
 	}
 	
+	/*
 	static void
 	write_config (std::ofstream& strm, const server_config& in)
 	{
@@ -483,9 +484,10 @@ namespace hCraft {
 		
 		strm << out.c_str () << std::flush;
 	}
+	*/
 	
 	
-	
+	/*
 	static void
 	_cfg_read_general_map (logger& log, const YAML::Node *general_map, server_config& out)
 	{
@@ -632,14 +634,14 @@ namespace hCraft {
 		if (server_map && server_map->Type () == YAML::NodeType::Map)
 			_cfg_read_server_map (log, server_map, out);
 	}
-	
+	*/
 	
 	
 	void
 	server::init_config ()
 	{
 		default_config (this->cfg);
-		
+		/*
 		log () << "Loading configuration from \"config.yaml\"" << std::endl;
 		
 		std::ifstream strm ("config.yaml");
@@ -658,7 +660,7 @@ namespace hCraft {
 				return;
 			}
 		
-		write_config (ostrm, this->cfg);
+		write_config (ostrm, this->cfg);*/
 	}
 	
 	void
@@ -837,7 +839,7 @@ namespace hCraft {
 		
 		groups.default_rank.set ("@guest", groups);
 	}
-	
+	/*
 	static void
 	write_ranks (std::ostream& strm, group_manager& groups)
 	{
@@ -1099,12 +1101,13 @@ namespace hCraft {
 		
 		groups.default_rank.set (def_rank_name.c_str (), groups);
 	}
-	
+	*/
 	
 	
 	void
 	server::init_ranks ()
 	{
+		/*
 		std::ifstream istrm ("ranks.yaml");
 		if (istrm)
 			{
@@ -1114,9 +1117,9 @@ namespace hCraft {
 				istrm.close ();
 				return;
 			}
-		
+		*/
 		create_default_ranks (this->groups);
-		
+		/*
 		log () << "\"ranks.yaml\" does not exist... Instantiating one with default settings." << std::endl;
 		std::ofstream ostrm ("ranks.yaml");
 		if (!ostrm)
@@ -1125,7 +1128,7 @@ namespace hCraft {
 				return;
 			}
 		
-		write_ranks (ostrm, this->groups);
+		write_ranks (ostrm, this->groups);*/
 	}
 	
 	void
