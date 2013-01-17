@@ -69,12 +69,11 @@ namespace hCraft {
 				}
 			
 			pl->join_world (wr);
-			pl->message ("§6 * §eYou have been teleported to world §9" + std::string (wr->get_name ()));
+			//pl->message ("§eYou have been teleported to world §b" + std::string (wr->get_name ()));
 			
 			std::ostringstream leave_ss;
-			leave_ss << "§c - §" << pl->get_rank ().main_group->get_color () <<
-				pl->get_username () << " §ehas departed to §9" << prev_world->get_name ()
-				<< std::endl;
+			leave_ss << "§c << §" << pl->get_rank ().main_group->get_color () <<
+				pl->get_username () << " §7has departed to §9" << prev_world->get_name ();
 			std::string leave_msg = leave_ss.str ();
 			prev_world->get_players ().all (
 				[&leave_msg] (player *pl)
@@ -83,14 +82,19 @@ namespace hCraft {
 					});
 			
 			std::ostringstream enter_ss;
-			enter_ss << "§a + §" << pl->get_rank ().main_group->get_color () <<
-				pl->get_username () << " §ehas entered the world" << std::endl;
+			enter_ss << "§a >> §" << pl->get_rank ().main_group->get_color () <<
+				pl->get_username () << " §7has entered the world";
 			std::string enter_msg = enter_ss.str ();
 			wr->get_players ().all (
 				[&enter_msg] (player *pl)
 					{
 						pl->message (enter_msg);
 					}, pl);
+			
+			enter_ss.clear (); enter_ss.str (std::string ());
+			enter_ss << "§a >> §" << pl->get_rank ().main_group->get_color () <<
+				pl->get_username () << " §7has entered the world §b" << wr->get_name ();
+			pl->message (enter_ss.str ());
 		}
 	}
 }

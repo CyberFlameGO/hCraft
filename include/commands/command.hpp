@@ -180,8 +180,8 @@ namespace hCraft {
 		/* 
 		 * Returns the next argument from the argument string.
 		 */
-		std::string next ();
-		std::string peek_next ();
+		std::string& next ();
+		std::string& peek_next ();
 		bool has_next ();
 		
 		/* 

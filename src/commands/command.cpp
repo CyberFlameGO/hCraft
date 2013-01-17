@@ -368,6 +368,7 @@ namespace hCraft {
 		std::string opt_name;
 		std::string opt_arg;
 		bool has_str = false;
+		bool found_nonopts = false;
 		
 		int strm_pos;
 		
@@ -401,6 +402,12 @@ namespace hCraft {
 								if (str.size () == 2)
 									break; // end of option list.
 								
+								if (found_nonopts)
+									{
+										err->message ("§c * §eOptions should be specified before the arguments");
+										return false;
+									}
+									
 								/* long option */
 								std::string::size_type eq = str.find_first_of ('=');
 								bool has_arg = (eq != std::string::npos);
@@ -447,6 +454,12 @@ namespace hCraft {
 									{
 										this->non_opts.push_back (str);
 										continue;
+									}
+								
+								if (found_nonopts)
+									{
+										err->message ("§c * §eOptions should be specified before the arguments");
+										return false;
 									}
 									
 								/* short option(s) */
@@ -532,6 +545,7 @@ namespace hCraft {
 						
 						this->non_opts.push_back (str);
 						this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
+						found_nonopts = true;
 					}
 			}
 		
@@ -560,6 +574,7 @@ namespace hCraft {
 				
 				this->non_opts.push_back (str);
 				this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
+				found_nonopts = true;
 			}
 		
 		for (option& opt : this->options)
@@ -599,19 +614,21 @@ namespace hCraft {
 	/* 
 	 * Returns the next argument from the argument string.
 	 */
-	std::string
+	std::string&
 	command_reader::next ()
 	{
+		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return std::string ();
+			return str_empty;
 		return this->non_opts [this->arg_offset++];
 	}
 	
-	std::string
+	std::string&
 	command_reader::peek_next ()
 	{
+		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return std::string ();
+			return str_empty;
 		return this->non_opts [this->arg_offset];
 	}
 	

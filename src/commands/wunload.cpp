@@ -105,7 +105,7 @@ namespace hCraft {
 						pl->message ("§cWorld §7" + world_name + " §cis not in the autoload list§7.");
 				}
 			pl->get_server ().get_players ().message (
-				"§a * §6World §a" + world_name + " §6has been unloaded§e.");
+				"§cWorld §4" + world_name + " §chas been unloaded§c!");
 		}
 	}
 }

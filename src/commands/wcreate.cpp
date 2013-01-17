@@ -50,7 +50,7 @@ namespace hCraft {
 			reader.add_option ("depth", "d", true, true);
 			reader.add_option ("provider", "p", true, true);
 			reader.add_option ("generator", "g", true, true);
-			reader.add_option ("seed", "", true, true);
+			reader.add_option ("seed", "s", true, true);
 			if (!reader.parse_args (this, pl))
 				return;
 			
@@ -153,23 +153,60 @@ namespace hCraft {
 			world_generator *gen = world_generator::create (gen_name.c_str (), gen_seed);
 			if (!gen)
 				{
-					pl->message ("§c * §eInvalid world generator§f: §c" + provider_name);
+					pl->message ("§c * §eInvalid world generator§f: §c" + gen_name);
 					delete prov;
 					return;
 				}
 			
-			pl->message ("§aCreating world §e" + world_name + "§f:");
+			{
+				std::ostringstream ss;
+				
+				pl->message ("§eCreating a new world with the name of §a" + world_name + "§f:");
+				ss << "§eWorld dimensions§f: §c";
+				if (world_width == 0)
+					ss << "§binf";
+				else
+					ss << "§a" << world_width;
+				ss << " §ex §a256 §ex ";
+				if (world_depth == 0)
+					ss << "§binf";
+				else
+					ss << "§a" << world_depth;
+				pl->message (ss.str ());
+				
+				ss.clear (); ss.str (std::string ());
+				if ((world_width == 0) || (world_depth == 0))
+					ss << "§eEstimated size §f(§ewhen full§f): §cinfinite";
+				else
+					{
+						double est_kb = ((world_width * world_depth) / 256) * 7.2375 + 49.7;
+						ss.clear (); ss.str (std::string ());
+						ss << "§eEstimated size §f(§ewhen full§f): §c~";
+						if (est_kb >= 1024.0)
+							ss << (est_kb / 1024.0) << "MB";
+						else
+							ss << est_kb << "KB";
+					}
+				pl->message (ss.str ());
+				
+				ss.clear (); ss.str (std::string ());
+				ss << "§eGenerator§f: §b" << gen_name << "§f, §eProvider§f: §b" << provider_name;
+				pl->message (ss.str ());
+				
+				ss.clear (); ss.str (std::string ());
+				ss << "§eWorld seed§f: §a" << gen_seed;
+				pl->message (ss.str ());
+			}
+			
 			world *wr = new world (world_name.c_str (), pl->get_logger (), gen, prov);
 			wr->set_width (world_width);
 			wr->set_depth (world_depth);
 			wr->prepare_spawn (10);
 			
-			pl->message ("§f - §aSaving§f...");
 			wr->save_all ();
 			
 			if (load_world)
 				{
-					pl->message ("§f - §aLoading§f...");
 					if (!pl->get_server ().add_world (wr))
 						{
 							delete wr;
@@ -177,13 +214,13 @@ namespace hCraft {
 						}
 					
 					wr->start ();
+					pl->get_server ().get_players ().message (
+						"§3World §b" + world_name + " §3has been loaded§b!");
 				}
 			else
 				{
 					delete wr;
 				}
-			
-			pl->message ("§f - §2Done§f.");
 		}
 	}
 }

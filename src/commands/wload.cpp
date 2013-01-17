@@ -131,7 +131,7 @@ namespace hCraft {
 			
 			wr->start ();
 			pl->get_server ().get_players ().message (
-				"§a * §6World §a" + world_name + " §6has been loaded§f.");
+				"§3World §b" + world_name + " §3has been loaded§b!");
 		}
 	}
 }
