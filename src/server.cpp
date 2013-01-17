@@ -20,7 +20,7 @@
 #include <memory>
 #include <fstream>
 #include <cstring>
-//#include <yaml-cpp/yaml.h>
+#include <libconfig.h++>
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <algorithm>
@@ -456,124 +456,126 @@ namespace hCraft {
 		out.port = 25565;
 	}
 	
-	/*
 	static void
-	write_config (std::ofstream& strm, const server_config& in)
+	write_config (logger& log, libconfig::Config& cfg, const server_config& in)
 	{
-		YAML::Emitter out;
+		libconfig::Setting& grp_server = cfg.getRoot ().add ("server",
+			libconfig::Setting::TypeGroup);
 		
-		out << YAML::BeginMap;
+		/* 'general' group */
+		{
+			libconfig::Setting& grp_general = grp_server.add ("general",
+				libconfig::Setting::TypeGroup);
+			
+			grp_general.add ("server-name", libconfig::Setting::TypeString)
+				= in.srv_name;
+			grp_general.add ("server-motd", libconfig::Setting::TypeString)
+				= in.srv_motd;
+			grp_general.add ("max-players", libconfig::Setting::TypeInt)
+				= in.max_players;
+			grp_general.add ("main-world", libconfig::Setting::TypeString)
+				= in.main_world;
+		}
 		
-		out << YAML::Key << "server";
-		out << YAML::Value << YAML::BeginMap;
+		/* 'network' group */
+		{
+			libconfig::Setting& grp_network = grp_server.add ("network",
+				libconfig::Setting::TypeGroup);
+			
+			grp_network.add ("ip-address", libconfig::Setting::TypeString)
+				= in.ip;
+			grp_network.add ("port", libconfig::Setting::TypeInt)
+				= in.port;
+		}
 		
-		out << YAML::Key << "general" << YAML::Value << YAML::BeginMap;
-		out << YAML::Key << "server-name" << YAML::Value << in.srv_name;
-		out << YAML::Key << "server-motd" << YAML::Value << in.srv_motd;
-		out << YAML::Key << "max-players" << YAML::Value << in.max_players;
-		out << YAML::Key << "main-world" << YAML::Value << in.main_world;
-		out << YAML::EndMap;
-		
-		out << YAML::Key << "network" << YAML::Value << YAML::BeginMap;
-		out << YAML::Key << "ip-address" << YAML::Value << in.ip;
-		out << YAML::Key << "port" << YAML::Value << in.port;
-		out << YAML::EndMap;
-		
-		out << YAML::EndMap;
-		out << YAML::EndMap;
-		
-		strm << out.c_str () << std::flush;
+		try
+			{
+				cfg.writeFile ("config.cfg");
+			}
+		catch (const libconfig::FileIOException& ex)
+			{
+				log (LT_ERROR) << "Failed to save configuration file to \"config.cfg\"" << std::endl;
+			}
 	}
-	*/
 	
 	
-	/*
 	static void
-	_cfg_read_general_map (logger& log, const YAML::Node *general_map, server_config& out)
+	_cfg_read_general_grp (logger& log, libconfig::Setting& grp_general, server_config& out)
 	{
-		const YAML::Node *node;
 		std::string str;
+		int num;
 		bool error = false;
 		
 		// server name
-		node = general_map->FindValue ("server-name");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		if (grp_general.lookupValue ("server-name", str))
 			{
-				*node >> str;
 				if (str.size () > 0 && str.size() <= 80)
 					std::strcpy (out.srv_name, str.c_str ());
 				else
 					{
 						if (!error)
-							log (LT_ERROR) << "Config: at map \"server.general\":" << std::endl;
-						log (LT_INFO) << " - Scalar \"server-name\" must contain at "
+							log (LT_ERROR) << "Config: at group \"server.general\":" << std::endl;
+						log (LT_INFO) << " - \"server-name\" must contain at "
 														 "least one character and no more than 80." << std::endl;
 						error = true;
 					}
 			}
 		
 		// server motd
-		node = general_map->FindValue ("server-motd");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		str.clear ();
+		if (grp_general.lookupValue ("server-motd", str))
 			{
-				*node >> str;
 				if (str.size() <= 80)
 					std::strcpy (out.srv_motd, str.c_str ());
 				else
 					{
 						if (!error)
-							log (LT_ERROR) << "Config: at map \"server.general\":" << std::endl;
-						log (LT_INFO) << " - Scalar \"server-motd\" must contain no more than 80 characters." << std::endl;
+							log (LT_ERROR) << "Config: at group \"server.general\":" << std::endl;
+						log (LT_INFO) << " - \"server-motd\" must contain no more than 80 characters." << std::endl;
 						error = true;
 					}
 			}
 		
 		// max players
-		node = general_map->FindValue ("max-players");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		if (grp_general.lookupValue ("max-players", num))
 			{
-				int num;
-				*node >> num;
 				if (num > 0 && num <= 1024)
 					out.max_players = num;
 				else
 					{
 						if (!error)
-							log (LT_ERROR) << "Config: at map \"server.general\":" << std::endl;
-						log (LT_INFO) << " - Scalar \"max_players\" must be in the range of 1-1024." << std::endl;
+							log (LT_ERROR) << "Config: at group \"server.general\":" << std::endl;
+						log (LT_INFO) << " - \"max_players\" must be in the range of 1-1024." << std::endl;
 						error = true;
 					}
 			}
 		
 		// main world
-		node = general_map->FindValue ("main-world");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		str.clear ();
+		if (grp_general.lookupValue ("main-world", str))
 			{
-				*node >> str;
 				if (world::is_valid_name (str.c_str ()))
 					std::strcpy (out.main_world, str.c_str ());
 				else
 					{
 						if (!error)
-							log (LT_ERROR) << "Config: at map \"server.general\":" << std::endl;
-						log (LT_INFO) << " - Scalar \"main-world\" is not a valid world name." << std::endl;
+							log (LT_ERROR) << "Config: at group \"server.general\":" << std::endl;
+						log (LT_INFO) << " - \"main-world\" is not a valid world name." << std::endl;
 						error = true;
 					}
 			}
 	}
 	
 	static void
-	_cfg_read_network_map (logger& log, const YAML::Node *network_map, server_config& out)
+	_cfg_read_network_grp (logger& log, libconfig::Setting& grp_network, server_config& out)
 	{
-		const YAML::Node *node;
 		std::string str;
+		int num;
 		bool error = false;
 		
 		// ip address
-		node = network_map->FindValue ("ip-address");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		if (grp_network.lookupValue ("ip-address", str))
 			{
-				*node >> str;
 				if (str.size () == 0)
 					std::strcpy (out.ip, "0.0.0.0");
 				else
@@ -584,83 +586,90 @@ namespace hCraft {
 						else
 							{
 								if (!error)
-									log (LT_ERROR) << "Config: at map \"server.network\":" << std::endl;
-								log (LT_INFO) << " - Scalar \"ip-address\" is invalid." << std::endl;
+									log (LT_ERROR) << "Config: at group \"server.network\":" << std::endl;
+								log (LT_INFO) << " - \"ip-address\" is invalid." << std::endl;
 								error = true;
 							}
 					}
 			}
 		
 		// port
-		node = network_map->FindValue ("port");
-		if (node && node->Type () == YAML::NodeType::Scalar)
+		if (grp_network.lookupValue ("port", num))
 			{
-				int num;
-				*node >> num;
 				if (num >= 0 && num <= 65535)
 					out.port = num;
 				else
 					{
 						if (!error)
-							log (LT_ERROR) << "Config: at map \"server.network\":" << std::endl;
-						log (LT_INFO) << " - Scalar \"port\" must be in the range of 0-65535." << std::endl;
+							log (LT_ERROR) << "Config: at group \"server.network\":" << std::endl;
+						log (LT_INFO) << " - \"port\" must be in the range of 0-65535." << std::endl;
 						error = true;
 					}
 			}
 	}
 	
 	static void
-	_cfg_read_server_map (logger& log, const YAML::Node *server_map, server_config& out)
+	_cfg_read_server_grp (logger& log, libconfig::Setting& grp_server, server_config& out)
 	{
-		const YAML::Node *general_map = server_map->FindValue ("general");
-		if (general_map && general_map->Type () == YAML::NodeType::Map)
-			_cfg_read_general_map (log, general_map, out);
+		try
+			{
+				libconfig::Setting& grp_general = grp_server["general"];
+				_cfg_read_general_grp (log, grp_general, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"server.general\" not found, using defaults" << std::endl;
+			}
 		
-		const YAML::Node *network_map = server_map->FindValue ("network");
-		if (network_map && network_map->Type () == YAML::NodeType::Map)
-			_cfg_read_network_map (log, network_map, out);
+		try
+			{
+				libconfig::Setting& grp_network = grp_server["network"];
+				_cfg_read_network_grp (log, grp_network, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"server.network\" not found, using defaults" << std::endl;
+			}
 	}
 	
 	static void
-	read_config (logger& log, std::ifstream& strm, server_config& out)
+	read_config (logger& log, libconfig::Config& cfg, server_config& out)
 	{
-		YAML::Parser parser (strm);
-		
-		YAML::Node doc;
-		if (!parser.GetNextDocument (doc))
-			return;
-		
-		const YAML::Node *server_map = doc.FindValue ("server");
-		if (server_map && server_map->Type () == YAML::NodeType::Map)
-			_cfg_read_server_map (log, server_map, out);
+		libconfig::Setting& root = cfg.getRoot ();
+		try
+			{
+				libconfig::Setting& grp_server = root["server"];
+				_cfg_read_server_grp (log, grp_server, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"server\" not found, using defaults" << std::endl;
+			}
 	}
-	*/
 	
 	
 	void
 	server::init_config ()
 	{
 		default_config (this->cfg);
-		/*
-		log () << "Loading configuration from \"config.yaml\"" << std::endl;
 		
-		std::ifstream strm ("config.yaml");
-		if (strm.is_open ())
-			{
-				read_config (this->log, strm, this->cfg);
-				strm.close ();
-				return;
-			}
+		log () << "Loading configuration from \"config.cfg\"" << std::endl;
+		libconfig::Config cfg;
+		
+		// check if the file exists
+		{
+			std::ifstream strm ("config.cfg");
+			if (strm.is_open ())
+				{
+					strm.close ();
+					cfg.readFile ("config.cfg");
+					read_config (this->log, cfg, this->cfg);
+					return;
+				}
+		}
 		
 		log () << "Configuration file does not exist, creating one with default settings." << std::endl;
-		std::ofstream ostrm ("config.yaml");
-		if (!ostrm.is_open ())
-			{
-				log (LT_ERROR) << "Failed to open \"server.cfg\" for writing." << std::endl;
-				return;
-			}
-		
-		write_config (ostrm, this->cfg);*/
+		write_config (this->log, cfg, this->cfg);
 	}
 	
 	void
@@ -834,17 +843,16 @@ namespace hCraft {
 		
 		group* grp_owner = groups.add (9, "owner");
 		grp_owner->set_color ('6');
-		grp_owner->set_text_color ('c');
+		grp_owner->set_text_color ('7');
 		grp_owner->add ("*");
 		
 		groups.default_rank.set ("@guest", groups);
 	}
-	/*
+	
+	
 	static void
-	write_ranks (std::ostream& strm, group_manager& groups)
+	write_ranks (logger& log, libconfig::Config& cfg, group_manager& groups)
 	{
-		YAML::Emitter emit;
-		
 		std::vector<group *> sorted_groups;
 		for (auto itr = groups.begin (); itr != groups.end (); ++itr)
 			sorted_groups.push_back (itr->second);
@@ -852,65 +860,90 @@ namespace hCraft {
 			[] (const group* a, const group* b) -> bool
 				{ return (*a) < (*b); });
 		
-		emit << YAML::BeginMap;
+		libconfig::Setting& root = cfg.getRoot ();
 		
-		emit << YAML::Key << "default-rank" << YAML::Value << "guest";
+		{
+			std::string def_rank;
+			groups.default_rank.get_string (def_rank);
+			root.add ("default-rank", libconfig::Setting::TypeString)
+				= def_rank;
+		}
 		
-		emit << YAML::Key << "groups";
-		emit << YAML::Value << YAML::BeginMap;
-		for (group* grp : sorted_groups)
+		libconfig::Setting& grp_groups = root.add ("groups",
+			libconfig::Setting::TypeGroup);
+		
+		for (group *grp : sorted_groups)
 			{
-				emit << YAML::Key << grp->get_name ();
-				emit << YAML::Value << YAML::BeginMap;
+				libconfig::Setting& grp_set = grp_groups.add (grp->get_name (),
+					libconfig::Setting::TypeGroup);
 				
+				// inheritance
 				if (grp->get_parents ().size () > 0)
 					{
-						emit << YAML::Key << "inheritance"
-							   << YAML::Value << YAML::BeginSeq;
+						libconfig::Setting& arr_inh = grp_set.add ("inheritance",
+							libconfig::Setting::TypeArray);
 						for (group *parent : grp->get_parents ())
-							emit << parent->get_name ();
-						emit << YAML::EndSeq;
+							{
+								arr_inh.add (libconfig::Setting::TypeString) = parent->get_name ();
+							}
 					}
 				
-				emit << YAML::Key << "power" << YAML::Value << grp->get_power ();
-				emit << YAML::Key << "color" << YAML::Value << grp->get_color ();
-				emit << YAML::Key << "text-color" << YAML::Value << grp->get_text_color ();
-				emit << YAML::Key << "prefix" << YAML::Value << grp->get_prefix ();
-				emit << YAML::Key << "suffix" << YAML::Value << grp->get_suffix ();
-				emit << YAML::Key << "mprefix" << YAML::Value << grp->get_mprefix ();
-				emit << YAML::Key << "msuffix" << YAML::Value << grp->get_msuffix ();
-				emit << YAML::Key << "can-chat" << YAML::Value << grp->can_chat ();
-				emit << YAML::Key << "can-build" << YAML::Value << grp->can_build ();
-				emit << YAML::Key << "can-move" << YAML::Value << grp->can_move ();
+				grp_set.add ("power", libconfig::Setting::TypeInt)
+					= grp->get_power ();
 				
-				emit << YAML::Key << "permissions";
-				emit << YAML::Value << YAML::BeginSeq;
+				std::string str;
+				str.push_back (grp->get_color ());
+				grp_set.add ("color", libconfig::Setting::TypeString)
+					= str;
+				
+				str.clear ();
+				str.push_back (grp->get_text_color ());
+				grp_set.add ("text-color", libconfig::Setting::TypeString)
+					= str;
+				
+				grp_set.add ("prefix", libconfig::Setting::TypeString)
+					= grp->get_prefix ();
+				grp_set.add ("suffix", libconfig::Setting::TypeString)
+					= grp->get_suffix ();
+				grp_set.add ("mprefix", libconfig::Setting::TypeString)
+					= grp->get_mprefix ();
+				grp_set.add ("msuffix", libconfig::Setting::TypeString)
+					= grp->get_msuffix ();
+				grp_set.add ("can-chat", libconfig::Setting::TypeBoolean)
+					= grp->can_chat ();
+				grp_set.add ("can-build", libconfig::Setting::TypeBoolean)
+					= grp->can_build ();
+				grp_set.add ("can-move", libconfig::Setting::TypeBoolean)
+				= grp->can_move ();
+				
+				libconfig::Setting& arr_perms = grp_set.add ("permissions",
+					libconfig::Setting::TypeArray);
 				for (permission perm : grp->get_perms ())
 					{
-						emit << groups.get_permission_manager ().to_string (perm);
+						arr_perms.add (libconfig::Setting::TypeString)
+							= groups.get_permission_manager ().to_string (perm);
 					}
-				emit << YAML::EndSeq;
-				
-				emit << YAML::EndMap;
 			}
 		
-		emit << YAML::EndMap << YAML::EndMap;
-		
-		strm << emit.c_str () << std::flush;
+		try
+			{
+				cfg.writeFile ("ranks.cfg");
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_ERROR) << "Failed to save ranks to \"ranks.cfg\"" << std::endl;
+			}
 	}
-	
 	
 	
 	using group_inheritance_map
 		= std::unordered_map<std::string, std::vector<std::string>>;
 	
 	static void
-	_ranks_read_group (logger& log, const YAML::Node &group_node,
+	_ranks_read_group (logger& log, libconfig::Setting& grp_set,
 		const std::string& group_name, group_manager& groups,
 		group_inheritance_map& ihmap)
 	{
-		const YAML::Node *node;
-		
 		int grp_power;
 		char grp_color;
 		char grp_text_color;
@@ -924,116 +957,115 @@ namespace hCraft {
 		std::vector<std::string> perms;
 		
 		// inheritance
-		node = group_node.FindValue ("inheritance");
-		if (node && node->Type () == YAML::NodeType::Sequence)
+		try
 			{
-				std::string parent;
-				for (size_t i = 0; i < node->size (); ++i)
+				libconfig::Setting& arr_inh = grp_set["inheritance"];
+				if (arr_inh.getType () == libconfig::Setting::TypeArray)
 					{
-						(*node)[i] >> parent;
-						
-						auto itr = ihmap.find (group_name);
-						std::vector<std::string>* seq;
-						if (itr == ihmap.end ())
+						for (int i = 0; i < arr_inh.getLength (); ++i)
 							{
-								ihmap[group_name] = std::vector<std::string> ();
-								seq = &ihmap[group_name];
+								std::string parent = arr_inh[i];
+								auto itr = ihmap.find (group_name);
+								std::vector<std::string>* seq;
+								if (itr == ihmap.end ())
+									{
+										ihmap[group_name] = std::vector<std::string> ();
+										seq = &ihmap[group_name];
+									}
+								else
+									seq = &itr->second;
+								seq->push_back (std::move (parent));
 							}
-						else
-							seq = &itr->second;
-						
-						seq->push_back (std::move (parent));
 					}
 			}
+		catch (const std::exception&) { }
 		
 		// power
-		node = group_node.FindValue ("power");
-		if (!node)
-			throw server_error ("in \"ranks.yaml\": group \"power\" field not found.");
-		*node >> grp_power;
+		try
+			{ grp_power = grp_set["power"]; }
+		catch (const std::exception&)
+			{ throw server_error ("in \"ranks.yaml\": group \"power\" field not found."); }
 		
 		// color
-		node = group_node.FindValue ("color");
-		if (!node)
-			grp_color = 'f';
-		else
-			*node >> grp_color;
+		try
+			{ grp_color = ((const char *)grp_set["color"])[0]; }
+		catch (const std::exception&)
+			{ grp_color = 'f'; }
 		
-		// color
-		node = group_node.FindValue ("text-color");
-		if (!node)
-			grp_text_color = 'f';
-		else
-			*node >> grp_text_color;
+		// text-color
+		try
+			{ grp_text_color = ((const char *)grp_set["text-color"])[0]; }
+		catch (const std::exception&)
+			{ grp_text_color = 'f'; }
 		
 		// prefix
-		node = group_node.FindValue ("prefix");
-		if (node)
+		try
 			{
-				*node >> grp_prefix;
+				grp_prefix.assign (grp_set["prefix"].c_str ());
 				if (grp_prefix.size () > 32)
 					grp_prefix.resize (32);
 			}
+		catch (const std::exception&) { }
 		
 		// mprefix
-		node = group_node.FindValue ("mprefix");
-		if (node)
+		try
 			{
-				*node >> grp_mprefix;
+				grp_mprefix.assign (grp_set["mprefix"].c_str ());
 				if (grp_mprefix.size () > 32)
 					grp_mprefix.resize (32);
 			}
+		catch (const std::exception&) { }
 		
 		// suffix
-		node = group_node.FindValue ("suffix");
-		if (node)
+		try
 			{
-				*node >> grp_suffix;
+				grp_suffix.assign (grp_set["suffix"].c_str ());
 				if (grp_suffix.size () > 32)
 					grp_suffix.resize (32);
 			}
+		catch (const std::exception&) { }
 		
 		// msuffix
-		node = group_node.FindValue ("msuffix");
-		if (node)
+		try
 			{
-				*node >> grp_msuffix;
+				grp_msuffix.assign (grp_set["msuffix"].c_str ());
 				if (grp_msuffix.size () > 32)
 					grp_msuffix.resize (32);
 			}
+		catch (const std::exception&) { }
 		
 		// can-build
-		node = group_node.FindValue ("can-build");
-		if (node)
-			*node >> grp_can_build;
-		else
-			grp_can_build = true;
+		try
+			{ grp_can_build = grp_set["can-build"]; }
+		catch (const std::exception&)
+			{ grp_can_build = true; }
 		
 		// can-move
-		node = group_node.FindValue ("can-move");
-		if (node)
-			*node >> grp_can_move;
-		else
-			grp_can_move = true;
+		try
+			{ grp_can_move = grp_set["can-move"]; }
+		catch (const std::exception&)
+			{ grp_can_move = true; }
 		
 		// can-chat
-		node = group_node.FindValue ("can-chat");
-		if (node)
-			*node >> grp_can_chat;
-		else
-			grp_can_chat = true;
+		try
+			{ grp_can_chat = grp_set["can-chat"]; }
+		catch (const std::exception&)
+			{ grp_can_chat = true; }
 		
 		// permissions
-		node = group_node.FindValue ("permissions");
-		if (node && node->Type () == YAML::NodeType::Sequence)
+		try
 			{
-				std::string perm;
-				for (size_t i = 0; i < node->size (); ++i)
+				libconfig::Setting& arr_perms = grp_set["permissions"];
+				if (arr_perms.getType () == libconfig::Setting::TypeArray)
 					{
-						(*node)[i] >> perm;
-						perms.push_back (std::move (perm));
+						for (int i = 0; i < arr_perms.getLength (); ++i)
+							{
+								std::string perm = arr_perms[i];
+								perms.push_back (std::move (perm));
+							}
 					}
 			}
+		catch (const std::exception&) { }
 		
 		// create the group and add it to the list.
 		group *grp = groups.add (grp_power, group_name.c_str ());
@@ -1051,15 +1083,15 @@ namespace hCraft {
 	}
 	
 	static void
-	_ranks_read_groups_map (logger& log, const YAML::Node *groups_map,
+	_ranks_read_groups_grp (logger& log, libconfig::Setting& grp_groups,
 		group_manager& groups)
 	{
 		group_inheritance_map ihmap;
-		for (auto itr = groups_map->begin (); itr != groups_map->end (); ++itr)
+		for (int i = 0; i < grp_groups.getLength (); ++i)
 			{
-				std::string group_name;
-				itr.first () >> group_name;
-				_ranks_read_group (log, itr.second (), group_name, groups, ihmap);
+				libconfig::Setting& grp_set = grp_groups[i];
+				std::string group_name ((grp_set.getName ()));
+				_ranks_read_group (log, grp_set, group_name, groups, ihmap);
 			}
 		
 		// resolve inheritance
@@ -1081,54 +1113,40 @@ namespace hCraft {
 	}
 	
 	static void
-	read_ranks (logger& log, std::istream& strm, group_manager& groups)
+	read_ranks (logger& log, libconfig::Config& cfg, group_manager& groups)
 	{
-		YAML::Parser parser (strm);
+		libconfig::Setting& root = cfg.getRoot ();
 		
-		YAML::Node doc;
-		if (!parser.GetNextDocument (doc))
-			return;
+		std::string def_rank;
+		if (!root.lookupValue ("default-rank", def_rank))
+			throw server_error ("in \"ranks.cfg\": \"default-rank\" not found or invalid");
 		
-		const YAML::Node *def_rank = doc.FindValue ("default-rank");
-		if (!def_rank || def_rank->Type () != YAML::NodeType::Scalar)
-			throw server_error ("in \"ranks.yaml\": \"default-rank\" field not found or invalid");
-		std::string def_rank_name;
-		(*def_rank) >> def_rank_name;
+		libconfig::Setting& grp_groups = root["groups"];
+		_ranks_read_groups_grp (log, grp_groups, groups);
 		
-		const YAML::Node *groups_map = doc.FindValue ("groups");
-		if (groups_map && groups_map->Type () == YAML::NodeType::Map)
-			_ranks_read_groups_map (log, groups_map, groups);
-		
-		groups.default_rank.set (def_rank_name.c_str (), groups);
+		groups.default_rank.set (def_rank.c_str (), groups);
 	}
-	*/
 	
 	
 	void
 	server::init_ranks ()
 	{
-		/*
-		std::ifstream istrm ("ranks.yaml");
+		libconfig::Config cfg;
+		
+		std::ifstream istrm ("ranks.cfg");
 		if (istrm)
 			{
-				log () << "Loading ranks from \"ranks.yaml\"" << std::endl;
-				read_ranks (this->log, istrm, this->groups);
-				log (LT_INFO) << " - Loaded " << this->groups.size () << " groups." << std::endl;
 				istrm.close ();
-				return;
-			}
-		*/
-		create_default_ranks (this->groups);
-		/*
-		log () << "\"ranks.yaml\" does not exist... Instantiating one with default settings." << std::endl;
-		std::ofstream ostrm ("ranks.yaml");
-		if (!ostrm)
-			{
-				log (LT_ERROR) << "Failed to open \"ranks.yaml\" for writing." << std::endl;
+				log () << "Loading ranks from \"ranks.cfg\"" << std::endl;
+				cfg.readFile ("ranks.cfg");
+				read_ranks (this->log, cfg, this->groups);
+				log (LT_INFO) << " - Loaded " << this->groups.size () << " groups." << std::endl;
 				return;
 			}
 		
-		write_ranks (ostrm, this->groups);*/
+		create_default_ranks (this->groups);
+		log () << "\"ranks.cfg\" does not exist... Saving defaults." << std::endl;
+		write_ranks (this->log, cfg, this->groups);
 	}
 	
 	void

@@ -60,7 +60,7 @@ hCraft_libs = Split("""
 		pthread
 		event
 		m
-		yaml-cpp
+		config++
 		z
 		sqlite3
 		noise
