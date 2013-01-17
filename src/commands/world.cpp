@@ -69,7 +69,6 @@ namespace hCraft {
 				}
 			
 			pl->join_world (wr);
-			//pl->message ("§eYou have been teleported to world §b" + std::string (wr->get_name ()));
 			
 			std::ostringstream leave_ss;
 			leave_ss << "§c << §" << pl->get_rank ().main_group->get_color () <<

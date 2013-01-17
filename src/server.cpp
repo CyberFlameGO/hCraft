@@ -1297,7 +1297,7 @@ namespace hCraft {
 	server::init_workers ()
 	{
 		this->worker_count = std::thread::hardware_concurrency ();
-		if (this->worker_count == 0)
+		if (this->worker_count <= 1)
 			this->worker_count = 2;
 		this->workers.reserve (this->worker_count);
 		log () << "Creating " << this->worker_count << " server workers." << std::endl;
