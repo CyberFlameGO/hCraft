@@ -150,6 +150,7 @@ namespace hCraft {
 		void set_depth (int depth);
 		void set_size (int width, int depth)
 			{ set_width (width); set_depth (depth); }
+		chunk* get_edge_chunk () const { return this->edge_chunk; }
 		
 		inline entity_pos get_spawn () const { return this->spawn_pos; }
 		inline void set_spawn (const entity_pos& pos) { this->spawn_pos = pos; }

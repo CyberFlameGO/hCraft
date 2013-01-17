@@ -88,8 +88,8 @@ namespace hCraft {
 	{
 		static const int chunk_cap = 3000;
 		
-		int wwidth = wr->get_width () >> 4;
-		int wdepth = wr->get_depth () >> 4;
+		//int wwidth = wr->get_width () >> 4;
+		//int wdepth = wr->get_depth () >> 4;
 		
 		for (int cx = 0; cx < this->cwidth; ++cx)
 			for (int cz = 0; cz < this->cdepth; ++cz)
@@ -98,11 +98,9 @@ namespace hCraft {
 					int rcz = cz + (this->z_start >> 4);
 					int ci  = (cx * this->cdepth) + cz;
 					
-					if (((wwidth > 0) && ((rcx > wwidth) || (rcx < 0)))
-						|| ((wdepth > 0) && ((rcz > wdepth) || (rcz < 0))))
-						continue;
-					
 					chunk *wch = wr->load_chunk (rcx, rcz);
+					if (wch == wr->get_edge_chunk ())
+						continue;
 					world_transaction_chunk *ch = this->chunks[ci];
 					if (!ch) continue;
 					
