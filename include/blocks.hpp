@@ -185,6 +185,22 @@ namespace hCraft {
 		BS_FLUID,
 	};
 	
+	struct blocki
+	{
+		unsigned short id;
+		unsigned char  meta;
+		
+		blocki (unsigned short i, unsigned char m = 0)
+			{ this->set (i, m); }
+		blocki () : blocki (0, 0) { }
+		
+		void set (unsigned short i, unsigned char m = 0)
+			{ this->id = i; this->meta = m; }
+		
+		bool valid ()
+			{ return ((this->id <= 145) && (this->meta <= 0xF)); }
+	};
+	
 	
 	/* 
 	 * Basic information about a single block.

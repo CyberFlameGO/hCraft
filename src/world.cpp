@@ -199,9 +199,13 @@ namespace hCraft {
 										for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
 											{
 												world_selection *sel = itr->second;
-												sel->hide (pl);
-												sel->show (pl);
+												if (sel->visible ())
+													{
+														sel->hide (pl);
+														sel->show (pl);
+													}
 											}
+										pl->sb_commit ();
 									});
 						}
 					

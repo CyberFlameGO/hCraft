@@ -82,7 +82,7 @@ namespace hCraft {
 		
 		/* 
 		 * Draws a minimal wireframe version of the selection for the specified
-		 * player (usually with water and brown mushrooms).
+		 * player (usually in water blocks).
 		 */
 		virtual void show (player *pl);
 		virtual void hide (player *pl);

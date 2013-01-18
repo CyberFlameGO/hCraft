@@ -29,6 +29,7 @@ hCraft_sources = Split("""
 		lighting.cpp
 		manual.cpp
 		world_transaction.cpp
+		player_transaction.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp

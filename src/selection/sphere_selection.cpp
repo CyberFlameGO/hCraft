@@ -128,7 +128,7 @@ namespace hCraft {
 	_show (player *pl, sphere_selection *sel, bool show)
 	{
 		std::unordered_set<block_pos, block_pos_hash> bset;
-		
+		 
 		if (sel->radius () <= 1.0)
 			{
 				block_pos c = sel->center ();
@@ -142,12 +142,13 @@ namespace hCraft {
 		
 		block_pos pmin = sel->min (), pmax = sel->max ();
 		
+		#define SPHERE_INC 7
 		// #1
 		int y_cont = 0;
 		for (int y = pmin.y; y <= pmax.y; ++y)
 			{
 				++ y_cont;
-				if (y_cont % 4 != 0)
+				if (y_cont % SPHERE_INC != 0)
 					continue;
 				for (int x = pmin.x; x <= pmax.x; ++x)
 					for (int z = pmin.z; z <= pmax.z; ++z)
@@ -162,7 +163,7 @@ namespace hCraft {
 		for (int x = pmin.x; x <= pmax.x; ++x)
 			{
 				++ x_cont;
-				if (x_cont % 4 != 0)
+				if (x_cont % SPHERE_INC != 0)
 					continue;
 				for (int y = pmin.y; y <= pmax.y; ++y)
 					for (int z = pmin.z; z <= pmax.z; ++z)
@@ -171,6 +172,7 @@ namespace hCraft {
 								bset.emplace (x, y, z);
 						}
 			}
+		#undef SPHERE_INC
 		
 		if (show)
 			for (block_pos b : bset)

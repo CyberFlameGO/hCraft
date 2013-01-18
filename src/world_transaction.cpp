@@ -24,6 +24,7 @@
 #include "playerlist.hpp"
 #include <cstring>
 #include <bitset>
+#include <vector>
 
 
 namespace hCraft {
@@ -42,7 +43,8 @@ namespace hCraft {
 	 * Constructs a new transaction to the modify the blocks within the given
 	 * area.
 	 */
-	world_transaction::world_transaction (chunk_pos p1, chunk_pos p2, bool enq_physics)
+	world_transaction::world_transaction (chunk_pos p1, chunk_pos p2,
+		bool enq_physics)
 	{
 		this->x_start = utils::min (p1.x, p2.x);
 		this->z_start = utils::min (p1.z, p2.z);
@@ -63,7 +65,8 @@ namespace hCraft {
 		this->physics = enq_physics;
 	}
 	
-	world_transaction::world_transaction (block_pos p1, block_pos p2, bool enq_physics)
+	world_transaction::world_transaction (block_pos p1, block_pos p2,
+		bool enq_physics)
 		: world_transaction (chunk_pos (p1), chunk_pos (p2), enq_physics)
 	{
 	}
@@ -88,8 +91,10 @@ namespace hCraft {
 	{
 		static const int chunk_cap = 3000;
 		
-		//int wwidth = wr->get_width () >> 4;
-		//int wdepth = wr->get_depth () >> 4;
+		std::vector<player *> affected_players;
+		wr->get_players ().all (
+			[&affected_players] (player *pl)
+				{ affected_players.push_back (pl); });
 		
 		for (int cx = 0; cx < this->cwidth; ++cx)
 			for (int cz = 0; cz < this->cdepth; ++cz)
@@ -155,7 +160,7 @@ namespace hCraft {
 															int wx = (rcx << 4) | x;
 															int wy = yy + y;
 															int wz = (rcz << 4) | z;
-															
+													
 															wch->set_id_and_meta (x, wy, z, id, meta);
 															//if (wr->auto_lighting)
 																wr->queue_lighting_nolock (wx, wy, wz);
@@ -180,12 +185,11 @@ namespace hCraft {
 					
 					if (ch->changes >= chunk_cap)
 						{
-							wr->get_players ().all (
-								[rcx, rcz, wch] (player *pl)
-									{
-										if (pl->can_see_chunk (rcx, rcz))
-											pl->send (packet::make_chunk (rcx, rcz, wch));
-									});
+							for (player *pl : affected_players)
+								{
+									if (pl->can_see_chunk (rcx, rcz))
+										pl->send (packet::make_chunk (rcx, rcz, wch));
+								}
 						}
 					else if (ch->changes > 200)
 						{
@@ -196,24 +200,31 @@ namespace hCraft {
 							if (mbcp->size < cp->size)
 								{
 									delete cp;
-									wr->get_players ().send_to_all (mbcp);
+									for (player *pl : affected_players)
+										{
+											pl->send (new packet (*mbcp));
+										}
+									delete mbcp;
 								}
 							else
 								{
 									delete mbcp;
-									wr->get_players ().all (
-										[rcx, rcz, cp] (player *pl)
-											{
-												if (pl->can_see_chunk (rcx, rcz))
-													pl->send (new packet (*cp));
-											});
+									for (player *pl : affected_players)
+										{
+											if (pl->can_see_chunk (rcx, rcz))
+												pl->send (new packet (*cp));
+										}
 									delete cp;
 								}
 						}
 					else
 						{
-							wr->get_players ().send_to_all (
-								packet::make_multi_block_change (rcx, rcz, records));
+							packet *pack = packet::make_multi_block_change (rcx, rcz, records);
+							for (player *pl : affected_players)
+								{
+									pl->send (new packet (*pack));
+								}
+							delete pack;
 						}
 					
 				}

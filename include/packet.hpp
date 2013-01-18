@@ -33,7 +33,7 @@ namespace hCraft {
 	
 	struct block_change_record
 	{
-		unsigned char x, z, y;
+		unsigned char x, y, z;
 		unsigned short id;
 		unsigned char meta;
 	};

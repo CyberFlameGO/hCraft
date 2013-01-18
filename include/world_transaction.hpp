@@ -21,11 +21,13 @@
 
 #include "position.hpp"
 #include <bitset>
+#include <unordered_set>
 
 
 namespace hCraft {
 	
 	class world; // forward dec
+	class player;
 	
 	
 	struct world_transaction_subchunk

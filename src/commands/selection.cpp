@@ -175,6 +175,7 @@ namespace hCraft {
 			if (adjust_curr_sel)
 				pl->curr_sel = pl->selections.empty () ? nullptr
 					: pl->selections.begin ()->second;
+			pl->sb_commit ();
 		}
 		
 		static void
@@ -221,6 +222,7 @@ namespace hCraft {
 					else
 						pl->curr_sel = pl->selections.begin ()->second;
 				}
+			pl->sb_commit ();
 			
 			switch (op)
 				{
@@ -289,6 +291,7 @@ namespace hCraft {
 				{
 					sel->show (pl);
 				}
+			pl->sb_commit ();
 			
 			{
 				std::ostringstream ss;
@@ -318,6 +321,7 @@ namespace hCraft {
 	
 			block_pos curr_pos = pl->get_pos ();
 			selection->set_update (num - 1, curr_pos, pl);
+			pl->sb_commit ();
 	
 			{
 				std::ostringstream ss;
@@ -332,7 +336,7 @@ namespace hCraft {
 		static void
 		handle_all (player *pl, command_reader& reader)
 		{
-			std::vector<block_data> blocks;
+			std::vector<blocki> blocks;
 			enum {
 				R_INCLUDE,
 				R_EXCLUDE,
@@ -418,7 +422,7 @@ namespace hCraft {
 														{
 															block_data bd = wr->get_block (x, y, z);
 															bool found = false;
-															for (block_data ibd : blocks)
+															for (blocki ibd : blocks)
 																if (ibd.id == bd.id && ibd.meta == bd.meta)
 																	{ found = true; break; }
 															if (found)
@@ -431,7 +435,7 @@ namespace hCraft {
 														{
 															block_data bd = wr->get_block (x, y, z);
 															bool found = false;
-															for (block_data ibd : blocks)
+															for (blocki ibd : blocks)
 																if (ibd.id == bd.id && ibd.meta == bd.meta)
 																	{ found = true; break; }
 															if (!found)
@@ -476,6 +480,7 @@ namespace hCraft {
 			pl->message (ss.str ());
 			
 			bsel->show (pl);
+			pl->sb_commit ();
 		}
 		
 		
@@ -560,6 +565,7 @@ namespace hCraft {
 			
 			for (world_selection *sel : sels)
 				sel->show (pl);
+			pl->sb_commit ();
 			
 			std::ostringstream ss;
 			ss << "§eAll §9visible §eselections have been §b"
@@ -649,12 +655,49 @@ namespace hCraft {
 						}
 				}
 			
+			pl->sb_commit ();
+			
 			// message
 			std::ostringstream ss;
 			ss << "§c" << count << " §eselection"
 				 << (count == 1 ? " " : "s ")
 		   	 << (count == 1 ? "has" : "have") << " been made "
 				 << (do_show ? "§9visible" : "§8hidden");
+			pl->message (ss.str ());
+		}
+		
+		
+		static void
+		handle_sb (player *pl, command_reader& reader)
+		{
+			if (!reader.has_next () || !reader.is_arg_block (1))
+				{
+					pl->message ("§c * §eUsage§f: §e/sel sb §c<block>");
+					return;
+				}
+			
+			blocki blk = reader.arg_as_block (1);
+			if (!blk.valid ())
+				{
+					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));
+					return;
+				}
+			
+			pl->sb_block = blk;
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					if (sel->visible ())
+						{
+							sel->hide (pl);
+							sel->show (pl);
+						}
+				}
+			pl->sb_commit ();
+			
+			block_info *binf = block_info::from_id (blk.id);
+			std::ostringstream ss;
+			ss << "§eSelection block type changed to §a" << binf->name << "§f:§a" << (int)blk.meta;
 			pl->message (ss.str ());
 		}
 		
@@ -717,6 +760,10 @@ namespace hCraft {
 			else if (sutils::iequals (str, "hide"))
 				{
 					handle_show_hide (pl, reader, false);
+				}
+			else if (sutils::iequals (str, "sb"))
+				{
+					handle_sb (pl, reader);
 				}
 			else
 				{

@@ -76,6 +76,7 @@ namespace hCraft {
 		this->curr_world = nullptr;
 		this->curr_chunk = chunk_pos (0, 0);
 		this->ping_waiting = false;
+		this->sb_block.set (BT_GLASS);
 		
 		this->curr_sel = nullptr;
 		this->last_ping = std::chrono::system_clock::now ();
@@ -687,6 +688,18 @@ namespace hCraft {
 		return (itr != this->known_chunks.end ());
 	}
 	
+	
+	/* 
+	 * Resends the block located at the given block coordinates.
+	 */
+	void
+	player::send_orig_block (int x, int y, int z)
+	{
+		if (y < 0 || y > 255) return;
+		block_data bd = this->curr_world->get_block (x, y, z);
+		this->send (packet::make_block_change (x, y, z, bd.id, bd.meta));
+	}
+	
 //--
 	
 	
@@ -1109,7 +1122,7 @@ namespace hCraft {
 		if (itr != this->sel_blocks.end ())
 			{ ++ itr->counter; return; }
 		
-		this->send_sb (x, y, z);
+		this->sb_updates.insert (x, y, z, this->sb_block.id, this->sb_block.meta);
 		this->sel_blocks.insert (selection_block (x, y, z, 1));
 	}
 	
@@ -1124,8 +1137,7 @@ namespace hCraft {
 		if (itr->counter == 0)
 			{
 				this->sel_blocks.erase (itr);
-				block_data bd = this->get_world ()->get_block (x, y, z);
-				this->send (packet::make_block_change (x, y, z, bd.id, bd.meta));
+				this->sb_updates.insert (x, y, z, BT_AIR);
 			}
 	}
 	
@@ -1137,17 +1149,16 @@ namespace hCraft {
 	}
 	
 	void
-	player::send_sb (int x, int y, int z)
+	player::sb_commit ()
 	{
-		/*
-		static const int id_table[] = { 39, 9, 9, 39 };
-		unsigned long long n = 0;
-		n += utils::iabs (x); n += utils::iabs (y); n += utils::iabs (z);
-		n %= 4;
-		this->send (packet::make_block_change (x, y, z, id_table[n], 0));
-		*/
-		
-		this->send (packet::make_block_change (x, y, z, BT_STILL_WATER, 0));
+		this->sb_updates.commit (this, true);
+	}
+	
+	void
+	player::sb_send (int x, int y, int z)
+	{
+		this->send (packet::make_block_change (x, y, z, this->sb_block.id,
+			this->sb_block.meta));
 	}
 	
 	
@@ -1597,7 +1608,7 @@ namespace hCraft {
 		if (pl->sb_exists (x, y, z))
 			{
 				// modifying a selection block
-				pl->send_sb (x, y, z);
+				pl->sb_send (x, y, z);
 				return 0;
 			}
 		
@@ -1695,7 +1706,7 @@ namespace hCraft {
 		if (pl->sb_exists (nx, ny, nz))
 			{
 				// modifying a selection block
-				pl->send_sb (nx, ny, nz);
+				pl->sb_send (nx, ny, nz);
 				return 0;
 			}
 		

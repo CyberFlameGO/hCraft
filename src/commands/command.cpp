@@ -205,7 +205,7 @@ namespace hCraft {
 		return true;
 	}
 	
-	block_data
+	blocki
 	command_reader::arg_as_block (int index)
 	{
 		const std::string& str = this->arg (index);
@@ -228,7 +228,7 @@ namespace hCraft {
 		int id = 0, m = 0;
 		block_info *binf = block_info::from_id_or_name (name.str ().c_str ());
 		if (!binf)
-			return block_data (0xFFFF, 0xFF, 0, 0);
+			return blocki (0xFFFF, 0xFF);
 		id = binf->id;
 		
 		if (have_meta)
@@ -236,7 +236,7 @@ namespace hCraft {
 				std::istringstream imeta ((meta.str ()));
 				imeta >> m;
 			}
-		return block_data (id, m, 0, 0);
+		return blocki (id, m);
 	}
 	
 	

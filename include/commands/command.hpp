@@ -172,7 +172,7 @@ namespace hCraft {
 		int arg_as_int (int index);
 		
 		bool is_arg_block (int index);
-		block_data arg_as_block (int index);
+		blocki arg_as_block (int index);
 		
 		
 	//----

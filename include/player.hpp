@@ -29,6 +29,7 @@
 #include "callback.hpp"
 #include "selection/world_selection.hpp"
 #include "cistring.hpp"
+#include "player_transaction.hpp"
 
 #include <atomic>
 #include <queue>
@@ -152,10 +153,16 @@ namespace hCraft {
 		std::unordered_map<std::string, player_extra_data> extra_data;
 		std::mutex data_lock;
 		
+		player_transaction sb_updates; // selection block updates
+		
 	public:
 		std::unordered_map<cistring, world_selection *> selections;
 		world_selection *curr_sel;
 		std::unordered_set<selection_block, selection_block_hash> sel_blocks;
+		blocki sb_block;
+		
+		// personal block updates
+		player_transaction pb_updates;
 		
 	private:
 		/* 
@@ -256,6 +263,7 @@ namespace hCraft {
 			{ return this->fail_time; }
 		
 		inline world* get_world () { return this->curr_world; }
+		inline std::mutex& get_world_lock () { return this->world_lock; }
 		static constexpr int chunk_radius () { return 10; }
 		
 		inline slot_item held_item () { return this->inv.get (this->held_slot); }
@@ -328,6 +336,11 @@ namespace hCraft {
 		 * of the player.
 		 */
 		bool can_see_chunk (int x, int z);
+		
+		/* 
+		 * Resends the block located at the given block coordinates.
+		 */
+		void send_orig_block (int x, int y, int z);
 		
 		
 		
@@ -403,7 +416,8 @@ namespace hCraft {
 		void sb_add (int x, int y, int z);
 		void sb_remove (int x, int y, int z);
 		bool sb_exists (int x, int y, int z);
-		void send_sb (int x, int y, int z);
+		void sb_commit ();
+		void sb_send (int x, int y, int z);
 		
 		
 		/* 

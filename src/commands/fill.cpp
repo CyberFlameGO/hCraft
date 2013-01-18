@@ -53,10 +53,10 @@ namespace hCraft {
 			if (!reader.is_arg_block (0))
 				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
 			
-			block_data bd_out, bd_in;
+			blocki bd_out, bd_in;
 			
 			bd_out = reader.arg_as_block (0);
-			if (bd_out.id > 145 || bd_out.meta > 15)
+			if (!bd_out.valid ())
 				{
 					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
 					return;
@@ -66,7 +66,7 @@ namespace hCraft {
 				{
 					bd_in = bd_out;
 					bd_out = reader.arg_as_block (1);
-					if (bd_out.id > 145 || bd_out.meta > 15)
+					if (!bd_out.valid ())
 						{
 							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));
 							return;
