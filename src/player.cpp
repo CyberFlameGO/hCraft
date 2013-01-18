@@ -1137,7 +1137,8 @@ namespace hCraft {
 		if (itr->counter == 0)
 			{
 				this->sel_blocks.erase (itr);
-				this->sb_updates.insert (x, y, z, BT_AIR);
+				block_data bd = this->curr_world->get_block (x, y, z);
+				this->sb_updates.insert (x, y, z, bd.id, bd.meta);
 			}
 	}
 	
