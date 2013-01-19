@@ -71,7 +71,7 @@ namespace hCraft {
 							return;
 						}
 					
-					// Teleport to the target player's world (if possible).
+					// Teleport to the target player's world (if necessary).
 					if (target->get_world () != pl->get_world ())
 						{
 							if (!pl->has ("command.world.world"))

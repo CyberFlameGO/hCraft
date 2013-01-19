@@ -29,6 +29,7 @@ namespace hCraft {
 			std::vector<std::string>& output, int max_line)
 		{
 			bool got_th = false; // whether .TH was encountered
+			bool in_tp  = false;
 			std::string left_footer;
 			std::string center_footer;
 			std::string center_header;
@@ -69,6 +70,7 @@ namespace hCraft {
 									
 									output.push_back (line.str ());
 									line.clear (); line.str (std::string ());
+									in_tp = false;
 								}
 							else if (cmd == "SH")
 								{
@@ -80,6 +82,7 @@ namespace hCraft {
 									line << "§l" << header;
 									output.push_back (line.str ());
 									line.clear (); line.str (std::string ());
+									in_tp = false;
 								}
 							else if (cmd == "PP")
 								{
@@ -88,18 +91,21 @@ namespace hCraft {
 									line << "§e    ";
 									output.push_back (line.str ());
 									line.clear (); line.str (std::string ());
+									in_tp = false;
 								}
 							else if (cmd == "LN")
 								{
 									if (line.tellp () > 0)
 										{ output.push_back (line.str ()); line.clear (); line.str (std::string ()); }
 									line << "§e   ";
+									in_tp = false;
 								}
 							else if (cmd == "TP")
 								{
 									if (line.tellp () > 0)
 										{ output.push_back (line.str ()); line.clear (); line.str (std::string ()); }
 									line << "§a       ";
+									in_tp = true;
 								}
 						}
 					else
@@ -112,7 +118,12 @@ namespace hCraft {
 								}
 								
 							if (line.tellp () == 0)
-								line << "§e    ";
+								{
+									if (in_tp)
+										line << "§a        ";
+									else
+										line << "§e    ";
+								}
 							else
 								line << ' ';
 							

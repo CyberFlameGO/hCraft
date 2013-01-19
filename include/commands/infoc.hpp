@@ -68,9 +68,9 @@ namespace hCraft {
 				"to other manuals. The final form - if OPTION is specified, execute "
 				"accordingly: "
 				".PP "
-				"$G--help $gDisplays help "
+				"$G\\\\help \\h $gDisplays help "
 				".PP "
-				"$G--summary $gDisplays a short description "
+				"$G\\\\summary \\s $gDisplays a short description "
 				;}
 			
 			const char* get_exec_permission () { return "command.info.help"; }

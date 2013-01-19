@@ -772,7 +772,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "nick");
 		_add_command (this->perms, this->commands, "wunload");
 		_add_command (this->perms, this->commands, "physics");
-		_add_command (this->perms, this->commands, "selection");
+		_add_command (this->perms, this->commands, "select");
 		_add_command (this->perms, this->commands, "fill");
 	}
 	
@@ -808,7 +808,7 @@ namespace hCraft {
 		grp_builder->inherit (grp_member);
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
-		grp_builder->add ("command.draw.selection");
+		grp_builder->add ("command.draw.select");
 		grp_builder->add ("command.draw.fill");
 		
 		group* grp_designer = groups.add (4, "designer");

@@ -58,7 +58,7 @@ namespace hCraft {
 	static command* create_c_physics () { return new commands::c_physics (); }
 	
 	// draw commands:
-	static command* create_c_selection () { return new commands::c_selection (); }
+	static command* create_c_select () { return new commands::c_select (); }
 	static command* create_c_fill () { return new commands::c_fill (); }
 	
 	/* 
@@ -78,7 +78,7 @@ namespace hCraft {
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
-			{ "selection", create_c_selection },
+			{ "select", create_c_select },
 			{ "fill", create_c_fill },
 			};
 		

@@ -62,9 +62,9 @@ namespace hCraft {
 				"being the text passed to the command as an argument. If OPTION is "
 				"specified, then execute according to it: "
 				".PP "
-				"$G--help $gDisplay help "
+				"$G\\\\help \\h $gDisplay help "
 				".PP "
-				"$G--summary $gDisplay a short description "
+				"$G\\\\summary \\s $gDisplay a short description "
 				;}
 			
 			const char* get_exec_permission () { return "command.chat.me"; }
@@ -108,9 +108,9 @@ namespace hCraft {
 				"specified, the player's nickname will be removed. If OPTION is "
 				"specified, execute according to it: "
 				".PP "
-				"$G--help $gDisplay help "
+				"$G\\\\help \\h $gDisplay help "
 				".PP "
-				"$G--summary $gDisplay a short description "
+				"$G\\\\summary \\s $gDisplay a short description "
 				;}
 			
 			const char* get_exec_permission () { return "command.chat.nick"; }
