@@ -20,6 +20,7 @@
 #include "player.hpp"
 #include "manual.hpp"
 #include "blocks.hpp"
+#include "stringutils.hpp"
 
 #include "infoc.hpp"
 #include "chatc.hpp"
@@ -103,140 +104,19 @@ namespace hCraft {
 	
 	
 //----
-
-	static bool
-	_is_int (const std::string& str)
-	{
-		size_t i = 0;
-		if (str[0] == '-')
-			{
-				if (str.size () == 1)
-					return false;
-				++i;
-			}
-		
-		for (; i < str.size (); ++i)
-			{
-				int c = str[i];
-				if (!std::isdigit (c))
-					return false;
-			}
-		
-		return true;
-	}
-	
-	static int
-	_to_int (const std::string& str)
-	{
-		std::istringstream ss {str};
-		int num;
-		ss >> num;
-		return num;
-	}
-	
 	
 	bool
 	command_reader::option::is_int () const 
 	{
 		if (!this->found_arg)
 			return false;
-		return _is_int (this->as_string ());
+		return sutils::is_int (this->as_string ());
 	}
 	
 	int
 	command_reader::option::as_int () const 
 	{
-		return _to_int (this->as_string ());
-	}
-	
-	
-	
-	bool
-	command_reader::is_arg_int (int index)
-	{
-		return _is_int (this->arg (index));
-	}
-	
-	int
-	command_reader::arg_as_int (int index)
-	{
-		return _to_int (this->arg (index));
-	}
-	
-	
-	
-	bool
-	command_reader::is_arg_block (int index)
-	{
-		// Syntax: <name/id>[:metadata]
-		
-		int digit_count = 0;
-		int alpha_count = 0;
-		
-		const std::string& str = this->arg (index);
-		for (size_t i = 0; i < str.size (); ++i)
-			{
-				int c = str[i];
-				if (!(std::isalnum (c) || c == '_'))
-					{
-						// metadata
-						if (c == ':')
-							{
-								++ i;
-								for (; i < str.size (); ++i)
-									if (!std::isdigit (str[i]))
-										return false;
-								break;
-							}
-						else
-							return false;
-					}
-				else
-					{
-						if (std::isalpha (c))
-							++ alpha_count;
-						else if (std::isdigit (c))
-							++ digit_count;
-						if (alpha_count > 0 && digit_count > 0)
-							return false;
-					}
-			}
-		
-		return true;
-	}
-	
-	blocki
-	command_reader::arg_as_block (int index)
-	{
-		const std::string& str = this->arg (index);
-		std::ostringstream name, meta;
-		
-		bool have_meta = false;
-		for (size_t i = 0; i < str.size (); ++i)
-			{
-				if (str[i] == ':')
-					{
-						have_meta = true;
-						++ i;
-						for (; i < str.size (); ++i)
-							meta << (char)str[i];
-					}
-				else
-					name << (char)str[i];
-			}
-		
-		int id = 0, m = 0;
-		block_info *binf = block_info::from_id_or_name (name.str ().c_str ());
-		if (!binf)
-			return blocki (0xFFFF, 0xFF);
-		id = binf->id;
-		
-		if (have_meta)
-			{
-				std::istringstream imeta ((meta.str ()));
-				imeta >> m;
-			}
-		return blocki (id, m);
+		return sutils::to_int (this->as_string ());
 	}
 	
 	
@@ -614,22 +494,22 @@ namespace hCraft {
 	/* 
 	 * Returns the next argument from the argument string.
 	 */
-	std::string&
+	cmd_arg
 	command_reader::next ()
 	{
 		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return str_empty;
-		return this->non_opts [this->arg_offset++];
+			return cmd_arg (str_empty);
+		return cmd_arg (this->non_opts [this->arg_offset++]);
 	}
 	
-	std::string&
+	cmd_arg
 	command_reader::peek_next ()
 	{
 		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return str_empty;
-		return this->non_opts [this->arg_offset];
+			return cmd_arg (str_empty);
+		return cmd_arg (this->non_opts [this->arg_offset]);
 	}
 	
 	bool
@@ -716,6 +596,45 @@ namespace hCraft {
 		}
 	}
 	
+	
+	
+//------------
+	
+	cmd_arg::cmd_arg (std::string& str)
+		: str (str)
+		{ }
+	
+	static std::string empty_str;
+	cmd_arg::cmd_arg ()
+		: cmd_arg (empty_str)
+		{ }
+	
+	
+	bool
+	cmd_arg::is_int ()
+	{
+		return sutils::is_int (this->str);
+	}
+
+	bool
+	cmd_arg::is_block ()
+	{
+		return sutils::is_block (this->str);
+	}
+	
+	
+	
+	int
+	cmd_arg::as_int ()
+	{
+		return sutils::to_int (this->str);
+	}
+	
+	blocki
+	cmd_arg::as_block ()
+	{
+		return sutils::to_block (this->str);
+	}
 	
 	
 //------------

@@ -17,6 +17,7 @@
  */
 
 #include "infoc.hpp"
+#include "../stringutils.hpp"
 #include "../server.hpp"
 #include "../player.hpp"
 
@@ -81,9 +82,9 @@ namespace hCraft {
 					int page = 1;
 					if (reader.arg_count () == 2)
 						{
-							if (!reader.is_arg_int (1))
+							if (!sutils::is_int (reader.arg (1)))
 								{ pl->message ("§c * §eInvalid page number§: §c" + reader.arg (1)); return; }
-							page = reader.arg_as_int (1);
+							page = sutils::to_int (reader.arg (1));
 						}
 					cmd->show_help (pl, page, 12);
 					

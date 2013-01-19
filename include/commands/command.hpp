@@ -31,6 +31,32 @@ namespace hCraft {
 	class player; // forward dec
 	class command;
 	
+	
+	/* 
+	 * Represents an argument retreived from a command reader.
+	 */
+	class cmd_arg
+	{
+		std::string& str;
+		
+	public:
+		cmd_arg ();
+		cmd_arg (std::string& str);
+		
+		bool is_int ();
+		bool is_block ();
+		
+		std::string& as_str () { return this->str; }
+		const char* as_cstr () { return this->str.c_str (); }
+		int as_int ();
+		blocki as_block ();
+		
+		operator std::string&() { return this->str; }
+		operator int() { return this->as_int (); }
+		operator blocki() { return this->as_block (); }
+	};
+	
+	
 	/* 
 	 * Command argument parser.
 	 */
@@ -168,20 +194,11 @@ namespace hCraft {
 		
 	//----
 		
-		bool is_arg_int (int index);
-		int arg_as_int (int index);
-		
-		bool is_arg_block (int index);
-		blocki arg_as_block (int index);
-		
-		
-	//----
-		
 		/* 
 		 * Returns the next argument from the argument string.
 		 */
-		std::string& next ();
-		std::string& peek_next ();
+		cmd_arg next ();
+		cmd_arg peek_next ();
 		bool has_next ();
 		
 		/* 

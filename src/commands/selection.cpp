@@ -81,7 +81,7 @@ namespace hCraft {
 				}
 			
 			block_pos curr_pos = pl->get_pos ();
-			std::string narg = reader.next ();
+			std::string& narg = reader.next ().as_str ();
 			std::string sel_type;
 			std::string name;
 			
@@ -100,7 +100,7 @@ namespace hCraft {
 							return;
 						}
 					
-					sel_type = reader.next ();
+					sel_type = reader.next ().as_str ();
 					
 					// make sure no name collision will arrise from this
 					auto itr = pl->selections.find (name.c_str ());
@@ -149,7 +149,7 @@ namespace hCraft {
 					return;
 				}
 			
-			std::string name = reader.next ();
+			std::string name = reader.next ().as_str ();
 			if (name[0] != '@' || (name = name.substr (1)).empty ())
 				{
 					pl->message ("§c * §eInvalid selection name§f.");
@@ -342,7 +342,7 @@ namespace hCraft {
 				R_EXCLUDE,
 			} state = R_INCLUDE;
 			
-			std::string n = reader.peek_next ();
+			std::string& n = reader.peek_next ();
 			if (sutils::iequals (n, "but") || sutils::iequals (n, "except"))
 				{
 					state = R_EXCLUDE;
@@ -351,8 +351,8 @@ namespace hCraft {
 			
 			while (reader.has_next ())
 				{
-					n = reader.next ();
-					if (!reader.is_arg_block (reader.offset () - 1))
+					cmd_arg arg = reader.next ();
+					if (!arg.is_block ())
 						{
 							std::ostringstream ss;
 							ss << "§c * §eInvalid block§f: §c" << n;
@@ -360,7 +360,7 @@ namespace hCraft {
 							return;
 						}
 					
-					blocks.push_back (reader.arg_as_block (reader.offset () - 1));
+					blocks.push_back (arg.as_block ());
 				}
 			
 			if (blocks.empty ())
@@ -670,13 +670,13 @@ namespace hCraft {
 		static void
 		handle_sb (player *pl, command_reader& reader)
 		{
-			if (!reader.has_next () || !reader.is_arg_block (1))
+			if (!reader.has_next () || !sutils::is_block (reader.arg (1)))
 				{
 					pl->message ("§c * §eUsage§f: §e/sel sb §c<block>");
 					return;
 				}
 			
-			blocki blk = reader.arg_as_block (1);
+			blocki blk = sutils::to_block (reader.arg (1));
 			if (!blk.valid ())
 				{
 					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));

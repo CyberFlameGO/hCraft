@@ -150,6 +150,80 @@ namespace hCraft {
 			ss >> num;
 			return num;
 		}
+		
+		
+		
+		bool
+		is_block (const std::string& str)
+		{
+			// Syntax: <name/id>[:metadata]
+		
+			int digit_count = 0;
+			int alpha_count = 0;
+			
+			for (size_t i = 0; i < str.size (); ++i)
+				{
+					int c = str[i];
+					if (!(std::isalnum (c) || c == '_' || c == '-'))
+						{
+							// metadata
+							if (c == ':')
+								{
+									++ i;
+									for (; i < str.size (); ++i)
+										if (!std::isdigit (str[i]))
+											return false;
+									break;
+								}
+							else
+								return false;
+						}
+					else
+						{
+							if (std::isalpha (c))
+								++ alpha_count;
+							else if (std::isdigit (c))
+								++ digit_count;
+							if (alpha_count > 0 && digit_count > 0)
+								return false;
+						}
+				}
+		
+			return true;
+		}
+		
+		blocki
+		to_block (const std::string& str)
+		{
+			std::ostringstream name, meta;
+		
+			bool have_meta = false;
+			for (size_t i = 0; i < str.size (); ++i)
+				{
+					if (str[i] == ':')
+						{
+							have_meta = true;
+							++ i;
+							for (; i < str.size (); ++i)
+								meta << (char)str[i];
+						}
+					else
+						name << (char)str[i];
+				}
+		
+			int id = 0, m = 0;
+			block_info *binf = block_info::from_id_or_name (name.str ().c_str ());
+			if (!binf)
+				return blocki (0xFFFF, 0xFF);
+			id = binf->id;
+		
+			if (have_meta)
+				{
+					std::istringstream imeta ((meta.str ()));
+					imeta >> m;
+				}
+			return blocki (id, m);
+		}
 	}
 }
 

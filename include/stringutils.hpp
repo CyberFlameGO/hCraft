@@ -20,6 +20,7 @@
 #define _hCraft__STRINGUTILS_H_
 
 #include <string>
+#include "blocks.hpp"
 
 
 namespace hCraft {
@@ -61,6 +62,9 @@ namespace hCraft {
 		
 		bool is_int (const std::string& str);
 		int  to_int (const std::string& str);
+		
+		bool is_block (const std::string& str);
+		blocki to_block (const std::string& str);
 	}
 }
 

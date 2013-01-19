@@ -20,6 +20,7 @@
 #include "player.hpp"
 #include "world.hpp"
 #include "world_transaction.hpp"
+#include "stringutils.hpp"
 #include <sstream>
 #include <mutex>
 
@@ -50,12 +51,12 @@ namespace hCraft {
 			
 			bool do_physics = !reader.opt ("no-physics")->found ();
 			
-			if (!reader.is_arg_block (0))
+			if (!sutils::is_block (reader.arg (0)))
 				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
 			
 			blocki bd_out, bd_in;
 			
-			bd_out = reader.arg_as_block (0);
+			bd_out = sutils::to_block (reader.arg (0));
 			if (!bd_out.valid ())
 				{
 					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
@@ -65,7 +66,7 @@ namespace hCraft {
 			if (reader.arg_count () == 2)
 				{
 					bd_in = bd_out;
-					bd_out = reader.arg_as_block (1);
+					bd_out = sutils::to_block (reader.arg (1));
 					if (!bd_out.valid ())
 						{
 							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));

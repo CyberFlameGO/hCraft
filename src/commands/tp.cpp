@@ -19,6 +19,7 @@
 #include "worldc.hpp"
 #include "../player.hpp"
 #include "../server.hpp"
+#include "../stringutils.hpp"
 #include <sstream>
 
 
@@ -98,17 +99,17 @@ namespace hCraft {
 					 */
 					int x, y, z;
 					
-					if (!reader.is_arg_int (0) ||
-							!reader.is_arg_int (1) ||
-							!reader.is_arg_int (2))
+					if (!sutils::is_int (reader.arg (0)) ||
+							!sutils::is_int (reader.arg (1)) ||
+							!sutils::is_int (reader.arg (2)))
 						{
 							pl->message ("§eInvalid coordinates §f(§emust be integers§f).");
 							return;
 						}
 					
-					x = reader.arg_as_int (0);
-					y = reader.arg_as_int (1);
-					z = reader.arg_as_int (2);
+					x = sutils::to_int (reader.arg (0));
+					y = sutils::to_int (reader.arg (1));
+					z = sutils::to_int (reader.arg (2));
 					
 					std::ostringstream ss;
 					ss << "§eTeleporting to (§9"
