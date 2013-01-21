@@ -21,7 +21,7 @@
 
 #include <vector>
 #include <unordered_map>
-//#include <mutex>
+#include <vector>
 #include "position.hpp"
 
 
@@ -61,9 +61,10 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Sends all block updates at once to the specified player.
+		 * Sends all block updates at once to the specified players.
 		 * All updates will then be cleared if @{clear} is true.
 		 */
+		void commit (std::vector<player *>& players, bool clear = false);
 		void commit (player *pl, bool clear = false);
 		
 		/* 

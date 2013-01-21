@@ -38,6 +38,12 @@ namespace hCraft {
 		 */
 		cuboid_selection (block_pos a, block_pos b);
 		
+		/* 
+		 * Returns a copy of this selection.
+		 */
+		world_selection* copy ()
+			{ return new cuboid_selection (*this); }
+		
 		
 		/* 
 		 * Checks whether the specified point is contained by the selected area.

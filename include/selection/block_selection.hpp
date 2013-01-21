@@ -47,6 +47,12 @@ namespace hCraft {
 		 */
 		block_selection (block_pos a, block_pos b);
 		
+		/* 
+		 * Returns a copy of this selection.
+		 */
+		world_selection* copy ()
+			{ return new block_selection (*this); }
+		
 		
 		/* 
 		 * Checks whether the specified point is contained by the selected area.

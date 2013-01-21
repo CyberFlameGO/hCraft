@@ -403,6 +403,11 @@ namespace hCraft {
 						}
 				}
 			
+			if (ey < 0) ey = 0;
+			if (ey > 255) ey = 255;
+			if (sy < 0) sy = 0;
+			if (sy > 255) sy = 255;
+			
 			{
 				std::ostringstream ss;
 				ss << "§eSelection boundaries§f: §b{" << sx << ", " << sy << ", " << sz
@@ -421,40 +426,47 @@ namespace hCraft {
 						{
 							int x, y, z;
 							block_pos smin = sel->min (), smax = sel->max ();
-							for (x = smin.x; x <= smax.x; ++x)
-								for (y = smin.y; y <= smax.y; ++y)
-									for (z = smin.z; z <= smax.z; ++z)
-										{
-											if (sel->contains (x, y, z))
-												{
-													if (state == R_INCLUDE)
-														{
-															block_data bd = wr->get_block (x, y, z);
-															bool found = false;
-															for (blocki ibd : blocks)
-																if (ibd.id == bd.id && ibd.meta == bd.meta)
-																	{ found = true; break; }
-															if (found)
-																{
-																	bsel->set_block (x, y, z, true);
-																	++ counter;
-																}
-														}
-													else
-														{
-															block_data bd = wr->get_block (x, y, z);
-															bool found = false;
-															for (blocki ibd : blocks)
-																if (ibd.id == bd.id && ibd.meta == bd.meta)
-																	{ found = true; break; }
-															if (!found)
-																{
-																	bsel->set_block (x, y, z, true);
-																	++ counter;
-																}
-														}
-												}
-										}
+							if (smin.y < 0) smin.y = 0;
+							if (smin.y > 255) smin.y = 255;
+							if (smax.y < 0) smax.y = 0;
+							if (smax.y > 255) smax.y = 255;
+							for (y = smin.y; y <= smax.y; ++y)
+								{
+									for (x = smin.x; x <= smax.x; ++x)
+										for (z = smin.z; z <= smax.z; ++z)
+											{
+												if (wr->is_out_of_bounds (x, y, z)) continue;
+												if (sel->contains (x, y, z))
+													{
+														if (state == R_INCLUDE)
+															{
+																block_data bd = wr->get_block (x, y, z);
+																bool found = false;
+																for (blocki ibd : blocks)
+																	if (ibd.id == bd.id && ibd.meta == bd.meta)
+																		{ found = true; break; }
+																if (found)
+																	{
+																		bsel->set_block (x, y, z, true);
+																		++ counter;
+																	}
+															}
+														else
+															{
+																block_data bd = wr->get_block (x, y, z);
+																bool found = false;
+																for (blocki ibd : blocks)
+																	if (ibd.id == bd.id && ibd.meta == bd.meta)
+																		{ found = true; break; }
+																if (!found)
+																	{
+																		bsel->set_block (x, y, z, true);
+																		++ counter;
+																	}
+															}
+													}
+											}
+									}
 						}
 				}
 			

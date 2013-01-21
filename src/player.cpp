@@ -1118,6 +1118,7 @@ namespace hCraft {
 	void
 	player::sb_add (int x, int y, int z)
 	{
+		if (y < 0 || y > 255) return;
 		auto itr = this->sel_blocks.find (selection_block (x, y, z));
 		if (itr != this->sel_blocks.end ())
 			{ ++ itr->counter; return; }
@@ -1129,6 +1130,7 @@ namespace hCraft {
 	void
 	player::sb_remove (int x, int y, int z)
 	{
+		if (y < 0 || y > 255) return;
 		auto itr = this->sel_blocks.find (selection_block (x, y, z));
 		if (itr == this->sel_blocks.end ())
 			return;
@@ -1145,6 +1147,7 @@ namespace hCraft {
 	bool
 	player::sb_exists (int x, int y, int z)
 	{
+		if (y < 0 || y > 255) return false;
 		return (this->sel_blocks.find (selection_block (x, y, z))
 			!= this->sel_blocks.end ());
 	}
@@ -1158,6 +1161,7 @@ namespace hCraft {
 	void
 	player::sb_send (int x, int y, int z)
 	{
+		if (y < 0 || y > 255) return;
 		this->send (packet::make_block_change (x, y, z, this->sb_block.id,
 			this->sb_block.meta));
 	}

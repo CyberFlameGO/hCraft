@@ -44,6 +44,12 @@ namespace hCraft {
 		sphere_selection (block_pos cp, block_pos op);
 		sphere_selection (block_pos cp, double rad);
 		
+		/* 
+		 * Returns a copy of this selection.
+		 */
+		world_selection* copy ()
+			{ return new sphere_selection (*this); }
+		
 		
 		/* 
 		 * Checks whether the specified point is contained by the selected area.

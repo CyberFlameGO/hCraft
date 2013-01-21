@@ -42,12 +42,15 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Sends all block updates at once to the specified player.
+	 * Sends all block updates at once to the specified players.
 	 * All updates will then be cleared if @{clear} is true.
 	 */
 	void
-	player_transaction::commit (player *pl, bool clear)
+	player_transaction::commit (std::vector<player *>& players, bool clear)
 	{
+		if (players.empty ())
+			goto done_sending;
+		
 		//std::lock_guard<std::mutex> guard ((this->lock));
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
@@ -58,11 +61,30 @@ namespace hCraft {
 				for (pl_tr_change c : ch.changes)
 					records.push_back ({c.x, c.y, c.z, c.id, c.meta});
 				
-				pl->send (packet::make_multi_block_change (cp.x, cp.z, records));
+				if (players.size () == 1)
+					{
+						players[0]->send
+							(packet::make_multi_block_change (cp.x, cp.z, records));
+					}
+				else
+					{
+						packet *pack = packet::make_multi_block_change (cp.x, cp.z, records);
+						for (player *pl : players)
+							pl->send (new packet (*pack));
+						delete pack;
+					}
 			}
 		
+	done_sending:
 		if (clear)
 			this->clear ();
+	}
+	
+	void
+	player_transaction::commit (player *pl, bool clear)
+	{
+		std::vector<player *> vec (1, pl);
+		this->commit (vec, clear);
 	}
 	
 	/* 

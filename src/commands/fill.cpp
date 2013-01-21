@@ -44,12 +44,14 @@ namespace hCraft {
 					return;
 			
 			reader.add_option ("no-physics", "p");
+			reader.add_option ("hollow", "o");
 			if (!reader.parse_args (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
 			
 			bool do_physics = !reader.opt ("no-physics")->found ();
+			bool do_hollow  = reader.opt ("hollow")->found ();
 			
 			if (!sutils::is_block (reader.arg (0)))
 				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
@@ -88,35 +90,49 @@ namespace hCraft {
 						if (!sel->visible ()) continue;
 						bool sel_cont = false;
 						
+						world_selection *sel_inner = nullptr;
+						if (do_hollow)
+							{
+								sel_inner = sel->copy ();
+								sel_inner->contract (1, 1, 1);
+							}
+						
 						block_pos min_p = sel->min ();
 						block_pos max_p = sel->max ();
 					
 						world_transaction *tr = new world_transaction (min_p, max_p, do_physics);
 					
-						for (int x = min_p.x; x <= max_p.x; ++x)
-							for (int y = min_p.y; y <= max_p.y; ++y)
+						if (min_p.y < 0) min_p.y = 0;
+						if (min_p.y > 255) min_p.y = 255;
+						if (max_p.y < 0) max_p.y = 0;
+						if (max_p.y > 255) max_p.y = 255;
+						for (int y = min_p.y; y <= max_p.y; ++y)
+							for (int x = min_p.x; x <= max_p.x; ++x)
 								for (int z = min_p.z; z <= max_p.z; ++z)
 									{
-										if (sel->contains (x, y, z))
-											{
-												block_data bd = wr->get_block (x, y, z);
-												if (bd_in.id != 0xFFFF && (bd.id != bd_in.id || bd.meta != bd_in.meta))
-													continue;
-												if (bd.id == bd_out.id && bd.meta == bd_out.meta)
-													continue;
-												
-												//wr->queue_update_nolock (x, y, z, bd_out.id, bd_out.meta);
-												tr->set_id_and_meta (x, y, z, bd_out.id, bd_out.meta);
-												
-												++ block_counter;
-												
-												if (!sel_cont)
-													++ selection_counter;
-												sel_cont = true;
-											}
+										if (wr->is_out_of_bounds (x, y, z)) continue;
+										if (!sel->contains (x, y, z)) continue;
+										if (do_hollow && sel_inner->contains (x, y, z)) continue;
+										
+										block_data bd = wr->get_block (x, y, z);
+										if (bd_in.id != 0xFFFF && (bd.id != bd_in.id || bd.meta != bd_in.meta))
+											continue;
+										if (bd.id == bd_out.id && bd.meta == bd_out.meta)
+											continue;
+								
+										//wr->queue_update_nolock (x, y, z, bd_out.id, bd_out.meta);
+										tr->set_id_and_meta (x, y, z, bd_out.id, bd_out.meta);
+								
+										++ block_counter;
+								
+										if (!sel_cont)
+											++ selection_counter;
+										sel_cont = true;
 									}
 					
 						pl->get_world ()->queue_update (tr);
+						if (do_hollow)
+							delete sel_inner;
 					}
 			}
 			

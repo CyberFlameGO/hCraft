@@ -301,7 +301,7 @@ namespace hCraft {
 										});
 								if (itr == this->options.end ())
 									{
-										err->message ("§c * §eUnrecognized option§f: §c--" + opt_name);
+										err->message ("§c * §eUnrecognized option§f: §c\\\\" + opt_name);
 										return false;
 									}
 								
@@ -323,7 +323,7 @@ namespace hCraft {
 											}
 										else if (opt.arg_req)
 											{
-												err->message ("§c * §eArgument required for option§f: §c--" + opt_name);
+												err->message ("§c * §eArgument required for option§f: §c\\\\" + opt_name);
 												return false;
 											}
 									}
@@ -353,7 +353,7 @@ namespace hCraft {
 												});
 										if (itr == this->options.end ())
 											{
-												err->message ("§c * §eUnrecognized option§f: §c-" + std::string (1, optc));
+												err->message ("§c * §eUnrecognized option§f: §c\\" + std::string (1, optc));
 												return false;
 											}
 										
@@ -364,7 +364,7 @@ namespace hCraft {
 											{
 												if (opt.arg_req && i != (str.size () - 1))
 													{
-														err->message ("§c * §eArgument required for option§f: §c-" + std::string (opt.sname));
+														err->message ("§c * §eArgument required for option§f: §c\\" + std::string (opt.sname));
 														return false;
 													}
 												
@@ -372,7 +372,7 @@ namespace hCraft {
 													{
 														if (opt.arg_req && (ss.eof () || ss.fail ()))
 															{
-																err->message ("§c * §eArgument required for option§f: §c-" + std::string (opt.sname));
+																err->message ("§c * §eArgument required for option§f: §c\\" + std::string (opt.sname));
 																return false;
 															}
 															
@@ -461,7 +461,7 @@ namespace hCraft {
 			{
 				if (opt.required && !opt.was_found)
 					{
-						err->message ("§c * §eRequired argument not found§f: §c--" + std::string (opt.lname));
+						err->message ("§c * §eRequired argument not found§f: §c\\\\" + std::string (opt.lname));
 						return false;
 					}
 			}

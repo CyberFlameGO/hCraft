@@ -48,6 +48,13 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Returns a copy of this selection.
+		 */
+		virtual world_selection* copy () = 0;
+		
+		
+		
+		/* 
 		 * Checks whether the specified point is contained by the selected area.
 		 */
 		virtual bool contains (int x, int y, int z) = 0;

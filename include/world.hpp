@@ -77,17 +77,16 @@ namespace hCraft {
 		int z;
 		int extra;
 		void *ptr;
-		std::chrono::time_point<std::chrono::system_clock> last_tick;
+		unsigned long long last_tick;
 		
-		physics_update (int x, int y, int z, int extra, void *ptr,
-			std::chrono::time_point<std::chrono::system_clock> lt)
-			: last_tick (lt)
+		physics_update (int x, int y, int z, int extra, void *ptr, unsigned long long lt)
 		{
 			this->x = x;
 			this->y = y;
 			this->z = z;
 			this->extra = extra;
 			this->ptr = ptr;
+			this->last_tick = lt;
 		}
 	};
 	
@@ -116,10 +115,11 @@ namespace hCraft {
 		
 		std::deque<world_transaction *> tr_updates;
 		std::deque<block_update> updates;
-		std::unordered_map<int, std::shared_ptr <physics_block> > phblocks;
+		std::vector<std::shared_ptr<physics_block> > phblocks;
 		std::deque<physics_update> phupdates;
 		std::mutex update_lock;
 		world_physics_state ph_state;
+		unsigned long long ticks;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -241,6 +241,11 @@ namespace hCraft {
 		 * scratch.
 		 */
 		chunk* load_chunk (int x, int z);
+		
+		/* 
+		 * Checks whether a block exists at the given coordinates.
+		 */
+		bool is_out_of_bounds (int x, int y, int z);
 		
 		
 		
