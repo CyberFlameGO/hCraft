@@ -1023,7 +1023,15 @@ namespace hCraft {
 			sql::row row;
 			if (stmt.step (row))
 				{
-					this->rnk.set (row.at (2).as_cstr (), this->get_server ().get_groups ());
+					try
+						{
+							this->rnk.set (row.at (2).as_cstr (), this->get_server ().get_groups ());
+						}
+					catch (const std::exception& str)
+						{
+							this->rnk.set (this->get_server ().get_groups ().default_rank);
+							this->log (LT_WARNING) << "Player \"" << this->get_username () << "\" has an invalid rank." << std::endl;
+						}
 					std::strcpy (this->nick, row.at (3).as_cstr ());
 				}
 			else

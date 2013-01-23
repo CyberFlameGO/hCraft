@@ -56,11 +56,12 @@ namespace hCraft {
 	{
 		logger &log;
 		world *wr;
-		std::queue<light_update> updates;
+		std::queue<light_update> sl_updates;
+		std::queue<light_update> bl_updates;
 		std::mutex lock;
-		bool overloaded;
+		
+		bool sl_overloaded, bl_overloaded;
 		int limit;
-		int handled_since_empty;
 		
 	public:
 		inline world* get_world () const { return this->wr; }
@@ -86,7 +87,11 @@ namespace hCraft {
 		 * Pushes a lighting update to the update queue.
 		 */
 		void enqueue (int x, int y, int z);
-		void enqueue_nolock (int x, int y, int z); // not thread-safe
+		
+		// not thread-safe
+		void enqueue_nolock (int x, int y, int z);
+		void enqueue_sl_nolock (int x, int y, int z);
+		void enqueue_bl_nolock (int x, int y, int z);
 	};
 }
 

@@ -106,7 +106,7 @@ namespace hCraft {
 						if (min_p.y > 255) min_p.y = 255;
 						if (max_p.y < 0) max_p.y = 0;
 						if (max_p.y > 255) max_p.y = 255;
-						for (int y = min_p.y; y <= max_p.y; ++y)
+						for (int y = max_p.y; y >= min_p.y; --y)
 							for (int x = min_p.x; x <= max_p.x; ++x)
 								for (int z = min_p.z; z <= max_p.z; ++z)
 									{

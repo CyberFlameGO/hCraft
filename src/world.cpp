@@ -628,7 +628,8 @@ namespace hCraft {
 	{
 		return
 			(((this->width > 0) && ((x >= this->width) || (x < 0))) ||
-		 	 ((this->depth > 0) && ((z >= this->depth) || (z < 0))));
+		 	 ((this->depth > 0) && ((z >= this->depth) || (z < 0))) ||
+		 	 ((y < 0) || (y > 255)));
 	}
 		
 	

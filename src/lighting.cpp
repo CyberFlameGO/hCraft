@@ -34,9 +34,9 @@ namespace hCraft {
 		: log (log)
 	{
 		this->wr = wr;
-		this->overloaded = false;
+		this->sl_overloaded = false;
+		this->bl_overloaded = false;
 		this->limit = limit;
-		this->handled_since_empty = 0;
 	}
 	
 	
@@ -44,15 +44,37 @@ namespace hCraft {
 	void
 	lighting_manager::enqueue_nolock (int x, int y, int z)
 	{
-		if (this->overloaded)
-			return;
+		this->enqueue_sl_nolock (x, y, z);
+		this->enqueue_bl_nolock (x, y, z);
+	}
 	
-		this->updates.emplace (x, y, z);
-		if ((int)this->updates.size () >= this->limit)
+	void
+	lighting_manager::enqueue_sl_nolock (int x, int y, int z)
+	{
+		if (this->sl_overloaded)
+			return;
+		
+		this->sl_updates.emplace (x, y, z);
+		if ((int)this->sl_updates.size () >= this->limit)
 			{
-				this->overloaded = true;
+				this->sl_overloaded = true;
 				this->log (LT_WARNING) << "World \"" << this->wr->get_name () <<
-					"\": Too many lighting updates! (>= " << this->limit << ")" << std::endl;
+					"\": Too many (S)lighting updates! (>= " << this->limit << ")" << std::endl;
+			}
+	}
+	
+	void
+	lighting_manager::enqueue_bl_nolock (int x, int y, int z)
+	{
+		if (this->bl_overloaded)
+			return;
+		
+		this->bl_updates.emplace (x, y, z);
+		if ((int)this->bl_updates.size () >= this->limit)
+			{
+				this->bl_overloaded = true;
+				this->log (LT_WARNING) << "World \"" << this->wr->get_name () <<
+					"\": Too many (B)lighting updates! (>= " << this->limit << ")" << std::endl;
 			}
 	}
 	
@@ -128,12 +150,59 @@ namespace hCraft {
 			{
 				ch->set_sky_light (bx, y, bz, nl);
 				
-				lm.enqueue_nolock (x + 1, y, z);
-				lm.enqueue_nolock (x - 1, y, z);
-				lm.enqueue_nolock (x, y + 1, z);
-				lm.enqueue_nolock (x, y - 1, z);
-				lm.enqueue_nolock (x, y, z + 1);
-				lm.enqueue_nolock (x, y, z - 1);
+				lm.enqueue_sl_nolock (x + 1, y, z);
+				lm.enqueue_sl_nolock (x - 1, y, z);
+				lm.enqueue_sl_nolock (x, y + 1, z);
+				lm.enqueue_sl_nolock (x, y - 1, z);
+				lm.enqueue_sl_nolock (x, y, z + 1);
+				lm.enqueue_sl_nolock (x, y, z - 1);
+			}
+		
+		return nl;
+	}
+	
+	static char
+	calc_block_light (lighting_manager& lm, int x, int y, int z)
+	{
+		world *wr = lm.get_world ();
+		
+		int cx = x >> 4;
+		int cz = z >> 4;
+		int bx = x & 15;
+		int bz = z & 15;
+		chunk *ch = wr->get_chunk (cx, cz);
+		if (!ch) return 0;
+		
+		block_data this_block = ch->get_block (bx, y, bz);
+		block_info *this_info = block_info::from_id (this_block.id);
+		char nl;
+		
+		char ble = (bx < 15) ? ch->get_block_light (bx + 1, y, bz)
+												 : (ch->east ? ch->east->get_block_light (0, y, bz) : 0);
+		char blw = (bx >  0) ? ch->get_block_light (bx - 1, y, bz)
+												 : (ch->west ? ch->west->get_block_light (15, y, bz) : 0);
+		char blu = (y < 255) ? ch->get_block_light (bx, y + 1, bz) : 15;
+		char bld = (y >   0) ? ch->get_block_light (bx, y - 1, bz) : 0;
+		char bls = (bz < 15) ? ch->get_block_light (bx, y, bz + 1)
+												 : (ch->south ? ch->south->get_block_light (bx, y, 0) : 0);
+		char bln = (bz >  0) ? ch->get_block_light (bx, y, bz - 1)
+												 : (ch->north ? ch->north->get_block_light (bx, y, 15) : 0);
+		
+		char brightest = _max (ble, _max (blw, _max (blu, _max (bld, _max (bls, _max (bln, 0))))));
+		nl = brightest - 1 + this_info->luminance;
+		if (nl <  0) nl = 0;
+		else if (nl > 15) nl = 15;
+		
+		if (this_block.bl != nl)
+			{
+				ch->set_block_light (bx, y, bz, nl);
+				
+				lm.enqueue_bl_nolock (x + 1, y, z);
+				lm.enqueue_bl_nolock (x - 1, y, z);
+				lm.enqueue_bl_nolock (x, y + 1, z);
+				lm.enqueue_bl_nolock (x, y - 1, z);
+				lm.enqueue_bl_nolock (x, y, z + 1);
+				lm.enqueue_bl_nolock (x, y, z - 1);
 			}
 		
 		return nl;
@@ -150,23 +219,32 @@ namespace hCraft {
 	int
 	lighting_manager::update (int max_updates)
 	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		
 		int updated = 0;
 		
-		std::lock_guard<std::mutex> guard {this->lock};
-		while (!this->updates.empty () && (updated++ < max_updates))
+		// sky light updates
+		while (!this->sl_updates.empty () && (updated++ < max_updates))
 			{
-				light_update u = this->updates.front ();
-				this->updates.pop ();
+				light_update u = this->sl_updates.front ();
+				this->sl_updates.pop ();
 				
 				calc_sky_light (*this, u.x, u.y, u.z);
-				++ this->handled_since_empty;
 			}
+		if (this->sl_updates.empty ())
+			this->sl_overloaded = false;
 		
-		if (this->updates.empty () && (this->handled_since_empty > 0))
+		// block light updates
+		updated = 0;
+		while (!this->bl_updates.empty () && (updated++ < max_updates))
 			{
-				this->overloaded = false;
-				this->handled_since_empty = 0;
+				light_update u = this->bl_updates.front ();
+				this->bl_updates.pop ();
+				
+				calc_block_light (*this, u.x, u.y, u.z);
 			}
+		if (this->bl_updates.empty ())
+			this->bl_overloaded = false;
 		
 		return updated;
 	}

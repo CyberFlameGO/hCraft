@@ -27,6 +27,18 @@
 
 namespace hCraft {
 	
+	block_info::block_info ()
+	{
+		this->id = 0;
+		this->blast_resistance = 0.0f;
+		this->opacity = 0;
+		this->luminance = 0;
+		this->max_stack = 64;
+		this->opaque = false;
+		this->state = BS_NONSOLID;
+		std::strcpy (this->name, "unknown");
+	}
+	
 	block_info::block_info (unsigned short id, const char *name,
 		float blast_resistance, char opacity, char luminance, char max_stack,
 		bool opaque, block_state state)
@@ -100,6 +112,41 @@ namespace hCraft {
 		{ 0x34, "monster-spawner", 25.0f, 15, 0, 64, false, BS_SOLID },
 		{ 0x35, "stairs", 30.0f, 15, 0, 64, true, BS_SOLID },
 		{ 0x36, "chest", 12.5f, 15, 0, 64, false, BS_NONSOLID },
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{ 0x59, "glowstone", 1.5f, 15, 15, 64, true, BS_SOLID },
 	};
 	
 	static std::unordered_map<cistring, int> name_map {
@@ -158,6 +205,41 @@ namespace hCraft {
 		{ "monster-spawner", 0x34 },
 		{ "stairs", 0x35 },
 		{ "chest", 0x36 },
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{ "glowstone", 0x59 },
 	};
 	
 	
