@@ -161,6 +161,29 @@ namespace hCraft {
 		return nl;
 	}
 	
+	
+	static char
+	get_neighbour_bl (chunk *ch, int bx, int by, int bz)
+	{
+		if (by > 255) return 0;
+		if (by <   0) return 0;
+		
+		if (bx > 15)
+			{ bx = 0; ch = ch->east; if (!ch) return 0; }
+		if (bx <  0)
+			{ bx = 15; ch = ch->west; if (!ch) return 0; }
+		if (bz > 15)
+			{ bz = 0; ch = ch->south; if (!ch) return 0; }
+		if (bz <  0)
+			{ bz = 15; ch = ch->north; if (!ch) return 0; }
+		
+		block_data bd = ch->get_block (bx, by, bz);
+		block_info *binf = block_info::from_id (bd.id);
+		if (binf->opaque && (binf->luminance == 0))
+			return 0;
+		return bd.bl;
+	}
+	
 	static char
 	calc_block_light (lighting_manager& lm, int x, int y, int z)
 	{
@@ -177,21 +200,24 @@ namespace hCraft {
 		block_info *this_info = block_info::from_id (this_block.id);
 		char nl;
 		
-		char ble = (bx < 15) ? ch->get_block_light (bx + 1, y, bz)
-												 : (ch->east ? ch->east->get_block_light (0, y, bz) : 0);
-		char blw = (bx >  0) ? ch->get_block_light (bx - 1, y, bz)
-												 : (ch->west ? ch->west->get_block_light (15, y, bz) : 0);
-		char blu = (y < 255) ? ch->get_block_light (bx, y + 1, bz) : 15;
-		char bld = (y >   0) ? ch->get_block_light (bx, y - 1, bz) : 0;
-		char bls = (bz < 15) ? ch->get_block_light (bx, y, bz + 1)
-												 : (ch->south ? ch->south->get_block_light (bx, y, 0) : 0);
-		char bln = (bz >  0) ? ch->get_block_light (bx, y, bz - 1)
-												 : (ch->north ? ch->north->get_block_light (bx, y, 15) : 0);
+		if (this_info->opaque)
+			{
+				nl = this_info->luminance;
+			}
+		else
+			{
+				char ble = get_neighbour_bl (ch, bx + 1, y, bz);
+				char blw = get_neighbour_bl (ch, bx - 1, y, bz);
+				char blu = get_neighbour_bl (ch, bx, y + 1, bz);
+				char bld = get_neighbour_bl (ch, bx, y - 1, bz);
+				char bls = get_neighbour_bl (ch, bx, y, bz + 1);
+				char bln = get_neighbour_bl (ch, bx, y, bz - 1);
 		
-		char brightest = _max (ble, _max (blw, _max (blu, _max (bld, _max (bls, _max (bln, 0))))));
-		nl = brightest - 1 + this_info->luminance;
-		if (nl <  0) nl = 0;
-		else if (nl > 15) nl = 15;
+				char brightest = _max (ble, _max (blw, _max (blu, _max (bld, _max (bls, _max (bln, 0))))));
+				nl = brightest - 1 + this_info->luminance;
+				if (nl <  0) nl = 0;
+				else if (nl > 15) nl = 15;
+			}
 		
 		if (this_block.bl != nl)
 			{
