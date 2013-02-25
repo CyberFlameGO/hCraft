@@ -30,6 +30,7 @@ hCraft_sources = Split("""
 		manual.cpp
 		world_transaction.cpp
 		player_transaction.cpp
+		block_physics.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -55,11 +56,13 @@ hCraft_sources = Split("""
 		
 		physics/sand.cpp
 		physics/langtons_ant.cpp
+		physics/water.cpp
 		""")
 
 hCraft_libs = Split("""
 		pthread
 		event
+		event_pthreads
 		m
 		config++
 		z

@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <event2/thread.h>
 
 
 namespace hCraft {
@@ -715,6 +716,9 @@ namespace hCraft {
 	void
 	server::init_core ()
 	{
+		if (evthread_use_pthreads ())
+			throw server_error ("libevent cannot be set up for use in a multithreaded environment");
+		
 		this->sched.start ();
 		
 		this->players = new playerlist ();
@@ -1210,6 +1214,7 @@ namespace hCraft {
 		main_world->start ();
 		this->add_world (main_world);
 		this->main_world = main_world;
+		log (LT_DEBUG) << " ## main_world address: " << main_world << std::endl;
 		
 		// load worlds from the autoload list.
 		{
@@ -1439,4 +1444,5 @@ namespace hCraft {
 		this->workers.clear ();
 	}
 }
+
 

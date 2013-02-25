@@ -25,6 +25,7 @@
 #include "worldprovider.hpp"
 #include "lighting.hpp"
 #include "physics/physics.hpp"
+#include "block_physics.hpp"
 
 #include <unordered_map>
 #include <mutex>
@@ -70,26 +71,6 @@ namespace hCraft {
 		}
 	};
 	
-	struct physics_update
-	{
-		int x;
-		int y;
-		int z;
-		int extra;
-		void *ptr;
-		unsigned long long last_tick;
-		
-		physics_update (int x, int y, int z, int extra, void *ptr, unsigned long long lt)
-		{
-			this->x = x;
-			this->y = y;
-			this->z = z;
-			this->extra = extra;
-			this->ptr = ptr;
-			this->last_tick = lt;
-		}
-	};
-	
 	enum world_physics_state
 	{
 		PHY_ON,
@@ -116,7 +97,6 @@ namespace hCraft {
 		std::deque<world_transaction *> tr_updates;
 		std::deque<block_update> updates;
 		std::vector<std::shared_ptr<physics_block> > phblocks;
-		std::deque<physics_update> phupdates;
 		std::mutex update_lock;
 		world_physics_state ph_state;
 		unsigned long long ticks;
@@ -136,6 +116,7 @@ namespace hCraft {
 		
 	public:
 		bool auto_lighting;
+		block_physics_manager physics;
 		
 	public:
 		inline const char* get_name () { return this->name; }
@@ -281,7 +262,9 @@ namespace hCraft {
 		 * and sent to nearby players.
 		 */
 		void queue_update (int x, int y, int z, unsigned short id,
-			unsigned char meta = 0, player *pl = nullptr);
+			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
+			player *pl = nullptr);
+		
 		void queue_update_nolock (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
 			player *pl = nullptr);
@@ -297,7 +280,7 @@ namespace hCraft {
 			void *ptr = nullptr);
 		
 		// does nothing if the block is already queued to be handled.
-		void queue_physics_once_nolock (int x, int y, int z, int extra = 0,
+		void queue_physics_once (int x, int y, int z, int extra = 0,
 			void *ptr = nullptr);
 		
 		

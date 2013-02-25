@@ -32,6 +32,7 @@
 // physics:
 #include "physics/sand.hpp"
 #include "physics/langtons_ant.hpp"
+#include "physics/water.hpp"
 
 
 namespace hCraft {
@@ -70,15 +71,18 @@ namespace hCraft {
 		
 		// physics blocks
 		{
-#define REGISTER_BLOCK(B)  \
+#define REGISTER_PHYSICS(B)  \
 	{ B *a = new B ();        \
 		if (a->id () >= (int)this->phblocks.size ()) \
 			this->phblocks.resize (a->id () + 1); \
 		this->phblocks[a->id ()].reset (a); }
-			REGISTER_BLOCK (physics::sand)
-			REGISTER_BLOCK (physics::langtons_ant)
+			REGISTER_PHYSICS (physics::sand)
+			REGISTER_PHYSICS (physics::langtons_ant)
+			REGISTER_PHYSICS (physics::water)
+#undef REGISTER_PHYSICS
 		}
 		this->ph_state = PHY_ON;
+		this->physics.set_thread_count (4);
 	}
 	
 	/* 
@@ -175,7 +179,6 @@ namespace hCraft {
 	{
 		const static int block_update_cap = 10000; // per tick
 		const static int light_update_cap = 10000; // per tick
-		const static int ph_update_cap    = 200;
 		const static int tr_update_cap    = 3;
 		
 		int update_count;
@@ -287,7 +290,7 @@ namespace hCraft {
 									
 											// physics
 											if (ph)
-												this->queue_physics_nolock (update.x, update.y, update.z, update.extra, update.ptr);
+												this->queue_physics (update.x, update.y, update.z, update.extra, update.ptr);
 									
 											// check neighbouring blocks
 											{
@@ -326,38 +329,9 @@ namespace hCraft {
 					 * Lighting updates.
 					 */
 					this->lm.update (light_update_cap);
-					
-					/* 
-					 * Physics.
-					 */
-					if (this->ph_state == PHY_ON)
-						{
-							update_count = 0;
-							while (!phupdates.empty () && (update_count++ < ph_update_cap))
-								{
-									physics_update u = this->phupdates.front ();
-									this->phupdates.pop_front ();
-							
-									unsigned short id = this->get_id (u.x, u.y, u.z);
-									physics_block *ph; {
-										if (id >= this->phblocks.size ())
-											continue;
-										ph = this->phblocks[id].get ();
-										if (!ph) continue;
-									}
-							
-									if ((u.last_tick + ph->tick_rate ()) > this->ticks)
-										{
-											this->phupdates.push_back (u);
-											continue;
-										}
-							
-									ph->tick (*this, u.x, u.y, u.z, u.extra, u.ptr);						
-								}
-						}
 				}
 				
-				std::this_thread::sleep_for (std::chrono::milliseconds (1));
+				std::this_thread::sleep_for (std::chrono::milliseconds (5));
 			}
 	}
 	
@@ -775,16 +749,18 @@ namespace hCraft {
 	 */
 	void
 	world::queue_update (int x, int y, int z, unsigned short id,
-		unsigned char meta, player *pl)
+		unsigned char meta, int extra, void *ptr, player *pl)
 	{
+		if (this->is_out_of_bounds (x, y, z)) return;
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace_back (x, y, z, id, meta, 0, nullptr, pl);
+		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl);
 	}
 	
 	void
 	world::queue_update_nolock (int x, int y, int z, unsigned short id,
 		unsigned char meta, int extra, void *ptr, player *pl)
 	{
+		if (this->is_out_of_bounds (x, y, z)) return;
 		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl);
 	}
 	
@@ -798,30 +774,26 @@ namespace hCraft {
 	void
 	world::queue_physics (int x, int y, int z, int extra, void *ptr)
 	{
+		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
-		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->phupdates.emplace_back (x, y, z, extra, ptr, this->ticks);
+		this->physics.queue_physics (this, x, y, z, extra);
 	}
 	
 	void
 	world::queue_physics_nolock (int x, int y, int z, int extra, void *ptr)
 	{
+		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
-		this->phupdates.emplace_back (x, y, z, extra, ptr, this->ticks);
+		this->physics.queue_physics (this, x, y, z, extra);
 	}
 	
 	void
-	world::queue_physics_once_nolock (int x, int y, int z, int extra, void *ptr)
+	world::queue_physics_once (int x, int y, int z, int extra, void *ptr)
 	{
+		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
-		if (std::find_if (std::begin (this->phupdates), std::end (this->phupdates),
-			[x, y, z] (const physics_update& u) -> bool
-				{
-					return (u.x == x && u.y == y && u.z == z);
-				}) != std::end (this->phupdates))
-			return;
-		this->phupdates.emplace_back (x, y, z, extra, ptr, this->ticks);
+		this->physics.queue_physics_once (this, x, y, z, extra);
 	}
 	
 	
@@ -837,8 +809,7 @@ namespace hCraft {
 		if (this->ph_state == PHY_OFF) return;
 		this->ph_state = PHY_OFF;
 		
-		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->phupdates.clear ();
+		// TODO
 	}
 	
 	void

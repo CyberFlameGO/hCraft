@@ -16,41 +16,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS_H_
-#define _hCraft__PHYSICS_H_
+#ifndef _hCraft__PHYSICS__WATER_H_
+#define _hCraft__PHYSICS__WATER_H_
+
+#include "physics.hpp"
 
 
 namespace hCraft {
 	
-	class world;
-	
-	
-	/* 
-	 * An interface to all block physics classes.
-	 */
-	class physics_block
-	{
-	public:
-		virtual int  id () = 0;
-		virtual int  vanilla_id () { return 0; }
+	namespace physics {
 		
-		/* 
-		 * The amount of ticks to wait between calls to tick().
-		 */
-		virtual int  tick_rate () { return 5; }
+		class water: public physics_block
+		{
+		public:
+			virtual int  id () override { return 8; }
+			virtual int  vanilla_id () override { return 8; }
+			virtual int  tick_rate () override { return 5; }
 		
-		/* 
-		 * Called every "tick_rate ()" milliseconds by the world's physics loop.
-		 */
-		virtual void tick (world &w, int x, int y, int z, int extra,
-				void *ptr) = 0;
-		
-		/* 
-		 * Called when a neighbouring block is destroyed\changed.
-		 */
-		virtual void on_neighbour_modified (world &w, int x, int y, int z,
-			int nx, int ny, int nz) { }
-	};
+			virtual void tick (world &w, int x, int y, int z, int extra,
+				void *ptr) override;
+		};
+	}
 }
 
 #endif

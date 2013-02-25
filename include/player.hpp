@@ -142,7 +142,6 @@ namespace hCraft {
 		chunk_pos curr_chunk;
 		std::mutex world_lock;
 		std::mutex join_lock;
-		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
 		std::unordered_set<player *> visible_players;
 		std::mutex visible_player_lock;
 		
@@ -163,6 +162,8 @@ namespace hCraft {
 		
 		// personal block updates
 		player_transaction pb_updates;
+		
+		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
 		
 	private:
 		/* 

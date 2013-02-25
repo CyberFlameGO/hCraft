@@ -152,8 +152,8 @@ namespace hCraft {
 				
 				lm.enqueue_sl_nolock (x + 1, y, z);
 				lm.enqueue_sl_nolock (x - 1, y, z);
-				lm.enqueue_sl_nolock (x, y + 1, z);
-				lm.enqueue_sl_nolock (x, y - 1, z);
+				if (y < 255) lm.enqueue_sl_nolock (x, y + 1, z);
+				if (y >   0) lm.enqueue_sl_nolock (x, y - 1, z);
 				lm.enqueue_sl_nolock (x, y, z + 1);
 				lm.enqueue_sl_nolock (x, y, z - 1);
 			}
@@ -225,8 +225,8 @@ namespace hCraft {
 				
 				lm.enqueue_bl_nolock (x + 1, y, z);
 				lm.enqueue_bl_nolock (x - 1, y, z);
-				lm.enqueue_bl_nolock (x, y + 1, z);
-				lm.enqueue_bl_nolock (x, y - 1, z);
+				if (y < 255) lm.enqueue_bl_nolock (x, y + 1, z);
+				if (y >   0) lm.enqueue_bl_nolock (x, y - 1, z);
 				lm.enqueue_bl_nolock (x, y, z + 1);
 				lm.enqueue_bl_nolock (x, y, z - 1);
 			}

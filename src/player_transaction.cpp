@@ -46,10 +46,30 @@ namespace hCraft {
 	 * All updates will then be cleared if @{clear} is true.
 	 */
 	void
-	player_transaction::commit (std::vector<player *>& players, bool clear)
+	player_transaction::commit (std::vector<player *>& _players, bool clear)
 	{
-		if (players.empty ())
+		std::vector<player *> players (_players);
+		if (_players.empty ())
 			goto done_sending;
+		
+		// don't send to players that are too far away
+		{
+			for (auto itr = players.begin (); itr != players.end (); )
+				{
+					bool found_common_chunk = false;
+					player *pl = *itr;
+					
+					std::lock_guard<std::mutex> guard ((pl->get_world_lock ()));
+					for (auto chitr = this->chunks.begin (); chitr != this->chunks.end (); ++chitr)
+						if (pl->known_chunks.find (chunk_pos (chitr->first)) != pl->known_chunks.end ())
+							{ found_common_chunk = true; break; }
+					
+					if (found_common_chunk)
+						++ itr;
+					else
+						itr = players.erase (itr);
+				}
+		}
 		
 		//std::lock_guard<std::mutex> guard ((this->lock));
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)

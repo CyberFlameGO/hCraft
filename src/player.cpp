@@ -1661,7 +1661,7 @@ namespace hCraft {
 				return 0;
 			}
 		
-		pl->get_world ()->queue_update (x, y, z, 0, 0, pl);
+		pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
 		
 		return 0;
 	}

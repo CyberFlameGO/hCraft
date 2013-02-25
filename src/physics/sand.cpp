@@ -61,34 +61,34 @@ namespace hCraft {
 				}*/
 			
 		if (y == 0)
-			{ w.queue_update_nolock (x, y, z, BT_AIR); return; }
+			{ w.queue_update (x, y, z, BT_AIR); return; }
 		
 		if (w.get_id (x, y - 1, z) == BT_AIR)
 			{
-				w.queue_update_nolock (x, y - 1, z, BT_SAND);
-				w.queue_update_nolock (x, y, z, BT_AIR);
+				w.queue_update (x, y - 1, z, BT_SAND);
+				w.queue_update (x, y, z, BT_AIR);
 			}
 		else
 			{
 				if (w.get_id (x - 1, y - 1, z) == BT_AIR && w.get_id (x - 1, y, z) == BT_AIR)
 					{
-						w.queue_update_nolock (x - 1, y - 1, z, BT_SAND);
-						w.queue_update_nolock (x, y, z, BT_AIR);
+						w.queue_update (x - 1, y - 1, z, BT_SAND);
+						w.queue_update (x, y, z, BT_AIR);
 					}
 				else if (w.get_id (x + 1, y - 1, z) == BT_AIR && w.get_id (x + 1, y, z) == BT_AIR)
 					{
-						w.queue_update_nolock (x + 1, y - 1, z, BT_SAND);
-						w.queue_update_nolock (x, y, z, BT_AIR);
+						w.queue_update (x + 1, y - 1, z, BT_SAND);
+						w.queue_update (x, y, z, BT_AIR);
 					}
 				else if (w.get_id (x, y - 1, z - 1) == BT_AIR && w.get_id (x, y, z - 1) == BT_AIR)
 					{
-						w.queue_update_nolock (x, y - 1, z - 1, BT_SAND);
-						w.queue_update_nolock (x, y, z, BT_AIR);
+						w.queue_update (x, y - 1, z - 1, BT_SAND);
+						w.queue_update (x, y, z, BT_AIR);
 					}
 				else if (w.get_id (x, y - 1, z + 1) == BT_AIR && w.get_id (x, y, z + 1) == BT_AIR)
 					{
-						w.queue_update_nolock (x, y - 1, z + 1, BT_SAND);
-						w.queue_update_nolock (x, y, z, BT_AIR);
+						w.queue_update (x, y - 1, z + 1, BT_SAND);
+						w.queue_update (x, y, z, BT_AIR);
 					}
 			}
 		}
@@ -97,7 +97,7 @@ namespace hCraft {
 		sand::on_neighbour_modified (world &w, int x, int y, int z,
 			int nx, int ny, int nz)
 		{
-			w.queue_physics_once_nolock (x, y, z);
+			w.queue_physics_once (x, y, z);
 		}
 	}
 }
