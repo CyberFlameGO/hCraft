@@ -21,6 +21,7 @@
 #include "../player.hpp"
 #include "stringutils.hpp"
 #include "cistring.hpp"
+#include <sstream>
 #include <unordered_map>
 
 
@@ -69,13 +70,17 @@ namespace hCraft {
 		static void
 		handle_threads (player *pl, command_reader& reader)
 		{
+			world *wr = pl->get_world ();
+			
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eSyntax§f: §e/physics threads §c<count>");
+					std::ostringstream ss;
+					ss << "§7This world is currently utilizing §b" << wr->physics.get_thread_count ()
+						 << " §7thread" << ((wr->physics.get_thread_count () == 1) ? "" : "s");
+					pl->message (ss.str ());
 					return;
 				}
 		
-			world *wr = pl->get_world ();
 			cmd_arg narg = reader.next ();
 			if (!narg.is_int ())
 				{

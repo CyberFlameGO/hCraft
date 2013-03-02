@@ -144,6 +144,8 @@ namespace hCraft {
 		 * Changes the number of worker threads to utilize.
 		 */
 		void set_thread_count (unsigned int count);
+		inline int get_thread_count ()
+			{ return workers.size (); }
 		
 		
 		/* 
