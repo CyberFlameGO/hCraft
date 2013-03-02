@@ -16,10 +16,19 @@ Features
 The _currently_ implemented features are:
 *  The client can connect to the server.
 *  Movement and block modification are relayed between connected players.
-*  Worlds can be loaded from/saved to an experimental world format (*HWv1*).
+*  Worlds can be loaded from/saved to an experimental world format (*HWv1*) -
+   a compact single-file world container.
 *  Players can easily switch between worlds using the /w command (Multiworld!).
 *  A permissions-like rank system.
 *  SQLite support.
+
+*  Players can create and manipulate various types of world selections (spheres, cuboids, etc...),
+   this includes filling them with blocks (large fills cause resending of chunks).
+*  Custom physics (still very experimental)! The current implementation can handle
+   around 10,000 falling sand blocks. Custom block mechanics can be easily added.
+*  Custom world generation - a very simplistic plains generator is set as default.
+   Current world generators include "plains" and "flatgrass" (more will be added in the future).
+
 
 Building
 --------
