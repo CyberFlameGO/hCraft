@@ -82,7 +82,7 @@ namespace hCraft {
 #undef REGISTER_PHYSICS
 		}
 		this->ph_state = PHY_ON;
-		this->physics.set_thread_count (4);
+		this->physics.set_thread_count (1);
 	}
 	
 	/* 
@@ -301,6 +301,8 @@ namespace hCraft {
 													for (yy = (update.y - 1); yy <= (update.y + 1); ++yy)
 														for (zz = (update.z - 1); zz <= (update.z + 1); ++zz)
 															{
+																if (xx == update.x && yy == update.y && zz == update.z)
+																	continue;
 																if ((yy < 0) || (yy > 255))
 																	continue;
 														

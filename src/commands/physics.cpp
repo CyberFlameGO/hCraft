@@ -20,10 +20,81 @@
 #include "../server.hpp"
 #include "../player.hpp"
 #include "stringutils.hpp"
+#include "cistring.hpp"
+#include <unordered_map>
 
 
 namespace hCraft {
 	namespace commands {
+		
+		static void
+		handle_on (player *pl, command_reader& reader)
+		{
+			world *wr = pl->get_world ();
+			if (wr->physics_state () == PHY_ON)
+				{
+					pl->message ("§c * §ePhysics are already on§f.");
+					return;
+				}
+			wr->start_physics ();
+			wr->get_players ().message ("§a * §6Physics have been turned §aON§6.");
+		}
+		
+		static void
+		handle_off (player *pl, command_reader& reader)
+		{
+			world *wr = pl->get_world ();
+			if (wr->physics_state () == PHY_OFF)
+				{
+					pl->message ("§c * §ePhysics are already off§f.");
+					return;
+				}
+			wr->stop_physics ();
+			wr->get_players ().message ("§a * §6Physics have been turned §cOFF§6.");
+		}
+		
+		static void
+		handle_pause (player *pl, command_reader& reader)
+		{
+			world *wr = pl->get_world ();
+			if (wr->physics_state () == PHY_PAUSED)
+				{
+					pl->message ("§c * §ePhysics are already paused§f.");
+					return;
+				}
+			wr->pause_physics ();
+			wr->get_players ().message ("§a * §6Physics have been §7PAUSED§6.");
+		}
+		
+		static void
+		handle_threads (player *pl, command_reader& reader)
+		{
+			if (!reader.has_next ())
+				{
+					pl->message ("§c * §eSyntax§f: §e/physics threads §c<count>");
+					return;
+				}
+		
+			world *wr = pl->get_world ();
+			cmd_arg narg = reader.next ();
+			if (!narg.is_int ())
+				{
+					pl->message ("§c * §eSyntax§f: §e/physics threads §c<count>");
+					return;
+				}
+			
+			int tc = narg.as_int ();
+			if (tc < 0 || tc > 24)
+				{
+					pl->message ("§c * §eThread count must be in the range of §c0-24");
+					return;
+				}
+			
+			wr->physics.set_thread_count (tc);
+			pl->message ("§ePhysics thread count as been set to §a" + narg.as_str ());
+		}
+		
+		
 		
 		/* 
 		 * /physics -
@@ -43,46 +114,26 @@ namespace hCraft {
 			if (!reader.parse_args (this, pl))
 				return;
 			
-			if (reader.no_args () || reader.arg_count () > 1)
+			if (reader.no_args () || reader.no_args ())
 				{ this->show_summary (pl); return; }
 			
-			world *wr = pl->get_world ();
+			std::string& opt = reader.next ();
+			static std::unordered_map<cistring, void (*)(player *, command_reader &)>
+				funs {
+						{ "on", handle_on },
+						{ "off", handle_off },
+						{ "pause", handle_pause },
+						{ "threads", handle_threads },
+					};
 			
-			std::string& opt = reader.arg (0);
-			if (sutils::iequals (opt, "on") || sutils::iequals (opt, "resume"))
+			auto itr = funs.find (opt.c_str ());
+			if (itr == funs.end ())
 				{
-					if (wr->physics_state () == PHY_ON)
-						{
-							pl->message ("§c * §ePhysics are already on§f.");
-							return;
-						}
-					wr->start_physics ();
-					wr->get_players ().message ("§a * §6Physics have been turned §aON§6.");
+					pl->message ("§c * §eInvalid option§f: §c" + opt);
+					return;
 				}
-			else if (sutils::iequals (opt, "off"))
-				{
-					if (wr->physics_state () == PHY_OFF)
-						{
-							pl->message ("§c * §ePhysics are already off§f.");
-							return;
-						}
-					wr->stop_physics ();
-					wr->get_players ().message ("§a * §6Physics have been turned §cOFF§6.");
-				}
-			else if (sutils::iequals (opt, "pause"))
-				{
-					if (wr->physics_state () == PHY_PAUSED)
-						{
-							pl->message ("§c * §ePhysics are already paused§f.");
-							return;
-						}
-					wr->pause_physics ();
-					wr->get_players ().message ("§a * §6Physics have been §7PAUSED§6.");
-				}
-			else
-				{
-					pl->message ("§7 * §cInvalid option§7: §e" + opt);
-				}
+			
+			itr->second (pl, reader);
 		}
 	}
 }

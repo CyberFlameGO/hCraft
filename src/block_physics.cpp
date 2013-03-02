@@ -22,8 +22,6 @@
 #include <functional>
 #include <chrono>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -156,6 +154,9 @@ namespace hCraft {
 	
 	/* 
 	 * Changes the number of worker threads to utilize.
+	 * 
+	 * BUG (and TODO): Crashes when trying to change the number of threads from
+	 *                 a higher amount to a lower one.
 	 */
 	void
 	block_physics_manager::set_thread_count (unsigned int count)

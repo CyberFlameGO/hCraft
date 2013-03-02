@@ -1214,7 +1214,6 @@ namespace hCraft {
 		main_world->start ();
 		this->add_world (main_world);
 		this->main_world = main_world;
-		log (LT_DEBUG) << " ## main_world address: " << main_world << std::endl;
 		
 		// load worlds from the autoload list.
 		{
