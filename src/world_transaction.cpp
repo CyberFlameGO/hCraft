@@ -168,7 +168,7 @@ namespace hCraft {
 																{
 																	physics_block *ph = wr->get_physics_of (id);
 																	if (ph)
-																		wr->queue_physics_nolock (wx, wy, wz);
+																		wr->queue_physics (wx, wy, wz, 0, nullptr, ph->tick_rate ());
 																}
 														}
 												}

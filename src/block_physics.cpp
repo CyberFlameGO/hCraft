@@ -25,12 +25,18 @@
 
 namespace hCraft {
 	
+	physics_params::physics_params ()
+	{
+		this->actions[0].type = PA_NONE;
+	}
+	
+	
+	
 	/* 
 	 * Constructs and starts the worker thread.
 	 */
-	block_physics_worker::block_physics_worker ()
-		: paused (false), ticks (0),
-			updates (), update_lock (), _running (true),
+	block_physics_worker::block_physics_worker (block_physics_manager &man)
+		: paused (false), ticks (0), man (man), _running (true),
 		
 			// and finally, the thread:
 			th (std::bind (std::mem_fn (&hCraft::block_physics_worker::main_loop), this))
@@ -53,41 +59,36 @@ namespace hCraft {
 	void
 	block_physics_worker::main_loop ()
 	{
-#define MAX_UPDATES_PER_ITER 1000
+		physics_update u {};
+		std::chrono::steady_clock::time_point tp;
+		const static int updates_per_tick = 8000;
+		int i;
+		
+		// 
+		// TODO: Handle updates with more than 8 ticks.
+		// 
 		while (this->_running)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (50));
 				++ this->ticks;
-				if (paused || this->updates.empty ())
+				if (paused)
 					continue;
 				
-				int handled = 0;
-				while (handled++ < MAX_UPDATES_PER_ITER)
+				for (i = 0; i < updates_per_tick && !this->man.updates.empty (); ++i)
 					{
-						physics_update u;
-						{
-							std::lock_guard<std::mutex> guard ((this->update_lock));
-							if (this->updates.empty ())
-								break;
-							u = this->updates.front ();
-							this->updates.pop_front ();
-							
-							this->remove_block (u.w, u.x, u.y, u.z);
-						}
-					
-						world *wr = u.w;
-						physics_block *pb = wr->get_physics_at (u.x, u.y, u.z);
-						if (!pb) continue;
+						if (!this->man.updates.try_pop (u))
+							continue;
 						
-						if ((u.lt + pb->tick_rate ()) > this->ticks)
+						if (u.nt > std::chrono::steady_clock::now ())
 							{
-								// NOTE: The source of slowness when over a thousand blocks are queued.
-								std::lock_guard<std::mutex> guard {this->update_lock};
-								this->updates.push_back (u);
+								this->man.updates.push (u);
 								continue;
 							}
-						
-						pb->tick (*wr, u.x, u.y, u.z, u.extra, nullptr);
+							
+						this->man.remove_block (u.w, u.x, u.y, u.z);
+						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
+						if (pb)
+							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr, *this);
 					}
 			}
 	}
@@ -95,7 +96,7 @@ namespace hCraft {
 	
 	
 	bool
-	block_physics_worker::update_exists (world *w, int x, int y, int z)
+	block_physics_manager::block_exists (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return false;
 		auto w_itr = this->block_mem.find (w);
@@ -115,7 +116,7 @@ namespace hCraft {
 	}
 	
 	void
-	block_physics_worker::add_block (world *w, int x, int y, int z)
+	block_physics_manager::add_block (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		std::unordered_map<chunk_pos, ph_mem_chunk, chunk_pos_hash>&
@@ -129,7 +130,7 @@ namespace hCraft {
 	}
 	
 	void
-	block_physics_worker::remove_block (world *w, int x, int y, int z)
+	block_physics_manager::remove_block (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		auto w_itr = this->block_mem.find (w);
@@ -170,7 +171,7 @@ namespace hCraft {
 		if (count > this->workers.size ())
 			{
 				while (this->workers.size () < count)
-					this->workers.emplace_back (new block_physics_worker ());
+					this->workers.emplace_back (new block_physics_worker (*this));
 				return;
 			}
 		
@@ -180,85 +181,40 @@ namespace hCraft {
 				return;
 			}
 		
-		int to_remove = this->workers.size () - count;
-		int total_updates = 0;
-		for (size_t i = count; i < this->workers.size (); ++i)
-			{
-				block_physics_worker *worker = this->workers[i].get ();
-				worker->paused = true;
-				std::lock_guard<std::mutex> guard {worker->update_lock};
-				total_updates += worker->updates.size ();
-			}
-		int updates_per_worker = total_updates / count;
-		
-		for (size_t i = 0; i < (this->workers.size () - to_remove); ++i)
-			{
-				block_physics_worker *worker = this->workers[i].get ();
-				for (size_t j = count; j < this->workers.size (); ++j)
-					{
-						block_physics_worker *removee = this->workers[j].get ();
-						for (int k = 0; k < updates_per_worker; ++k)
-							{
-								worker->updates.push_back (removee->updates.front ());
-								removee->updates.pop_front ();
-							}
-					}
-			}
-		
 		this->workers.resize (count);
 	}
 	
 	
 	
-	static block_physics_worker*
-	min_worker (std::vector<std::shared_ptr<block_physics_worker> >& workers)
+	void
+	block_physics_manager::queue_physics (world *w, int x, int y, int z,
+		int extra, int tick_delay)
 	{
-		if (workers.empty ()) return nullptr;
+		if (tick_delay == 0) tick_delay = 1;
+		-- tick_delay;
 		
-		size_t min = 0;
-		for (size_t i = 1; i < workers.size (); ++i)
-			if ((workers[i].get ()->update_count ()) < (workers[min].get ()->update_count ()))
-					min = i;
-		return workers[min].get ();
-	}
-	
-	void
-	block_physics_manager::queue_physics (world *w, int x, int y, int z, int extra)
-	{
 		std::lock_guard<std::mutex> guard {this->lock};
-		block_physics_worker *worker = min_worker (this->workers);
-		if (worker)
-			{
-				std::lock_guard<std::mutex> inner_guard {worker->update_lock};
-				worker->updates.emplace_back (w, x, y, z, extra, worker->ticks);
-				worker->add_block (w, x, y, z);
-			}
-	}
-
-	void
-	block_physics_manager::queue_physics_nolock (world *w, int x, int y, int z, int extra)
-	{
-		block_physics_worker *worker = min_worker (this->workers);
-		if (worker)
-			worker->updates.emplace_back (w, x, y, z, extra, worker->ticks);
+		this->add_block (w, x, y, z);
+		this->updates.push (physics_update (w, x, y, z, extra,
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay)));
 	}
 	
 	// Queues an update only if one with the same xyz coordinates does not
 	// already exist.
 	void
-	block_physics_manager::queue_physics_once (world *w, int x, int y, int z, int extra)
+	block_physics_manager::queue_physics_once (world *w, int x, int y, int z,
+		int extra, int tick_delay)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
-		for (size_t i = 1; i < workers.size (); ++i)
-			if ((workers[i].get ()->update_exists (w, x, y, z)))
-				return;
+		if (this->block_exists (w, x, y, z))
+			return;
 		
-		block_physics_worker *worker = min_worker (this->workers);
-		if (worker)
-			{
-				std::lock_guard<std::mutex> inner_guard {worker->update_lock};
-				worker->updates.emplace_back (w, x, y, z, extra, worker->ticks);
-			}
+		if (tick_delay == 0) tick_delay = 1;
+		-- tick_delay;
+		
+		this->add_block (w, x, y, z);
+		this->updates.push (physics_update (w, x, y, z, extra,
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay)));
 	}
 }
 

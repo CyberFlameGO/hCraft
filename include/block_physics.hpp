@@ -25,8 +25,10 @@
 #include <vector>
 #include <memory>
 #include <bitset>
+#include <chrono>
 #include <unordered_map>
 #include "position.hpp"
+#include "tbb/concurrent_queue.h"
 
 
 namespace hCraft {
@@ -35,23 +37,47 @@ namespace hCraft {
 	class world;
 	
 	
+	enum physics_action_type: unsigned char {
+		PA_NONE = 0xFF,
+		
+		PA_DISSPIATE = 0,
+		PA_DROP,
+	};
+	
+	struct physics_action {
+		physics_action_type type;
+		short expire;
+		short val;
+	};
+	
+	struct physics_params {
+		// up to eight actions
+		physics_action actions[8];
+		
+	//---
+		physics_params ();
+	};
+	
 	struct physics_update	{
 		world *w;
 		int x, y, z;
 		int extra;
 		
-		unsigned long long lt; // last tick
+		physics_params params;
+		
+		std::chrono::steady_clock::time_point nt; // next tick
 		
 	//---
 		physics_update () { }
-		physics_update (world *w, int x, int y, int z, int extra, unsigned long long lt)
+		physics_update (world *w, int x, int y, int z, int extra,
+			std::chrono::steady_clock::time_point nt)
+			: nt (nt)
 		{
 			this->w = w;
 			this->x = x;
 			this->y = y;
 			this->z = z;
 			this->extra = extra;
-			this->lt = lt;
 		}
 	};
 	
@@ -82,6 +108,7 @@ namespace hCraft {
 	};
 //-----
 	
+	class block_physics_manager;
 	
 	/* 
 	 * Every worker manages its own separate block queue.
@@ -95,12 +122,8 @@ namespace hCraft {
 		unsigned long long ticks;
 		
 	private:
-		std::unordered_map<world *,
-			std::unordered_map<chunk_pos, ph_mem_chunk, chunk_pos_hash>>
-				block_mem;
+		block_physics_manager &man;
 		
-		std::deque<physics_update> updates;
-		std::mutex update_lock;
 		bool _running;
 		std::thread th;
 		
@@ -110,23 +133,16 @@ namespace hCraft {
 		 */
 		void main_loop ();
 		
-		bool update_exists (world *w, int x, int y, int z);
-		void add_block (world *w, int x, int y, int z);
-		void remove_block (world *w, int x, int y, int z);
-		
 	public:
 		/* 
 		 * Constructs and starts the worker thread.
 		 */
-		block_physics_worker ();
+		block_physics_worker (block_physics_manager &man);
 		
 		/* 
 		 * Destructor - stops the worker thread.
 		 */
 		~block_physics_worker ();
-		
-		
-		inline size_t update_count () { return this->updates.size (); }
 	};
 	
 	
@@ -136,8 +152,20 @@ namespace hCraft {
 	 */
 	class block_physics_manager
 	{
+		friend class block_physics_worker;
+		
+		tbb::concurrent_queue<physics_update> updates;
 		std::vector<std::shared_ptr<block_physics_worker>> workers;
 		std::mutex lock;
+		
+		std::unordered_map<world *,
+			std::unordered_map<chunk_pos, ph_mem_chunk, chunk_pos_hash>>
+				block_mem;
+				
+	protected:
+		bool block_exists (world *w, int x, int y, int z);
+		void add_block (world *w, int x, int y, int z);
+		void remove_block (world *w, int x, int y, int z);
 		
 	public:
 		/* 
@@ -152,12 +180,13 @@ namespace hCraft {
 		 * Queue an update to be processed by one of the workers:
 		 */
 		
-		void queue_physics (world *w, int x, int y, int z, int extra = 0);
-		void queue_physics_nolock (world *w, int x, int y, int z, int extra = 0);
+		void queue_physics (world *w, int x, int y, int z, int extra = 0,
+			int tick_delay = 20);
 		
 		// Queues an update only if one with the same xyz coordinates does not
 		// already exist.
-		void queue_physics_once (world *w, int x, int y, int z, int extra = 0);
+		void queue_physics_once (world *w, int x, int y, int z, int extra = 0,
+			int tick_delay = 20);
 	};
 }
 

@@ -34,6 +34,7 @@ namespace hCraft {
 		this->height = pmax.y - pmin.y + 1;
 		this->depth = pmax.z - pmin.z + 1;
 		this->blocks.resize (this->width * this->height * this->depth, false);
+		this->vol = 0;
 	}
 	
 	
@@ -128,6 +129,7 @@ namespace hCraft {
 		this->blocks.resize (volume);
 		for (int i = 0; i < volume; ++i)
 			this->blocks[i] = false;
+		this->vol = 0;
 		
 		int x, y, z;
 		int pwidth = ppmax.x - ppmin.x + 1;
@@ -147,8 +149,11 @@ namespace hCraft {
 						py = (y - pmin.y) * scale_y;
 						pz = (z - pmin.z) * scale_z;
 						if (prev_blocks[(py * pdepth + pz) * pwidth + px])
-							this->blocks[((y - pmin.y) * this->depth + (z - pmin.z))
-								* this->width + (x - pmin.x)] = true;
+							{
+								this->blocks[((y - pmin.y) * this->depth + (z - pmin.z))
+									* this->width + (x - pmin.x)] = true;
+								++ this->vol;
+							}
 					}
 	}
 	
@@ -186,6 +191,12 @@ namespace hCraft {
 		x -= pmin.x;
 		y -= pmin.y;
 		z -= pmin.z;
+		
+		bool prev_val = this->blocks[(y * this->depth + z) * this->width + x];
+		if (prev_val && !include)
+			-- this->vol;
+		else if (!prev_val && include)
+			++ this->vol;
 		this->blocks[(y * this->depth + z) * this->width + x] = include;
 	}
 	
@@ -309,6 +320,16 @@ namespace hCraft {
 	{
 		world_selection::hide (pl);
 		_show (pl, this, false);
+	}
+	
+	
+	/* 
+	 * Returns the number of blocks contained by this selection.
+	 */
+	int
+	block_selection::volume ()
+	{
+		return this->vol;
 	}
 	
 	

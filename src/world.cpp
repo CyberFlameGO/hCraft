@@ -232,10 +232,10 @@ namespace hCraft {
 							update_count = 0;
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
 								{
-									block_update &update = this->updates.front ();
+									block_update &u = this->updates.front ();
 							
-									block_data old_bd = this->get_block (update.x, update.y, update.z);
-									if (old_bd.id == update.id && old_bd.meta == update.meta)
+									block_data old_bd = this->get_block (u.x, u.y, u.z);
+									if (old_bd.id == u.id && old_bd.meta == u.meta)
 										{
 											// nothing modified
 											this->updates.pop_front ();
@@ -243,65 +243,76 @@ namespace hCraft {
 										}
 							
 									block_info *old_inf = block_info::from_id (old_bd.id);
-									block_info *new_inf = block_info::from_id (update.id);
+									block_info *new_inf = block_info::from_id (u.id);
 							
 									physics_block *ph = nullptr; {
-										if (update.id < this->phblocks.size ())
-											ph = this->phblocks[update.id].get ();
+										if (u.id < this->phblocks.size ())
+											ph = this->phblocks[u.id].get ();
 									}
 							
-									if (((this->width > 0) && ((update.x >= this->width) || (update.x < 0))) ||
-										((this->depth > 0) && ((update.z >= this->depth) || (update.z < 0))) ||
-										((update.y < 0) || (update.y > 255)))
+									if (((this->width > 0) && ((u.x >= this->width) || (u.x < 0))) ||
+										((this->depth > 0) && ((u.z >= this->depth) || (u.z < 0))) ||
+										((u.y < 0) || (u.y > 255)))
 										{
 											this->updates.pop_front ();
 											continue;
 										}
 							
-									if ((this->get_id (update.x, update.y, update.z) == update.id) &&
-											(this->get_meta (update.x, update.y, update.z) == update.meta))
+									if ((this->get_id (u.x, u.y, u.z) == u.id) &&
+											(this->get_meta (u.x, u.y, u.z) == u.meta))
 										{
 											this->updates.pop_front ();
 											continue;
 										}
+									
+									unsigned short old_id = this->get_id (u.x, u.y, u.z);
+									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
+									
+									this->set_id_and_meta (u.x, u.y, u.z,
+										u.id, u.meta);
 							
-									this->set_id_and_meta (update.x, update.y, update.z,
-										update.id, update.meta);
-							
-									chunk *ch = this->get_chunk_at (update.x, update.z);
+									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
-										ch->recalc_heightmap (update.x & 0xF, update.z & 0xF);
+										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
 							
 									// update players
-									pl_tr.insert (update.x, update.y, update.z,
-										ph ? ph->vanilla_id () : update.id, update.meta);
+									pl_tr.insert (u.x, u.y, u.z,
+										ph ? ph->vanilla_id () : u.id, u.meta);
 									
 									// track selection blocks
 									for (player *pl : pl_vc)
-										if (pl->sb_exists (update.x, update.y, update.z))
-											sb_corrects.push_back ({pl, update.x, update.y, update.z});
+										if (pl->sb_exists (u.x, u.y, u.z))
+											sb_corrects.push_back ({pl, u.x, u.y, u.z});
 							
 									if (ch)
 										{
 											if (auto_lighting)
-												{
-													this->lm.enqueue_nolock (update.x, update.y, update.z);
-												}
+												this->lm.enqueue_nolock (u.x, u.y, u.z);
 									
 											// physics
-											if (ph)
-												this->queue_physics (update.x, update.y, update.z, update.extra, update.ptr);
+											if (u.physics && ph)
+												{
+													if (old_id != u.id || old_meta != u.meta)
+														{
+															physics_block *old_ph = this->get_physics_of (old_id);
+															if (old_ph)
+																old_ph->on_modified (*this, u.x, u.y, u.z);
+														}
+													
+													this->queue_physics (u.x, u.y, u.z, u.extra, u.ptr,
+														ph->tick_rate ());
+												}
 									
 											// check neighbouring blocks
 											{
 												physics_block *nph;
 										
 												int xx, yy, zz;
-												for (xx = (update.x - 1); xx <= (update.x + 1); ++xx)
-													for (yy = (update.y - 1); yy <= (update.y + 1); ++yy)
-														for (zz = (update.z - 1); zz <= (update.z + 1); ++zz)
+												for (xx = (u.x - 1); xx <= (u.x + 1); ++xx)
+													for (yy = (u.y - 1); yy <= (u.y + 1); ++yy)
+														for (zz = (u.z - 1); zz <= (u.z + 1); ++zz)
 															{
-																if (xx == update.x && yy == update.y && zz == update.z)
+																if (xx == u.x && yy == u.y && zz == u.z)
 																	continue;
 																if ((yy < 0) || (yy > 255))
 																	continue;
@@ -309,7 +320,7 @@ namespace hCraft {
 																nph = this->get_physics_at (xx, yy, zz);
 																if (nph)
 																	nph->on_neighbour_modified (*this, xx, yy, zz,
-																		update.x, update.y, update.z);
+																		u.x, u.y, u.z);
 															}
 											}
 										}
@@ -751,19 +762,19 @@ namespace hCraft {
 	 */
 	void
 	world::queue_update (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, void *ptr, player *pl)
+		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl);
+		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
 	}
 	
 	void
 	world::queue_update_nolock (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, void *ptr, player *pl)
+		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
-		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl);
+		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
 	}
 	
 	void
@@ -774,28 +785,22 @@ namespace hCraft {
 	}
 	
 	void
-	world::queue_physics (int x, int y, int z, int extra, void *ptr)
+	world::queue_physics (int x, int y, int z, int extra, void *ptr,
+		int tick_delay)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
-		this->physics.queue_physics (this, x, y, z, extra);
+		this->physics.queue_physics (this, x, y, z, extra, tick_delay);
 	}
 	
 	void
-	world::queue_physics_nolock (int x, int y, int z, int extra, void *ptr)
+	world::queue_physics_once (int x, int y, int z, int extra, void *ptr,
+		int tick_delay)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
-		this->physics.queue_physics (this, x, y, z, extra);
-	}
-	
-	void
-	world::queue_physics_once (int x, int y, int z, int extra, void *ptr)
-	{
-		if (this->is_out_of_bounds (x, y, z)) return;
-		if (this->ph_state == PHY_OFF) return;
-		this->physics.queue_physics_once (this, x, y, z, extra);
+		this->physics.queue_physics_once (this, x, y, z, extra, tick_delay);
 	}
 	
 	

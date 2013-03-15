@@ -44,6 +44,10 @@ namespace hCraft {
 	 */
 	struct packet
 	{
+		static const int protocol_version = 60;
+		static constexpr const char* game_version = "1.5";
+	//----
+		
 		unsigned char *data;
 		unsigned int size;
 		unsigned int pos;

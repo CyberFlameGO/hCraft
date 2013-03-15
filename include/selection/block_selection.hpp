@@ -36,6 +36,7 @@ namespace hCraft {
 		
 		std::vector<bool> blocks; // bitset
 		int width, height, depth;
+		int vol; // volume
 		
 	private:
 		void reconstruct (block_pos a, block_pos b);
@@ -84,6 +85,11 @@ namespace hCraft {
 		 */
 		virtual void expand (int x, int y, int z);
 		virtual void contract (int x, int y, int z);
+		
+		/* 
+		 * Returns the number of blocks contained by this selection.
+		 */
+		virtual int volume ();
 		
 		
 		/* 

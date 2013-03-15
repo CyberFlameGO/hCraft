@@ -68,6 +68,7 @@ hCraft_libs = Split("""
 		z
 		sqlite3
 		noise
+		tbb
 		""")
 
 Import('env')

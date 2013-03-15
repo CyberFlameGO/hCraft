@@ -7,7 +7,7 @@ What is hCraft?
 ---------------
 
 hCraft is a custom implementation of a Minecraft server, currently supprting the
-51th revision of the protocol (version 1.4.7). hCraft strives to be fast,
+60th revision of the protocol (version 1.5). hCraft strives to be fast,
 customizable and easy to use.
 
 Features
@@ -25,7 +25,7 @@ The _currently_ implemented features are:
 *  Players can create and manipulate various types of world selections (spheres, cuboids, etc...),
    this includes filling them with blocks (large fills cause resending of chunks).
 *  Custom physics (still very experimental)! The current implementation can handle
-   around 10,000 falling sand blocks (with 4 physics threads).
+   around 50,000 falling sand blocks (with 4 physics threads).
    Custom block mechanics can be easily added.
 *  Custom world generation - a very simplistic plains generator is set as default.
    Current world generators include "plains" and "flatgrass" (more will be added in the future).
@@ -45,6 +45,7 @@ an executable (can be found in the created "build" directory).
 *  [zlib](http://www.zlib.net/)
 *  [yaml-cpp](http://code.google.com/p/yaml-cpp/)
 *  [libnoise](http://libnoise.sourceforge.net/)
+*  [tbb](http://threadingbuildingblocks.org/)
 
 IRC
 ---

@@ -82,6 +82,12 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Returns the number of blocks contained by this selection.
+		 */
+		virtual int volume ();
+		
+		
+		/* 
 		 * Draws a minimal wireframe version of the selection for the specified
 		 * player (usually with water and brown mushrooms).
 		 */

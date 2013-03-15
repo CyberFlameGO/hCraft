@@ -204,6 +204,17 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Returns the number of blocks contained by this selection.
+	 */
+	int
+	cuboid_selection::volume ()
+	{
+		block_pos start = this->min (), end = this->max ();
+		return (end.x - start.x + 1) * (end.y - start.y + 1) * (end.z - start.z + 1);
+	}
+	
+	
+	/* 
 	 * Moves the selection @{units} blocks into the direction @{dir}.
 	 */
 	void

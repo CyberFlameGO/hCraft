@@ -59,11 +59,11 @@ namespace hCraft {
 			blocki bd_out, bd_in;
 			
 			bd_out = sutils::to_block (reader.arg (0));
-			if (!bd_out.valid ())
+			/*if (!bd_out.valid ())
 				{
 					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
 					return;
-				}
+				}*/
 			
 			if (reader.arg_count () == 2)
 				{

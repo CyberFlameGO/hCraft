@@ -56,9 +56,10 @@ namespace hCraft {
 		unsigned short id;
 		unsigned char  meta;
 		player *pl; // the player that initated the update.
+		bool physics;
 		
 		block_update (int x, int y, int z, unsigned short id, unsigned char meta,
-			int extra, void *ptr, player *pl)
+			int extra, void *ptr, player *pl, bool physics)
 		{
 			this->x = x;
 			this->y = y;
@@ -68,6 +69,7 @@ namespace hCraft {
 			this->pl = pl;
 			this->extra = extra;
 			this->ptr = ptr;
+			this->physics = physics;
 		}
 	};
 	
@@ -263,11 +265,11 @@ namespace hCraft {
 		 */
 		void queue_update (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
-			player *pl = nullptr);
+			player *pl = nullptr, bool physics = true);
 		
 		void queue_update_nolock (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
-			player *pl = nullptr);
+			player *pl = nullptr, bool physics = true);
 		
 		void queue_update (world_transaction *tr);
 		
@@ -275,13 +277,11 @@ namespace hCraft {
 			{ this->lm.enqueue_nolock (x, y, z); }
 		
 		void queue_physics (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr);
-		void queue_physics_nolock (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr);
+			void *ptr = nullptr, int tick_delay = 20);
 		
 		// does nothing if the block is already queued to be handled.
 		void queue_physics_once (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr);
+			void *ptr = nullptr, int tick_delay = 20);
 		
 		
 		void start_physics ();

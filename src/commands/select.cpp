@@ -57,7 +57,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel new §c[§b@§cname] <type>");
+					pl->message ("§c * §eUsage§f: §e/sel new §8[§b@§cname§8] §ctype");
 					return;
 				}
 			
@@ -77,7 +77,7 @@ namespace hCraft {
 					
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel new §c[§b@§cname] <type>");
+							pl->message ("§c * §eUsage§f: §e/sel new §8[§b@§cname§8] §ctype");
 							return;
 						}
 					
@@ -126,7 +126,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel delete §c<§b@§cname>");
+					pl->message ("§c * §eUsage§f: §e/sel delete §c§b@§cname");
 					return;
 				}
 			
@@ -218,7 +218,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel move §c<<x-/x+/z-/z+/y-/z+> <units>>...");
+					pl->message ("§c * §eUsage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
 					return;
 				}
 			
@@ -231,7 +231,7 @@ namespace hCraft {
 					std::string ax_str    = reader.next ();
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel move §c<<x/y/z> <units>>...");
+							pl->message ("§c * §eUsage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
 							return;
 						}
 					std::string units_str = reader.next ();
@@ -375,7 +375,7 @@ namespace hCraft {
 			if (blocks.empty ())
 				{
 					pl->message ("§c * §ePlease specify which blocks to select§f.");
-					pl->message ("§c   > §eUsage§f: §e/sel all §b[but/except] §c<blocks>...");
+					pl->message ("§c   > §eUsage§f: §e/sel all §7but§8/§7except §cblocks...");
 					return;
 				}
 			
@@ -511,7 +511,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel expand/contract §c<<x/y/z> <units>>...");
+					pl->message ("§c * §eUsage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
 					return;
 				}
 			
@@ -524,7 +524,7 @@ namespace hCraft {
 					std::string ax_str    = reader.next ();
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel expand/contract §c<<x/y/z> <units>>...");
+							pl->message ("§c * §eUsage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
 							return;
 						}
 					std::string units_str = reader.next ();
@@ -623,7 +623,8 @@ namespace hCraft {
 				{
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel show/hide <all / <[but/except] <selection>...>>");
+							pl->message ("§c * §eUsage§f: §e/sel show/hide §call");
+							pl->message ("§c           §e/sel show/hide §7but§8/§7except §cselections...");
 							return;
 						}
 					
@@ -693,7 +694,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next () || !sutils::is_block (reader.arg (1)))
 				{
-					pl->message ("§c * §eUsage§f: §e/sel sb §c<block>");
+					pl->message ("§c * §eUsage§f: §e/sel sb §cblock");
 					return;
 				}
 			
@@ -719,6 +720,40 @@ namespace hCraft {
 			block_info *binf = block_info::from_id (blk.id);
 			std::ostringstream ss;
 			ss << "§eSelection block type changed to §a" << binf->name << "§f:§a" << (int)blk.meta;
+			pl->message (ss.str ());
+		}
+		
+		
+		static void
+		handle_volume (player *pl, command_reader& reader)
+		{
+			int total_vol = 0, sel_count = 0;
+			bool check_all = false;
+			
+			if (reader.has_next ())
+				{
+					cmd_arg narg = reader.next ();
+					if (sutils::iequals (narg.as_str (), "all"))
+						check_all = true;
+					else
+						{
+							pl->message ("§c * §eInvalid option§f: §c" + narg.as_str ());
+							return;
+						}
+				}
+			
+			for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+				{
+					world_selection *sel = itr->second;
+					if (check_all || sel->visible ())
+						{
+							total_vol += sel->volume ();
+							++ sel_count;
+						}
+				}
+			
+			std::ostringstream ss;
+			ss << "§eApproximate volume (§c" << sel_count << " §eselections)§f: §a" << total_vol << " §eblocks";
 			pl->message (ss.str ());
 		}
 		
@@ -785,6 +820,10 @@ namespace hCraft {
 			else if (sutils::iequals (str, "sb"))
 				{
 					handle_sb (pl, reader);
+				}
+			else if (sutils::iequals (str, "vol") || sutils::iequals (str, "volume"))
+				{
+					handle_volume (pl, reader);
 				}
 			else
 				{

@@ -202,6 +202,16 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Returns the number of blocks contained by this selection.
+	 */
+	int
+	sphere_selection::volume ()
+	{
+		return (int)(4.188790205 * (this->rad * this->rad * this->rad)) + 1;
+	}
+	
+	
+	/* 
 	 * Moves the selection @{units} blocks into the direction @{dir}.
 	 */
 	void

@@ -100,7 +100,7 @@ namespace hCraft {
 		
 		
 		void
-		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr)
+		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr, block_physics_worker& worker)
 		{
 			if (y == 0)
 				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }
@@ -111,8 +111,8 @@ namespace hCraft {
 			int col_below = color_from_wool (w.get_meta (x, y - 1, z));
 			int next_col  = next_color (col_below);
 			
-			w.queue_update_nolock (x, y - 1, z, BT_WOOL, wool_from_color (next_col));
-			w.queue_update_nolock (x, y, z, BT_AIR);
+			w.queue_update (x, y - 1, z, BT_WOOL, wool_from_color (next_col));
+			w.queue_update (x, y, z, BT_AIR);
 			
 			int next_dir = rotate (extra, direction_from_color (next_col));
 			switch (next_dir)

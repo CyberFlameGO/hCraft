@@ -1096,10 +1096,13 @@ namespace hCraft {
 		pack->put_string ("§1", false, false);
 		
 		pack->put_short (0); // delimiter
-		pack->put_string ("51", false, false);
+		
+		ss.clear (); ss.str (std::string ());
+		ss << packet::protocol_version;
+		pack->put_string (ss.str ().c_str (), false, false);
 		
 		pack->put_short (0); // delimiter
-		pack->put_string ("1.4.7", false, false);
+		pack->put_string (packet::game_version, false, false);
 		
 		pack->put_short (0); // delimiter
 		pack->put_string (motd, true, false);
