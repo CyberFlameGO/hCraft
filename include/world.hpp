@@ -27,16 +27,20 @@
 #include "physics/physics.hpp"
 #include "block_physics.hpp"
 
+#include <unordered_set>
 #include <unordered_map>
 #include <mutex>
 #include <deque>
 #include <memory>
 #include <thread>
 #include <chrono>
+#include <functional>
 
 
 namespace hCraft {
 	
+	class server;
+	class entity;
 	class logger;
 	class player;
 	class playerlist;
@@ -89,6 +93,7 @@ namespace hCraft {
 	 */
 	class world
 	{
+		server &srv;
 		logger &log;
 		char name[33]; // 32 chars max
 		playerlist *players;
@@ -105,6 +110,9 @@ namespace hCraft {
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
+		
+		std::unordered_set<entity *> entities;
+		std::mutex entity_lock;
 		
 		int width;
 		int depth;
@@ -149,11 +157,14 @@ namespace hCraft {
 		
 		chunk* get_chunk_nolock (int x, int z);
 		
+		std::unordered_set<entity *>::iterator
+		despawn_entity_nolock (std::unordered_set<entity *>::iterator itr);
+		
 	public:
 		/* 
 		 * Constructs a new empty world.
 		 */
-		world (const char *name, logger &log, world_generator *gen,
+		world (server &srv, const char *name, logger &log, world_generator *gen,
 			world_provider *provider);
 		
 		/* 
@@ -224,11 +235,29 @@ namespace hCraft {
 		 * scratch.
 		 */
 		chunk* load_chunk (int x, int z);
+		chunk* load_chunk_at (int bx, int bz);
 		
 		/* 
 		 * Checks whether a block exists at the given coordinates.
 		 */
 		bool is_out_of_bounds (int x, int y, int z);
+		
+		
+		
+		/* 
+		 * Spawns the specified entity into the world.
+		 */
+		void spawn_entity (entity *e);
+		
+		/* 
+		 * Removes the specified etnity from this world.
+		 */
+		void despawn_entity (entity *e);
+		
+		/* 
+		 * Calls the given function on all entities in the world.
+		 */
+		void all_entities (std::function<void (entity *e)> f);
 		
 		
 		
@@ -277,11 +306,11 @@ namespace hCraft {
 			{ this->lm.enqueue_nolock (x, y, z); }
 		
 		void queue_physics (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr, int tick_delay = 20);
+			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr);
 		
 		// does nothing if the block is already queued to be handled.
 		void queue_physics_once (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr, int tick_delay = 20);
+			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr);
 		
 		
 		void start_physics ();

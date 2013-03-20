@@ -124,6 +124,12 @@ namespace hCraft {
 			double y, double z, float r, float l, short current_item,
 			entity_metadata& meta);
 		
+		static packet* make_collect_item (int collected_eid, int collector_eid);
+		
+		static packet* make_spawn_object (int eid, char type, double x, double y, double z,
+			float yaw, float pitch, int data, short speed_x, short speed_y,
+			short speed_z);
+		
 		static packet* make_entity_velocity (int eid, short vx, short vy, short vz);
 		
 		static packet* make_destroy_entity (int eid);
@@ -140,6 +146,8 @@ namespace hCraft {
 		
 		static packet* make_entity_head_look (int eid, float yaw);
 		
+		static packet* make_entity_metadata (int eid, entity_metadata& meta);
+		
 		static packet* make_chunk (int x, int z, chunk *ch);
 		
 		static packet* make_empty_chunk (int x, int z);
@@ -149,6 +157,8 @@ namespace hCraft {
 		
 		static packet* make_block_change (int x, unsigned char y, int z,
 			unsigned short id, unsigned char meta);
+		
+		static packet* make_change_game_state (char reason, char gm);
 		
 		static packet* make_set_slot (char wid, short slot, slot_item item);
 		

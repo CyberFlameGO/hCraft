@@ -778,6 +778,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "physics");
 		_add_command (this->perms, this->commands, "select");
 		_add_command (this->perms, this->commands, "fill");
+		_add_command (this->perms, this->commands, "gm");
 	}
 	
 	void
@@ -832,7 +833,8 @@ namespace hCraft {
 		grp_admin->set_color ('4');
 		grp_admin->inherit (grp_architect);
 		grp_admin->inherit (grp_moderator);
-		grp_builder->add ("command.world.tp.others");
+		grp_admin->add ("command.world.tp.others");
+		grp_admin->add ("command.admin.gm");
 		grp_admin->set_text_color ('c');
 		
 		group* grp_executive = groups.add (8, "executive");
@@ -1185,7 +1187,7 @@ namespace hCraft {
 			{
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
-				main_world = new world (this->get_config ().main_world, this->log, 
+				main_world = new world (*this, this->get_config ().main_world, this->log, 
 					world_generator::create ("plains"),
 					world_provider::create ("hw", "worlds", this->get_config ().main_world));
 				main_world->set_size (64, 64);
@@ -1207,7 +1209,7 @@ namespace hCraft {
 						throw server_error ("failed to load main world (invalid generator)");
 					}
 				
-				main_world = new world (this->get_config ().main_world, this->log, gen, prov);
+				main_world = new world (*this, this->get_config ().main_world, this->log, gen, prov);
 				main_world->set_size (winf.width, winf.depth);
 			}
 		main_world->prepare_spawn (10);
@@ -1255,7 +1257,7 @@ namespace hCraft {
 					}
 				
 				log () << " - Loading \"" << wname << std::endl;
-				world *wr = new world (wname.c_str (), this->log, gen, prov);
+				world *wr = new world (*this, wname.c_str (), this->log, gen, prov);
 				wr->set_size (winf.width, winf.depth);
 				wr->prepare_spawn (10);
 				wr->start ();
@@ -1266,6 +1268,9 @@ namespace hCraft {
 						continue;
 					}
 			}
+		
+		// start physics
+		this->global_physics.set_thread_count (1);
 	}
 	
 	void

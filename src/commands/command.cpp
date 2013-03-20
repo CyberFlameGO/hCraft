@@ -27,6 +27,7 @@
 #include "miscc.hpp"
 #include "worldc.hpp"
 #include "drawc.hpp"
+#include "adminc.hpp"
 
 #include <unordered_map>
 #include <stdexcept>
@@ -61,6 +62,9 @@ namespace hCraft {
 	static command* create_c_select () { return new commands::c_select (); }
 	static command* create_c_fill () { return new commands::c_fill (); }
 	
+	// admin commands
+	static command* create_c_gm () { return new commands::c_gm (); }
+	
 	/* 
 	 * Returns a new instance of the command named @{name}.
 	 */
@@ -80,6 +84,7 @@ namespace hCraft {
 			{ "physics", create_c_physics },
 			{ "select", create_c_select },
 			{ "fill", create_c_fill },
+			{ "gm", create_c_gm },
 			};
 		
 		auto itr = creators.find (name);

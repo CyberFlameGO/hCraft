@@ -19,6 +19,9 @@
 #ifndef _hCraft__BLOCKS_H_
 #define _hCraft__BLOCKS_H_
 
+#include <functional>
+#include <cstddef>
+
 
 namespace hCraft {
 	
@@ -199,6 +202,14 @@ namespace hCraft {
 		
 		bool valid ()
 			{ return ((this->id <= 145) && (this->meta <= 0xF)); }
+			
+	//---
+		bool
+		operator== (const blocki other) const
+		{
+			return (this->id == other.id) && ((other.meta == 0xA || this->meta == 0xA) ||
+				(this->meta == other.meta));
+		}
 	};
 	
 	
@@ -242,13 +253,20 @@ namespace hCraft {
 		 * string. Inputs such as "cobble" and "4" will both return the same result.
 		 */
 		static block_info* from_id_or_name (const char *str);
+		
+		
+		/* 
+		 * Gets the block that should be dropped after destroying blocks of type 
+		 * @{bl}.
+		 */
+		static blocki get_drop (blocki bl);
 	};
 	
 	
 	struct block_data
 	{
 		unsigned short id;
-		char meta;
+		unsigned char meta;
 		char bl; // block light
 		char sl; // sky light
 		
@@ -258,6 +276,25 @@ namespace hCraft {
 			this->meta = meta;
 			this->bl = bl;
 			this->sl = sl;
+		}
+	};
+	
+	
+
+//----
+	/* 
+	 * Hash types.
+	 */
+	
+	class blocki_hash {
+		std::hash<int> ih;
+		
+	public:
+		size_t
+		operator() (const blocki bl) const
+		{
+			// only the id is hashed, and that's done for a reason.
+			return ih (bl.id);
 		}
 	};
 }

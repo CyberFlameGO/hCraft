@@ -20,7 +20,6 @@
 #include "physics/physics.hpp"
 #include "world.hpp"
 #include <functional>
-#include <chrono>
 
 
 namespace hCraft {
@@ -36,7 +35,9 @@ namespace hCraft {
 	 * Constructs and starts the worker thread.
 	 */
 	block_physics_worker::block_physics_worker (block_physics_manager &man)
-		: paused (false), ticks (0), man (man), _running (true),
+		: paused (false), ticks (0), man (man),
+			rnd ((std::chrono::high_resolution_clock::now ().time_since_epoch ()).count ()
+				& 0x7FFFFFFF), _running (true),
 		
 			// and finally, the thread:
 			th (std::bind (std::mem_fn (&hCraft::block_physics_worker::main_loop), this))
@@ -53,6 +54,64 @@ namespace hCraft {
 	}
 	
 	
+	
+	static bool
+	handle_param_dissipate (physics_update& u, physics_action& act, std::minstd_rand& rnd)
+	{
+		std::uniform_int_distribution<> dis (0, act.val);
+		if (dis (rnd) == 0)
+			{
+				u.w->queue_update (u.x, u.y, u.z, BT_AIR);
+				return false;
+			}
+		
+		return true;
+	}
+	
+	static bool
+	handle_params (physics_update& u, block_physics_manager &man, std::minstd_rand& rnd)
+	{
+		bool expire = true;
+		
+		for (int i = 0; i < 8; ++i)
+			{
+				physics_action& act = u.params.actions[i];
+				if (act.type == PA_NONE)
+					break;
+				if (act.expire == 0)
+					continue;
+				
+				switch (act.type)
+					{
+					case PA_DISSIPATE:
+						if (!handle_param_dissipate (u, act, rnd))
+							return false;
+						break;
+					
+					default: break;
+					}
+				
+				if (act.expire == 0xFFFF)
+					expire = false;
+				else if (act.expire > 0)
+					{
+						-- act.expire;
+						expire = false;
+					}
+			}
+		
+		if (!expire)
+			{
+				physics_update nu = u;
+				nu.nt = std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * nu.tick);
+				man.updates.push (nu);
+			}
+		
+		return true;
+	}
+	
+	
+
 	/* 
 	 * Where everything happens.
 	 */
@@ -62,7 +121,7 @@ namespace hCraft {
 		physics_update u {};
 		std::chrono::steady_clock::time_point tp;
 		const static int updates_per_tick = 8000;
-		int i;
+		int i, fcount;
 		
 		// 
 		// TODO: Handle updates with more than 8 ticks.
@@ -74,18 +133,31 @@ namespace hCraft {
 				if (paused)
 					continue;
 				
-				for (i = 0; i < updates_per_tick && !this->man.updates.empty (); ++i)
+				fcount = 0; // failure counter
+				for (i = 0; i < updates_per_tick; ++i)
 					{
+						if (!this->_running || paused || this->man.updates.empty ())
+							break;
 						if (!this->man.updates.try_pop (u))
-							continue;
+							{
+								++ fcount;
+								if (fcount % 15 == 0)
+									std::this_thread::sleep_for (std::chrono::milliseconds (2));
+								if (fcount == 60)
+									break;
+								continue;
+							}
 						
 						if (u.nt > std::chrono::steady_clock::now ())
 							{
 								this->man.updates.push (u);
 								continue;
 							}
-							
+						
 						this->man.remove_block (u.w, u.x, u.y, u.z);
+						
+						if (!handle_params (u, this->man, this->rnd))
+							continue;
 						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
 						if (pb)
 							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr, *this);
@@ -188,22 +260,31 @@ namespace hCraft {
 	
 	void
 	block_physics_manager::queue_physics (world *w, int x, int y, int z,
-		int extra, int tick_delay)
+		int extra, int tick_delay, physics_params *params)
 	{
 		if (tick_delay == 0) tick_delay = 1;
 		-- tick_delay;
 		
 		std::lock_guard<std::mutex> guard {this->lock};
 		this->add_block (w, x, y, z);
-		this->updates.push (physics_update (w, x, y, z, extra,
-			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay)));
+		
+		physics_update u (w, x, y, z, extra, tick_delay,
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
+		if (params)
+			for (int i = 0; i < 8; ++i)
+				{
+					u.params.actions[i] = params->actions[i];
+					if (params->actions[i].type == PA_NONE)
+						break;
+				}
+		this->updates.push (u);
 	}
 	
 	// Queues an update only if one with the same xyz coordinates does not
 	// already exist.
 	void
 	block_physics_manager::queue_physics_once (world *w, int x, int y, int z,
-		int extra, int tick_delay)
+		int extra, int tick_delay, physics_params *params)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		if (this->block_exists (w, x, y, z))
@@ -213,8 +294,15 @@ namespace hCraft {
 		-- tick_delay;
 		
 		this->add_block (w, x, y, z);
-		this->updates.push (physics_update (w, x, y, z, extra,
-			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay)));
+		physics_update u (w, x, y, z, extra, tick_delay,
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
+		if (params)
+			for (int i = 0; i < 8; ++i)
+				{
+					u.params.actions[i] = params->actions[i];
+					if (params->actions[i].type == PA_NONE)
+						break;
+				}
 	}
 }
 

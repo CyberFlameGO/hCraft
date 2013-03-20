@@ -61,7 +61,7 @@ namespace hCraft {
 					return;
 				}
 			
-			block_pos curr_pos = pl->get_pos ();
+			block_pos curr_pos = pl->pos;
 			std::string& narg = reader.next ().as_str ();
 			std::string sel_type;
 			std::string name;
@@ -328,7 +328,7 @@ namespace hCraft {
 					return;
 				}
 	
-			block_pos curr_pos = pl->get_pos ();
+			block_pos curr_pos = pl->pos;
 			selection->set_update (num - 1, curr_pos, pl);
 			pl->sb_commit ();
 	

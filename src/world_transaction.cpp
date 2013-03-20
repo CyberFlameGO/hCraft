@@ -164,6 +164,7 @@ namespace hCraft {
 															wch->set_id_and_meta (x, wy, z, id, meta);
 															//if (wr->auto_lighting)
 																wr->queue_lighting_nolock (wx, wy, wz);
+															
 															if (this->physics)
 																{
 																	physics_block *ph = wr->get_physics_of (id);

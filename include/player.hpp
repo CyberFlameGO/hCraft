@@ -115,7 +115,6 @@ namespace hCraft {
 		char colored_nick[48];
 		
 		bool curr_gamemode;
-		inventory inv;
 		short held_slot;
 		slot_item cursor_slot;
 		
@@ -164,6 +163,8 @@ namespace hCraft {
 		player_transaction pb_updates;
 		
 		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
+		
+		inventory inv;
 		
 	private:
 		/* 
@@ -346,6 +347,13 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Modifies the player's gamemode.
+		 */
+		void change_gamemode (gamemode_type gm);
+		
+		
+		
+		/* 
 		 * Teleports the player to the given position.
 		 */
 		void teleport_to (entity_pos dest);
@@ -360,12 +368,12 @@ namespace hCraft {
 		/* 
 		 * Spawns self to the specified player.
 		 */
-		void spawn_to (player *pl);
+		virtual void spawn_to (player *pl) override;
 		
 		/* 
 		 * Despawns self from the specified player.
 		 */
-		void despawn_from (player *pl);
+		virtual bool despawn_from (player *pl) override;
 		
 		
 		

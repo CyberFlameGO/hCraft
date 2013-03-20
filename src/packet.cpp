@@ -602,7 +602,7 @@ namespace hCraft {
 						case EMT_STRING:
 							size += 2 + (std::strlen (rec.data.str) * 2);
 							break;
-						case EMT_SLOT: size += 5; break;
+						case EMT_SLOT: size += 7; break;
 						case EMT_BLOCK: size += 12; break;
 					}
 				
@@ -627,8 +627,12 @@ namespace hCraft {
 						case EMT_STRING: pack->put_string (rec.data.str); break;
 						case EMT_SLOT:
 							pack->put_short (rec.data.slot.id);
-							pack->put_byte (rec.data.slot.count);
-							pack->put_short (rec.data.slot.damage);
+							if (rec.data.slot.id != -1)
+								{
+									pack->put_byte (rec.data.slot.count);
+									pack->put_short (rec.data.slot.damage);
+									pack->put_short (-1); // no extra data yet
+								}
 							break;
 						case EMT_BLOCK:
 							pack->put_int (rec.data.block.x);
@@ -637,7 +641,7 @@ namespace hCraft {
 							break;
 					}
 			}
-		pack->put_byte (127);
+		pack->put_byte (0x7F);
 	}
 	
 	
@@ -748,6 +752,44 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_collect_item (int collected_eid, int collector_eid)
+	{
+		packet* pack = new packet (9);
+		
+		pack->put_byte (0x16);
+		pack->put_int (collected_eid);
+		pack->put_int (collector_eid);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_spawn_object (int eid, char type, double x, double y, double z,
+		float yaw, float pitch, int data, short speed_x, short speed_y,
+		short speed_z)
+	{
+		packet* pack = new packet ((data == 0) ? 24 : 30);
+		
+		pack->put_byte (0x17);
+		pack->put_int (eid);
+		pack->put_byte (type);
+		pack->put_int ((int)(x * 32.0));
+		pack->put_int ((int)(y * 32.0));
+		pack->put_int ((int)(z * 32.0));
+		pack->put_byte (utils::int_rot (yaw));
+		pack->put_byte (utils::int_rot (pitch));
+		pack->put_int (data);
+		if (data != 0)
+			{
+				pack->put_short (speed_x);
+				pack->put_short (speed_x);
+				pack->put_short (speed_x);
+			}
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_entity_velocity (int eid, short vx, short vy, short vz)
 	{
 		packet *pack = new packet (11);
@@ -841,6 +883,18 @@ namespace hCraft {
 		pack->put_int (z);
 		pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
 		pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_entity_metadata (int eid, entity_metadata& meta)
+	{
+		packet *pack = new packet (5 + entity_metadata_size (meta));
+		
+		pack->put_byte (0x28);
+		pack->put_int (eid);
+		encode_entity_metadata (pack, meta);
 		
 		return pack;
 	}
@@ -984,6 +1038,18 @@ namespace hCraft {
 		pack->put_int (z);
 		pack->put_short (id);
 		pack->put_byte (meta);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_change_game_state (char reason, char gm)
+	{
+		packet *pack = new packet (3);
+		
+		pack->put_byte (0x46);
+		pack->put_byte (reason);
+		pack->put_byte (gm);
 		
 		return pack;
 	}

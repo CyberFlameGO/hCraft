@@ -21,10 +21,16 @@
 
 #include "position.hpp"
 #include <vector>
+#include <chrono>
 
 
 namespace hCraft {
 	
+	class world;
+	class player;
+	
+	
+		
 //----
 	/* 
 	 * Entity metadata.
@@ -155,18 +161,19 @@ namespace hCraft {
 	{
 	protected:
 		int eid;
-		entity_pos pos;
 		
 		bool on_fire;
 		bool crouched;
 		bool riding;
 		bool sprinting;
 		bool right_action;
+	
+	public:
+		entity_pos pos;
+		std::chrono::steady_clock::time_point spawn_time;
 		
 	public:
 		inline int get_eid () { return this->eid; }
-		inline entity_pos get_pos () { return this->pos; }
-		inline void set_pos (const entity_pos& other) { this->pos = other; }
 		
 		inline bool is_on_fire () { return this->on_fire; }
 		inline bool is_crouched () { return this->crouched; }
@@ -188,17 +195,38 @@ namespace hCraft {
 		 */
 		virtual ~entity ();
 		
-		
-		
 		/* 
 		 * Returns the type of this entity.
 		 */
 		virtual entity_type get_type () = 0;
 		
+		
+		
 		/* 
 		 * Constructs metdata records according to the entity's type.
 		 */
 		virtual void build_metadata (entity_metadata& dict);
+		
+		
+		
+		/* 
+		 * Spawns the entity to the specified player.
+		 */
+		virtual void spawn_to (player *pl) { }
+		
+		/* 
+		 * Removes the entity from the view of the specified player.
+		 */
+		virtual bool despawn_from (player *pl);
+		
+		
+		
+		/* 
+		 * Called by the world that's holding the entity every tick (50ms).
+		 * A return value of true will cause the world to destroy the entity.
+		 */
+		virtual bool tick (world &w)
+			{ return false; }
 	};
 }
 

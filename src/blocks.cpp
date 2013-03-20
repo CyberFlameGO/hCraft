@@ -242,6 +242,12 @@ namespace hCraft {
 		{ "glowstone", 0x59 },
 	};
 	
+	// A metadata value of 0xA signifies that the drop mapping should be applied
+	// on all possible meta values.
+	static std::unordered_map<blocki, blocki, blocki_hash> drop_map {
+		{ { 2, 0xA}, {3, 0} }, { {1, 0xA}, {4, 0} }, { {31, 0xA}, {} },
+	};
+	
 	
 	
 	/* 
@@ -291,6 +297,21 @@ namespace hCraft {
 				return block_info::from_id (num);
 			}
 		return block_info::from_name (str);
+	}
+	
+	
+	
+	/* 
+	 * Gets the block that should be dropped after destroying blocks of type 
+	 * @{bl}.
+	 */
+	blocki
+	block_info::get_drop (blocki bl)
+	{
+		auto itr = drop_map.find (bl);
+		if (itr == drop_map.end ())
+			return bl;
+		return itr->second;
 	}
 }
 

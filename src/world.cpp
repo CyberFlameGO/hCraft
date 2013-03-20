@@ -17,6 +17,7 @@
  */
 
 #include "world.hpp"
+#include "server.hpp"
 #include "playerlist.hpp"
 #include "player.hpp"
 #include "packet.hpp"
@@ -51,9 +52,9 @@ namespace hCraft {
 	/* 
 	 * Constructs a new empty world.
 	 */
-	world::world (const char *name, logger &log, world_generator *gen,
+	world::world (server &srv, const char *name, logger &log, world_generator *gen,
 		world_provider *provider)
-		: log (log), lm (log, this)
+		: srv (srv), log (log), lm (log, this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -82,7 +83,7 @@ namespace hCraft {
 #undef REGISTER_PHYSICS
 		}
 		this->ph_state = PHY_ON;
-		this->physics.set_thread_count (1);
+		//this->physics.set_thread_count (0);
 	}
 	
 	/* 
@@ -342,6 +343,21 @@ namespace hCraft {
 					 * Lighting updates.
 					 */
 					this->lm.update (light_update_cap);
+					
+					/* 
+					 * Entities
+					 */
+					{
+						std::lock_guard<std::mutex> lock ((this->entity_lock));
+							for (auto itr = this->entities.begin (); itr != this->entities.end (); )
+								{
+									entity *e = *itr;
+									if (e->tick (*this))
+										itr = this->despawn_entity_nolock (itr);
+									else
+										++ itr;
+								}
+					}
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
@@ -574,6 +590,13 @@ namespace hCraft {
 		return this->get_chunk (bx >> 4, bz >> 4);
 	}
 	
+	chunk*
+	world::load_chunk_at (int bx, int bz)
+	{
+		return this->load_chunk (bx >> 4, bz >> 4);
+	}
+	
+	
 	/* 
 	 * Same as get_chunk (), but if the chunk does not exist, it will be either
 	 * loaded from a file (if such a file exists), or completely generated from
@@ -617,6 +640,120 @@ namespace hCraft {
 			(((this->width > 0) && ((x >= this->width) || (x < 0))) ||
 		 	 ((this->depth > 0) && ((z >= this->depth) || (z < 0))) ||
 		 	 ((y < 0) || (y > 255)));
+	}
+	
+	
+	
+	/* 
+	 * Spawns the specified entity into the world.
+	 */
+	void
+	world::spawn_entity (entity *e)
+	{
+		// add to entity list
+		{
+			std::lock_guard<std::mutex> lock ((this->entity_lock));
+			auto itr = this->entities.find (e);
+			if (itr != this->entities.end ())
+				return; // id clash
+			
+			this->entities.insert (e);
+		}
+		
+		chunk *ch = this->load_chunk_at ((int)e->pos.x, (int)e->pos.z);
+		if (!ch) return; // shouldn't happen
+		
+		ch->add_entity (e);
+		e->spawn_time = std::chrono::steady_clock::now ();
+		
+		// spawn entity to players
+		chunk_pos cpos = e->pos;
+		int cx, cz;
+		for (cx = (cpos.x - player::chunk_radius ());
+				 cx <= (cpos.x + player::chunk_radius ()); ++cx)
+			{
+				for (cz = (cpos.z - player::chunk_radius ());
+						 cz <= (cpos.z + player::chunk_radius ()); ++cz)
+					{
+						chunk *och = this->get_chunk (cx, cz);
+						if (!och) continue;
+						
+						entity *e_this = e;
+						och->all_entities ([e_this] (entity *e)
+							{
+								if (e->get_type () == ET_PLAYER)
+									{
+										player *pl = dynamic_cast<player *> (e);
+										e_this->spawn_to (pl);
+									}
+							});
+					}
+			}
+	}
+	
+	
+	std::unordered_set<entity *>::iterator
+	world::despawn_entity_nolock (std::unordered_set<entity *>::iterator itr)
+	{
+		entity *e = *itr;
+		
+		chunk *ch = this->get_chunk_at ((int)e->pos.x, (int)e->pos.z);
+		if (ch)
+			{
+				ch->remove_entity (e);
+			}
+		
+		// despawn from players
+		chunk_pos cpos = e->pos;
+		int cx, cz;
+		for (cx = (cpos.x - player::chunk_radius ());
+				 cx <= (cpos.x + player::chunk_radius ()); ++cx)
+			{
+				for (cz = (cpos.z - player::chunk_radius ());
+						 cz <= (cpos.z + player::chunk_radius ()); ++cz)
+					{
+						chunk *och = this->get_chunk (cx, cz);
+						if (!och) continue;
+						
+						entity *e_this = e;
+						och->all_entities ([e_this] (entity *e)
+							{
+								if (e->get_type () == ET_PLAYER)
+									{
+										player *pl = dynamic_cast<player *> (e);
+										e_this->despawn_from (pl);
+									}
+							});
+					}
+			}
+		delete e;
+		
+		auto ret_itr = this->entities.erase (itr);
+		return ret_itr;
+	}
+	
+	/* 
+	 * Removes the specified etnity from this world.
+	 */
+	void
+	world::despawn_entity (entity *e)
+	{
+		std::lock_guard<std::mutex> lock ((this->entity_lock));
+		auto itr = this->entities.find (e);
+		if (itr == this->entities.end ())
+			return;
+		this->despawn_entity_nolock (itr);
+	}
+	
+	/* 
+	 * Calls the given function on all entities in the world.
+	 */
+	void
+	world::all_entities (std::function<void (entity *e)> f)
+	{
+		std::lock_guard<std::mutex> lock ((this->entity_lock));
+		for (auto itr = this->entities.begin (); itr != this->entities.end (); ++itr)
+			f (*itr);
 	}
 		
 	
@@ -786,21 +923,28 @@ namespace hCraft {
 	
 	void
 	world::queue_physics (int x, int y, int z, int extra, void *ptr,
-		int tick_delay)
+		int tick_delay, physics_params *params)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
-		this->physics.queue_physics (this, x, y, z, extra, tick_delay);
+		if (this->physics.get_thread_count () == 0)
+			this->srv.global_physics.queue_physics (this, x, y, z, extra, tick_delay, params);
+		else
+			this->physics.queue_physics (this, x, y, z, extra, tick_delay, params);
 	}
 	
 	void
 	world::queue_physics_once (int x, int y, int z, int extra, void *ptr,
-		int tick_delay)
+		int tick_delay, physics_params *params)
 	{
 		if (this->is_out_of_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
-		this->physics.queue_physics_once (this, x, y, z, extra, tick_delay);
+		
+		if (this->physics.get_thread_count () == 0)
+			this->srv.global_physics.queue_physics_once (this, x, y, z, extra, tick_delay, params);
+		else
+			this->physics.queue_physics_once (this, x, y, z, extra, tick_delay, params);
 	}
 	
 	

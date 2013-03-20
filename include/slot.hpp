@@ -76,6 +76,7 @@ namespace hCraft {
 		slot_item (unsigned short id, unsigned short damage = 0,
 			unsigned short amount = 1);
 		slot_item ();
+		slot_item (const slot_item& other);
 		
 		
 		/* 
@@ -94,6 +95,8 @@ namespace hCraft {
 	//----
 		bool operator== (const slot_item& other) const;
 		bool operator!= (const slot_item& other) const;
+		
+		slot_item& operator= (const slot_item& other);
 	};
 }
 

@@ -46,7 +46,7 @@ namespace hCraft {
 			if (!reader.parse_args (this, pl))
 				return;
 			
-			entity_pos curr_pos = pl->get_pos ();
+			entity_pos curr_pos = pl->pos;
 			
 			if (reader.no_args () || reader.arg_count () > 3)
 				{ this->show_summary (pl); return; }
@@ -81,12 +81,12 @@ namespace hCraft {
 									return;
 								}
 							
-							pl->join_world_at (target->get_world (), target->get_pos ());
+							pl->join_world_at (target->get_world (), target->pos);
 							return;
 						}
 					else
 						{
-							pl->teleport_to (target->get_pos ());
+							pl->teleport_to (target->pos);
 						}
 					
 					pl->message ("§eTeleported to " + std::string (target->get_colored_username ()));

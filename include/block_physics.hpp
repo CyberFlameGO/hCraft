@@ -27,6 +27,7 @@
 #include <bitset>
 #include <chrono>
 #include <unordered_map>
+#include <random>
 #include "position.hpp"
 #include "tbb/concurrent_queue.h"
 
@@ -40,13 +41,13 @@ namespace hCraft {
 	enum physics_action_type: unsigned char {
 		PA_NONE = 0xFF,
 		
-		PA_DISSPIATE = 0,
+		PA_DISSIPATE = 0,
 		PA_DROP,
 	};
 	
 	struct physics_action {
 		physics_action_type type;
-		short expire;
+		unsigned short expire;
 		short val;
 	};
 	
@@ -63,21 +64,23 @@ namespace hCraft {
 		int x, y, z;
 		int extra;
 		
+		int tick;
 		physics_params params;
 		
 		std::chrono::steady_clock::time_point nt; // next tick
 		
 	//---
 		physics_update () { }
-		physics_update (world *w, int x, int y, int z, int extra,
+		physics_update (world *w, int x, int y, int z, int extra, int tick,
 			std::chrono::steady_clock::time_point nt)
-			: nt (nt)
+			: params (), nt (nt)
 		{
 			this->w = w;
 			this->x = x;
 			this->y = y;
 			this->z = z;
 			this->extra = extra;
+			this->tick = tick;
 		}
 	};
 	
@@ -123,6 +126,7 @@ namespace hCraft {
 		
 	private:
 		block_physics_manager &man;
+		std::minstd_rand rnd;
 		
 		bool _running;
 		std::thread th;
@@ -154,13 +158,15 @@ namespace hCraft {
 	{
 		friend class block_physics_worker;
 		
-		tbb::concurrent_queue<physics_update> updates;
 		std::vector<std::shared_ptr<block_physics_worker>> workers;
 		std::mutex lock;
 		
 		std::unordered_map<world *,
 			std::unordered_map<chunk_pos, ph_mem_chunk, chunk_pos_hash>>
 				block_mem;
+				
+	public:
+		tbb::concurrent_queue<physics_update> updates;
 				
 	protected:
 		bool block_exists (world *w, int x, int y, int z);
@@ -181,12 +187,12 @@ namespace hCraft {
 		 */
 		
 		void queue_physics (world *w, int x, int y, int z, int extra = 0,
-			int tick_delay = 20);
+			int tick_delay = 20, physics_params *params = nullptr);
 		
 		// Queues an update only if one with the same xyz coordinates does not
 		// already exist.
 		void queue_physics_once (world *w, int x, int y, int z, int extra = 0,
-			int tick_delay = 20);
+			int tick_delay = 20, physics_params *params = nullptr);
 	};
 }
 

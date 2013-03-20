@@ -31,6 +31,7 @@ hCraft_sources = Split("""
 		world_transaction.cpp
 		player_transaction.cpp
 		block_physics.cpp
+		pickup.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -49,6 +50,7 @@ hCraft_sources = Split("""
 		commands/physics.cpp
 		commands/select.cpp
 		commands/fill.cpp
+		commands/gm.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

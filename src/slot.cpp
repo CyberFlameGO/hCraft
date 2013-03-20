@@ -36,6 +36,11 @@ namespace hCraft {
 		this->set (BT_UNKNOWN, 0, 0);
 	}
 	
+	slot_item::slot_item (const slot_item& other)
+	{
+		this->set (other.s_id, other.s_damage, other.s_amount);
+	}
+	
 	
 	
 	/* 
@@ -123,6 +128,13 @@ namespace hCraft {
 	slot_item::operator!= (const slot_item& other) const
 	{
 		return !(this->operator== (other));
+	}
+	
+	slot_item&
+	slot_item::operator= (const slot_item& other)
+	{
+		this->set (other.s_id, other.s_damage, other.s_amount);
+		return *this;
 	}
 }
 

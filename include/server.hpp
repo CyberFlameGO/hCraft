@@ -159,6 +159,9 @@ namespace hCraft {
 		
 		command_list *commands;
 		
+	public:
+		block_physics_manager global_physics; // initially shared between all worlds
+		
 	private:
 		// <init, destroy> functions:
 		

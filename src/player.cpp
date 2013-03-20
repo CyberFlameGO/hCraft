@@ -23,6 +23,7 @@
 #include "commands/command.hpp"
 #include "utils.hpp"
 #include "sql.hpp"
+#include "pickup.hpp"
 
 #include <memory>
 #include <algorithm>
@@ -37,8 +38,6 @@
 #include <iomanip>
 #include <cstdlib>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -50,7 +49,6 @@ namespace hCraft {
 		: entity (srv.next_entity_id ()),
 			srv (srv), log (srv.get_logger ()), sock (sock)
 	{
-		//std::cout << "construct: start""\n";
 		std::strcpy (this->ip, ip);
 		
 		this->username[0] = '@';
@@ -103,7 +101,6 @@ namespace hCraft {
 		bufferevent_setcb (this->bufev, &hCraft::player::handle_read,
 			&hCraft::player::handle_write, &hCraft::player::handle_event, this);
 		bufferevent_enable (this->bufev, EV_READ | EV_WRITE);
-		//std::cout << "construct: end""\n";
 	}
 	
 	/* 
@@ -439,11 +436,11 @@ namespace hCraft {
 		if (this->curr_world)
 			{
 				// we first stop the player from moving.
-				entity_pos curr_pos = this->get_pos ();
+				entity_pos curr_pos = this->pos;
 				this->send (packet::make_player_pos_and_look (
 					curr_pos.x, curr_pos.y, curr_pos.z, curr_pos.y + 1.65, curr_pos.r,
 					curr_pos.l, true));
-				this->set_pos (curr_pos);
+				this->pos = curr_pos;
 				
 				// despawn self from other players (and vice-versa).
 				player *me = this;
@@ -458,16 +455,23 @@ namespace hCraft {
 								}
 						});
 				
+				// despawn from entities
+				this->curr_world->all_entities (
+					[me] (entity *e)
+						{
+							e->despawn_from (me);
+						});
+				
 				// this ensures smooth transitions between worlds:
 				this->stream_common_chunks (w, destpos);
 			}
 		
 		this->curr_world = w;
-		this->set_pos (destpos);
+		this->pos = destpos;
 		this->curr_world->get_players ().add (this);
 		this->stream_chunks ();
 		
-		entity_pos epos = this->get_pos ();
+		entity_pos epos = this->pos;
 		block_pos bpos = epos;
 		
 		this->send (packet::make_spawn_pos (bpos.x, bpos.y, bpos.z));
@@ -515,10 +519,10 @@ namespace hCraft {
 	player::stream_chunks (int radius)
 	{
 		std::lock_guard<std::mutex> wguard {this->world_lock};
-		std::multiset<chunk_pos, chunk_pos_less> to_load {chunk_pos_less (this->get_pos ())};
+		std::multiset<chunk_pos, chunk_pos_less> to_load {chunk_pos_less (this->pos)};
 		auto prev_chunks = this->known_chunks;
 		
-		chunk_pos center = this->get_pos ();
+		chunk_pos center = this->pos;
 		int r_half = radius / 2;
 		for (int cx = (center.x - r_half); cx <= (center.x + r_half); ++cx)
 			for (int cz = (center.z - r_half); cz <= (center.z + r_half); ++cz)
@@ -542,13 +546,12 @@ namespace hCraft {
 				ch->all_entities (
 					[me] (entity *e)
 						{
+							e->spawn_to (me);
 							if (e->get_type () == ET_PLAYER)
 								{
 									player* pl = dynamic_cast<player *> (e);
 									if (pl == me) return;
-									
 									me->spawn_to (pl);
-									pl->spawn_to (me);
 								}
 						});
 			}
@@ -566,13 +569,12 @@ namespace hCraft {
 				ch->all_entities (
 					[me] (entity *e)
 						{
+							e->despawn_from (me);
 							if (e->get_type () == ET_PLAYER)
 								{
 									player *pl = dynamic_cast<player *> (e);
 									if (pl == me) return;
-									
 									me->despawn_from (pl);
-									pl->despawn_from (me);
 								}
 						});
 			}
@@ -636,7 +638,7 @@ namespace hCraft {
 		this->send (packet::make_player_pos_and_look (
 			dest_pos.x, dest_pos.y, dest_pos.z, dest_pos.y + 1.65, dest_pos.r,
 				dest_pos.l, true));
-		this->set_pos (dest_pos);
+		this->pos = dest_pos;
 		
 		// spawn self to other players and vice-versa.
 		for (auto cpos : to_load)
@@ -648,13 +650,13 @@ namespace hCraft {
 						ch->all_entities (
 							[me] (entity *e)
 								{
+									e->spawn_to (me);
+									
 									if (e->get_type () == ET_PLAYER)
 										{
 											player* pl = dynamic_cast<player *> (e);
 											if (pl == me) return;
-									
 											me->spawn_to (pl);
-											pl->spawn_to (me);
 										}
 								});
 					}
@@ -731,8 +733,8 @@ namespace hCraft {
 					}
 			}
 		
-		entity_pos prev_pos = this->get_pos ();
-		this->set_pos (dest);
+		entity_pos prev_pos = this->pos;
+		this->pos = dest;
 		
 		chunk_pos curr_cpos = dest;
 		chunk_pos prev_cpos = prev_pos;
@@ -802,8 +804,8 @@ namespace hCraft {
 	bool
 	player::visible_to (player *pl)
 	{
-		chunk_pos me_pos = this->get_pos ();
-		chunk_pos pl_pos = pl->get_pos ();
+		chunk_pos me_pos = this->pos;
+		chunk_pos pl_pos = pl->pos;
 		
 		return (
 			(utils::iabs (me_pos.x - pl_pos.x) <= player::chunk_radius ()) &&
@@ -886,7 +888,7 @@ namespace hCraft {
 		get_ping_name (this->get_rank ().main_group->get_color (), this->get_username (),
 			ping_name);
 		
-		entity_pos me_pos = this->get_pos ();
+		entity_pos me_pos = this->pos;
 		entity_metadata me_meta;
 		this->build_metadata (me_meta);
 		pl->send (packet::make_spawn_named_entity (
@@ -904,20 +906,20 @@ namespace hCraft {
 	/* 
 	 * Despawns self from the specified player.
 	 */
-	void
+	bool
 	player::despawn_from (player *pl)
 	{
-		if (pl == this)
-			return;
+		if (!entity::despawn_from (pl))
+			return false;
 		
-		char ping_name[24];
-		get_ping_name (this->get_rank ().main_group->get_color (), this->get_username (),
-			ping_name);
-		
-		pl->send (packet::make_destroy_entity (this->get_eid ()));
+		//char ping_name[24];
+		//get_ping_name (this->get_rank ().main_group->get_color (), this->get_username (),
+		//	ping_name);
 		//pl->send (packet::make_player_list_item (ping_name, false, 0));
+		
 		std::lock_guard<std::mutex> guard {pl->visible_player_lock};
 		pl->visible_players.erase (this);
+		return true;
 	}
 	
 	
@@ -1226,6 +1228,20 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Modifies the player's gamemode.
+	 */
+	void
+	player::change_gamemode (gamemode_type gm)
+	{
+		if (this->gamemode () == gm)
+			return;
+		
+		this->curr_gamemode = gm;
+		this->send (packet::make_change_game_state (3, (gm == GT_CREATIVE) ? 1 : 0));
+	}
+	
+	
 //----
 	
 	/*
@@ -1340,7 +1356,7 @@ namespace hCraft {
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
 		
-		pl->curr_gamemode = GT_CREATIVE;
+		pl->curr_gamemode = GT_SURVIVAL;
 		pl->send (packet::make_login (pl->get_eid (), "hCraft", pl->curr_gamemode,
 			0, 0, (pl->get_server ().get_config ().max_players > 64)
 				? 64 : (pl->get_server ().get_config ().max_players)));
@@ -1365,6 +1381,8 @@ namespace hCraft {
 		pl->join_world (pl->get_server ().get_main_world ());
 		
 		pl->inv.subscribe (pl);
+		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
+		pl->inv.add (slot_item (IT_DIAMOND_PICKAXE, 0, 1));
 		
 		return 0;
 	}
@@ -1508,7 +1526,7 @@ namespace hCraft {
 		
 		on_ground = reader.read_byte ();
 		
-		entity_pos curr_pos = pl->get_pos ();
+		entity_pos curr_pos = pl->pos;
 		entity_pos new_pos {curr_pos.x, curr_pos.y, curr_pos.z, curr_pos.r,
 			curr_pos.l, on_ground};
 		pl->move_to (new_pos);
@@ -1533,7 +1551,7 @@ namespace hCraft {
 		z = reader.read_double ();
 		on_ground = reader.read_byte ();
 		
-		entity_pos curr_pos = pl->get_pos ();
+		entity_pos curr_pos = pl->pos;
 		entity_pos new_pos {x, y, z, curr_pos.r, curr_pos.l, on_ground};
 		pl->move_to (new_pos);
 		
@@ -1555,7 +1573,7 @@ namespace hCraft {
 		l = reader.read_float ();
 		on_ground = reader.read_byte ();
 		
-		entity_pos curr_pos = pl->get_pos ();
+		entity_pos curr_pos = pl->pos;
 		entity_pos new_pos {curr_pos.x, curr_pos.y, curr_pos.z, r, l, on_ground};
 		pl->move_to (new_pos);
 		
@@ -1596,11 +1614,12 @@ namespace hCraft {
 		if (!pl->logged_in)
 			{ return -1; }
 		
+		char status;
 		int x;
 		unsigned char y;
 		int z;
 		
-		reader.read_byte (); // status
+		status = reader.read_byte (); // status
 		x = reader.read_int ();
 		y = reader.read_byte ();
 		z = reader.read_int ();
@@ -1661,7 +1680,23 @@ namespace hCraft {
 				return 0;
 			}
 		
-		pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
+		block_data bd = pl->get_world ()->get_block (x, y, z);
+		if (pl->gamemode () == GT_CREATIVE || status == 2)
+			{
+				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
+				if (pl->gamemode () == GT_SURVIVAL)
+					{
+						blocki drop = block_info::get_drop ({bd.id, bd.meta});
+						if (drop.id != BT_AIR && drop.valid ())
+							{
+								// TODO: destroy pick eventually (this will leak)
+								pickup_item *pick = new pickup_item (pl->srv.next_entity_id (),
+									slot_item (drop.id, drop.meta, 1));
+								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
+								pl->get_world ()->spawn_entity (pick);
+							}
+					}
+			}
 		
 		return 0;
 	}

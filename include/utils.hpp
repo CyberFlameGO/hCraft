@@ -50,6 +50,7 @@ namespace hCraft {
 		}
 		
 		
+		
 		inline int
 		min (int a, int b)
 			{ return (a < b) ? a : b; }
@@ -57,6 +58,15 @@ namespace hCraft {
 		inline int
 		max (int a, int b)
 			{ return (a > b) ? a : b; }
+		
+		
+		// integer rotation
+		inline int
+		int_rot (float v)
+		{
+			v = v - (((int)v / 360) * 360);
+			return v * 0.71111111111;
+		}
 	}
 }
 

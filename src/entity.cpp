@@ -17,6 +17,7 @@
  */
 
 #include "entity.hpp"
+#include "player.hpp"
 #include <cstring>
 
 
@@ -152,6 +153,22 @@ namespace hCraft {
 		entity_metadata_record rec (0);
 		rec.set_byte (flags);
 		dict.add (rec);
+	}
+	
+	
+	
+	/* 
+	 * Removes the entity from the view of the specified player.
+	 */
+	bool
+	entity::despawn_from (player *pl)
+	{
+		if (this->get_type () == ET_PLAYER)
+			if (dynamic_cast<player *> (this) == pl)
+				return false;
+		
+		pl->send (packet::make_destroy_entity (this->eid));
+		return true;
 	}
 }
 
