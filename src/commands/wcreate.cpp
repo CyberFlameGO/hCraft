@@ -202,7 +202,7 @@ namespace hCraft {
 				pl->get_logger (), gen, prov);
 			wr->set_width (world_width);
 			wr->set_depth (world_depth);
-			wr->prepare_spawn (10);
+			wr->prepare_spawn (10, true);
 			
 			wr->save_all ();
 			

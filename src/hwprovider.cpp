@@ -837,6 +837,28 @@ namespace hCraft {
 	
 	
 	
+	static void 
+	rewrite_header (world &wr, std::ostream& strm)
+	{
+		/* 
+		 * We only update the world dimensions and spawn point, in case it changed.
+		 */
+		
+		binary_writer writer (strm);
+		
+		writer.seek (4);
+		writer.write_int (wr.get_width ());
+		writer.write_int (wr.get_depth ());
+		
+		// spawn pos
+		auto spawn_pos = wr.get_spawn ();
+		writer.write_double (spawn_pos.x);
+		writer.write_double (spawn_pos.y);
+		writer.write_double (spawn_pos.z);
+		writer.write_float (spawn_pos.r);
+		writer.write_float (spawn_pos.l);
+	}
+	
 	/* 
 	 * Saves only the specified chunk.
 	 */
@@ -854,6 +876,7 @@ namespace hCraft {
 		
 		binary_writer writer {this->strm};
 		save_chunk (ch, x, z, this->sblocks, this->inf, writer);
+		rewrite_header (wr, strm);
 		
 		if (close_when_done)
 			{

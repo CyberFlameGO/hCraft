@@ -39,6 +39,11 @@
 #include <cstdlib>
 
 
+// DEBUG
+#include <random>
+#include <chrono>
+
+
 namespace hCraft {
 	
 	/* 
@@ -70,6 +75,10 @@ namespace hCraft {
 		this->handlers_scheduled = 0;
 		this->total_read = 0;
 		this->read_rem = 1;
+		
+		this->hearts = 20;
+		this->hunger = 20;
+		this->hunger_saturation = 5.0;
 		
 		this->curr_world = nullptr;
 		this->curr_chunk = chunk_pos (0, 0);
@@ -478,6 +487,7 @@ namespace hCraft {
 		if (!had_prev_world)
 			this->send (packet::make_player_pos_and_look (
 				epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+		this->last_ground_height = epos.y + 1.65;
 			
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 	}
@@ -785,6 +795,8 @@ namespace hCraft {
 						pl->send (packet::make_entity_head_look (this->get_eid (), dest.r));
 					}
 			}
+		
+		this->handle_fall_damage (prev_pos.on_ground, this->pos.on_ground);
 	}
 	
 	/* 
@@ -793,9 +805,9 @@ namespace hCraft {
 	void
 	player::teleport_to (entity_pos dest)
 	{
-		this->move_to (dest);
 		this->send (packet::make_player_pos_and_look (
 			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
+		this->move_to (dest);
 	}
 	
 	/* 
@@ -1087,7 +1099,6 @@ namespace hCraft {
 				ss << "UPDATE `players` SET `nick`='"
 				 << nick << "' WHERE `name`='"
 				 << this->get_username () << "'";
-				log (LT_DEBUG) << "cmd: \"" << ss.str () << "\"" << std::endl;
 				this->get_server ().execute_sql (ss.str ());
 			}
 	}
@@ -1242,6 +1253,52 @@ namespace hCraft {
 	}
 	
 	
+	
+	/* 
+	 * Health modification:
+	 */
+	
+	void
+	player::set_hearts (int hearts)
+	{
+		this->set_health (hearts, this->hunger, this->hunger_saturation);
+	}
+	
+	void
+	player::set_hunger (int hunger)
+	{
+		this->set_health (this->hearts, hunger, this->hunger_saturation);
+	}
+	
+	void
+	player::set_hunger_saturation (float hunger_saturation)
+	{
+		this->set_health (this->hearts, this->hunger, hunger_saturation);
+	}
+	
+	void
+	player::set_health (int hearts, int hunger, float hunger_saturation)
+	{
+		int p_hearts = hearts;
+		if (p_hearts < 0) p_hearts = 0;
+		if (p_hearts > 20) p_hearts = 20;
+		
+		int p_hunger = hunger;
+		if (p_hunger < 0) p_hunger = 0;
+		if (p_hunger > 20) p_hunger = 20;
+		
+		bool hurt = p_hearts < this->hearts;
+		this->send (packet::make_update_health (p_hearts, p_hunger, hunger_saturation));
+		if (hurt)
+			this->send (packet::make_entity_status (this->eid, 2));
+		
+		this->hearts = hearts;
+		this->hunger = hunger;
+		this->hunger_saturation = hunger_saturation;
+	}
+	
+	
+	
 //----
 	
 	/*
@@ -1383,6 +1440,7 @@ namespace hCraft {
 		pl->inv.subscribe (pl);
 		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
 		pl->inv.add (slot_item (IT_DIAMOND_PICKAXE, 0, 1));
+		pl->inv.add (slot_item (BT_DIRT, 0, 128));
 		
 		return 0;
 	}
@@ -1516,6 +1574,25 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	
+	void
+	player::handle_fall_damage (bool prev, bool curr)
+	{
+		if (!prev && curr)
+			{
+				double delta = this->pos.y - this->last_ground_height;
+				if (delta <= -3.0)
+					{
+						double fd = (-delta) - 2.0;
+						this->set_hearts (this->hearts - (int)fd);
+					}
+			}
+		
+		if (curr)
+			this->last_ground_height = this->pos.y;
+	}
+	
 	int
 	player::handle_packet_0a (player *pl, packet_reader reader)
 	{
@@ -1608,6 +1685,8 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	
 	int
 	player::handle_packet_0e (player *pl, packet_reader reader)
 	{
@@ -1689,9 +1768,8 @@ namespace hCraft {
 						blocki drop = block_info::get_drop ({bd.id, bd.meta});
 						if (drop.id != BT_AIR && drop.valid ())
 							{
-								// TODO: destroy pick eventually (this will leak)
 								pickup_item *pick = new pickup_item (pl->srv.next_entity_id (),
-									slot_item (drop.id, drop.meta, 1));
+								slot_item (drop.id, drop.meta, 1));
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
 								pl->get_world ()->spawn_entity (pick);
 							}
@@ -1826,6 +1904,26 @@ namespace hCraft {
 				case 5: pl->sprinting = false; break;
 				
 				default: return -1;
+			}
+		
+		return 0;
+	}
+	
+	int
+	player::handle_packet_cd (player *pl, packet_reader reader)
+	{
+		char payload = reader.read_byte ();
+		if (payload == 1)
+			{
+				pl->send (packet::make_respawn (0, 0, pl->curr_gamemode, "hCraft"));
+				
+				// revert health
+				pl->hearts = pl->hunger = 20;
+				pl->hunger_saturation = 5.0;
+				
+				entity_pos spawn_pos = pl->curr_world->get_spawn ();
+				pl->last_ground_height = -128.0;
+				pl->teleport_to (spawn_pos);
 			}
 		
 		return 0;
@@ -2007,7 +2105,7 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xC3
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xC7
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xCB
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xCF
+				handle_packet_xx, handle_packet_cd, handle_packet_xx, handle_packet_xx, // 0xCF
 				
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xD3
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xD7

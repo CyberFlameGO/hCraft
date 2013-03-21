@@ -115,6 +115,12 @@ namespace hCraft {
 		
 		static packet* make_spawn_pos (int x, int y, int z);
 		
+		static packet* make_update_health (short hearts, short hunger,
+			float hunger_saturation);
+		
+		static packet* make_respawn (int dimension, char difficulty, char game_mode,
+			const char *level_type);
+		
 		static packet* make_player_pos_and_look (double x, double y, double z,
 			double stance, float r, float l, bool on_ground);
 		
@@ -145,6 +151,8 @@ namespace hCraft {
 			float r, float l);
 		
 		static packet* make_entity_head_look (int eid, float yaw);
+		
+		static packet* make_entity_status (int eid, char status);
 		
 		static packet* make_entity_metadata (int eid, entity_metadata& meta);
 		

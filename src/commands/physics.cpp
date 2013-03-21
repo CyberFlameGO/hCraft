@@ -34,7 +34,7 @@ namespace hCraft {
 			world *wr = pl->get_world ();
 			if (wr->physics_state () == PHY_ON)
 				{
-					pl->message ("§c * §ePhysics are already on§f.");
+					pl->message ("§c * §7Physics are already on§f.");
 					return;
 				}
 			wr->start_physics ();
@@ -47,7 +47,7 @@ namespace hCraft {
 			world *wr = pl->get_world ();
 			if (wr->physics_state () == PHY_OFF)
 				{
-					pl->message ("§c * §ePhysics are already off§f.");
+					pl->message ("§c * §7Physics are already off§f.");
 					return;
 				}
 			wr->stop_physics ();
@@ -60,7 +60,7 @@ namespace hCraft {
 			world *wr = pl->get_world ();
 			if (wr->physics_state () == PHY_PAUSED)
 				{
-					pl->message ("§c * §ePhysics are already paused§f.");
+					pl->message ("§c * §7Physics are already paused§f.");
 					return;
 				}
 			wr->pause_physics ();
@@ -84,14 +84,14 @@ namespace hCraft {
 			cmd_arg narg = reader.next ();
 			if (!narg.is_int ())
 				{
-					pl->message ("§c * §eSyntax§f: §e/physics threads §c<count>");
+					pl->message ("§c * §7Syntax§f: §e/physics threads §c<count>");
 					return;
 				}
 			
 			int tc = narg.as_int ();
 			if (tc < 0 || tc > 24)
 				{
-					pl->message ("§c * §eThread count must be in the range of §c0-24");
+					pl->message ("§c * §7Thread count must be in the range of §c0-24");
 					return;
 				}
 			
@@ -134,7 +134,7 @@ namespace hCraft {
 			auto itr = funs.find (opt.c_str ());
 			if (itr == funs.end ())
 				{
-					pl->message ("§c * §eInvalid option§f: §c" + opt);
+					pl->message ("§c * §7Invalid option§f: §c" + opt);
 					return;
 				}
 			

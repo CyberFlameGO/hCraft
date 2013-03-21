@@ -456,28 +456,32 @@ namespace hCraft {
 	 * spawn position. 
 	 */
 	void
-	world::prepare_spawn (int radius)
+	world::prepare_spawn (int radius, bool calc_spawn_point)
 	{
-		this->load_grid (chunk_pos (0, 0), radius);
-		block_pos best {0, 0, 0};
+		this->load_grid (chunk_pos (this->spawn_pos), radius);
 		
-		int cx, cz, x, z;
-		short h;
+		if (calc_spawn_point)
+			{
+				block_pos best {0, 0, 0};
 		
-		for (cx = 0; cx <= 2; ++cx)
-			for (cz = 0; cz <= 2; ++cz)
-				{
-					chunk *ch = this->load_chunk (cx, cz);
-					for (x = 0; x < 16; ++x)
-						for (z = 0; z < 16; ++z)
-							{
-								h = ch->get_height (x, z);
-								if (ch->get_id (x, h - 1, z) != 0 && ((h + 1) > best.y))
-									best.set ((cx * 16) + x, h + 1, (cz * 16) + z);
-							}
-				}
+				int cx, cz, x, z;
+				short h;
 		
-		this->spawn_pos = best;
+				for (cx = 0; cx <= 2; ++cx)
+					for (cz = 0; cz <= 2; ++cz)
+						{
+							chunk *ch = this->load_chunk (cx, cz);
+							for (x = 0; x < 16; ++x)
+								for (z = 0; z < 16; ++z)
+									{
+										h = ch->get_height (x, z);
+										if (ch->get_id (x, h - 1, z) != 0 && ((h + 1) > best.y))
+											best.set ((cx * 16) + x, h + 1, (cz * 16) + z);
+									}
+						}
+		
+				this->spawn_pos = best;
+			}
 	}
 	
 	

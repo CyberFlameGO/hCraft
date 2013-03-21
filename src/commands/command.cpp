@@ -226,7 +226,7 @@ namespace hCraft {
 		
 		if (!found_end)
 			{
-				err->message ("§c * §eIncomplete string§f.");
+				err->message ("§c * §7Incomplete string§f.");
 				return false;
 			}
 		
@@ -289,7 +289,7 @@ namespace hCraft {
 								
 								if (found_nonopts)
 									{
-										err->message ("§c * §eOptions should be specified before the arguments");
+										err->message ("§c * §7Options should be specified before the arguments");
 										return false;
 									}
 									
@@ -306,7 +306,7 @@ namespace hCraft {
 										});
 								if (itr == this->options.end ())
 									{
-										err->message ("§c * §eUnrecognized option§f: §c\\\\" + opt_name);
+										err->message ("§c * §7Unrecognized option§f: §c\\\\" + opt_name);
 										return false;
 									}
 								
@@ -328,7 +328,7 @@ namespace hCraft {
 											}
 										else if (opt.arg_req)
 											{
-												err->message ("§c * §eArgument required for option§f: §c\\\\" + opt_name);
+												err->message ("§c * §7Argument required for option§f: §c\\\\" + opt_name);
 												return false;
 											}
 									}
@@ -343,7 +343,7 @@ namespace hCraft {
 								
 								if (found_nonopts)
 									{
-										err->message ("§c * §eOptions should be specified before the arguments");
+										err->message ("§c * §7Options should be specified before the arguments");
 										return false;
 									}
 									
@@ -358,7 +358,7 @@ namespace hCraft {
 												});
 										if (itr == this->options.end ())
 											{
-												err->message ("§c * §eUnrecognized option§f: §c\\" + std::string (1, optc));
+												err->message ("§c * §7Unrecognized option§f: §c\\" + std::string (1, optc));
 												return false;
 											}
 										
@@ -369,7 +369,7 @@ namespace hCraft {
 											{
 												if (opt.arg_req && i != (str.size () - 1))
 													{
-														err->message ("§c * §eArgument required for option§f: §c\\" + std::string (opt.sname));
+														err->message ("§c * §7Argument required for option§f: §c\\" + std::string (opt.sname));
 														return false;
 													}
 												
@@ -377,7 +377,7 @@ namespace hCraft {
 													{
 														if (opt.arg_req && (ss.eof () || ss.fail ()))
 															{
-																err->message ("§c * §eArgument required for option§f: §c\\" + std::string (opt.sname));
+																err->message ("§c * §7Argument required for option§f: §c\\" + std::string (opt.sname));
 																return false;
 															}
 															
@@ -466,7 +466,7 @@ namespace hCraft {
 			{
 				if (opt.required && !opt.was_found)
 					{
-						err->message ("§c * §eRequired argument not found§f: §c\\\\" + std::string (opt.lname));
+						err->message ("§c * §7Required argument not found§f: §c\\\\" + std::string (opt.lname));
 						return false;
 					}
 			}
@@ -481,7 +481,7 @@ namespace hCraft {
 						if (opt.got_arg ())
 							{
 								if (!opt.is_int ())
-									{ err->message ("§c * §eInvalid page number§: §c" + opt.as_string ()); return false; }
+									{ err->message ("§c * §7Invalid page number§: §c" + opt.as_string ()); return false; }
 								int page = opt.as_int ();
 								cmd->show_help (err, page, 12);
 							}

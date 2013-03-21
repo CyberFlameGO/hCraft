@@ -109,6 +109,11 @@ namespace hCraft {
 		bool fail; // true if the player is no longer valid, and must be disposed of.
 		std::chrono::time_point<std::chrono::system_clock> fail_time;
 		
+		int hearts; // 0-20 (the server will handle more)
+		int hunger; // 0-20 (the server will handle more)
+		float hunger_saturation; // 5.0 max
+		double last_ground_height;
+		
 		char username[17];
 		char colored_username[24];
 		char nick[37]; // 36 chars max
@@ -192,6 +197,7 @@ namespace hCraft {
 		static int handle_packet_10 (player *pl, packet_reader reader);
 		static int handle_packet_12 (player *pl, packet_reader reader);
 		static int handle_packet_13 (player *pl, packet_reader reader);
+		static int handle_packet_cd (player *pl, packet_reader reader);
 		static int handle_packet_65 (player *pl, packet_reader reader);
 		static int handle_packet_66 (player *pl, packet_reader reader);
 		static int handle_packet_6a (player *pl, packet_reader reader);
@@ -204,6 +210,8 @@ namespace hCraft {
 		 * (stored in `rdbuf').
 		 */
 		int handle (const unsigned char *data);
+		
+		void handle_fall_damage (bool prev, bool curr);
 		
 	//----
 		
@@ -256,6 +264,10 @@ namespace hCraft {
 		inline const char* get_nickname () { return this->nick; }
 		inline const char* get_colored_nickname () { return this->colored_nick; }
 		inline const rank& get_rank () { return this->rnk; }
+		
+		inline int get_hearts () { return this->hearts; }
+		inline int get_hunger () { return this->hunger; }
+		inline int get_hunger_saturation () { return this->hunger_saturation; }
 		
 		inline bool is_reading () { return this->reading; }
 		inline bool is_writing () { return this->writing; }
@@ -374,6 +386,17 @@ namespace hCraft {
 		 * Despawns self from the specified player.
 		 */
 		virtual bool despawn_from (player *pl) override;
+		
+		
+		
+		/* 
+		 * Health modification:
+		 */
+		
+		void set_hearts (int hearts);
+		void set_hunger (int hunger);
+		void set_hunger_saturation (float hunger_saturation);
+		void set_health (int hearts, int hunger, float hunger_saturation);
 		
 		
 		

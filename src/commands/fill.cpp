@@ -54,14 +54,14 @@ namespace hCraft {
 			bool do_hollow  = reader.opt ("hollow")->found ();
 			
 			if (!sutils::is_block (reader.arg (0)))
-				{ pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0)); return; }
+				{ pl->message ("§c * §7Invalid block§f: §c" + reader.arg (0)); return; }
 			
 			blocki bd_out, bd_in;
 			
 			bd_out = sutils::to_block (reader.arg (0));
 			/*if (!bd_out.valid ())
 				{
-					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (0));
+					pl->message ("§c * §7Invalid block§f: §c" + reader.arg (0));
 					return;
 				}*/
 			
@@ -71,7 +71,7 @@ namespace hCraft {
 					bd_out = sutils::to_block (reader.arg (1));
 					if (!bd_out.valid ())
 						{
-							pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));
+							pl->message ("§c * §7Invalid block§f: §c" + reader.arg (1));
 							return;
 						}
 				}

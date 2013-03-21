@@ -52,7 +52,7 @@ namespace hCraft {
 					player *target = pl->get_server ().get_players ().find (reader.arg (0).c_str ());
 					if (!target)
 						{
-							pl->message ("§c * §eThe player §c" + reader.arg (0) + " §eis not logged in§f.");
+							pl->message ("§c * §7No such player §f: §c" + reader.arg (0) + "§f.");
 							return;
 						}
 					

@@ -57,7 +57,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel new §8[§b@§cname§8] §ctype");
+					pl->message ("§c * §7Usage§f: §e/sel new §8[§b@§cname§8] §ctype");
 					return;
 				}
 			
@@ -71,13 +71,13 @@ namespace hCraft {
 					name = narg.substr (1);
 					if (name.empty ())
 						{
-							pl->message ("§c * §eInvalid selection name§f.");
+							pl->message ("§c * §7Invalid selection name§f.");
 							return;
 						}
 					
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel new §8[§b@§cname§8] §ctype");
+							pl->message ("§c * §7Usage§f: §e/sel new §8[§b@§cname§8] §ctype");
 							return;
 						}
 					
@@ -87,7 +87,7 @@ namespace hCraft {
 					auto itr = pl->selections.find (name.c_str ());
 					if (itr != pl->selections.end ())
 						{
-							pl->message ("§c * §eName already taken§f: §c" + name);
+							pl->message ("§c * §7Name already taken§f: §c" + name);
 							return;
 						}
 				}
@@ -116,7 +116,7 @@ namespace hCraft {
 				}
 			else
 				{
-					pl->message ("§c * §eInvalid selection type§f: §c" + sel_type);
+					pl->message ("§c * §7Invalid selection type§f: §c" + sel_type);
 					return;
 				}
 		}
@@ -126,21 +126,21 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel delete §c§b@§cname");
+					pl->message ("§c * §7Usage§f: §e/sel delete §c§b@§cname");
 					return;
 				}
 			
 			std::string name = reader.next ().as_str ();
 			if (name[0] != '@' || (name = name.substr (1)).empty ())
 				{
-					pl->message ("§c * §eInvalid selection name§f.");
+					pl->message ("§c * §7Invalid selection name§f.");
 					return;
 				}
 			
 			auto itr = pl->selections.find (name.c_str ());
 			if (itr == pl->selections.end ())
 				{
-					pl->message ("§c * §eNo such selection§f: §c" + name);
+					pl->message ("§c * §7No such selection§f: §c" + name);
 					return;
 				}
 			
@@ -174,7 +174,7 @@ namespace hCraft {
 						op = HIDDEN;
 					else
 						{
-							pl->message ("§c * §eInvalid parameter for §aclear§f: §c" + sarg);
+							pl->message ("§c * §7Invalid parameter for §aclear§f: §c" + sarg);
 							return;
 						}
 				}
@@ -218,7 +218,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
+					pl->message ("§c * §7Usage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
 					return;
 				}
 			
@@ -231,20 +231,20 @@ namespace hCraft {
 					std::string ax_str    = reader.next ();
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
+							pl->message ("§c * §7Usage§f: §e/sel move §4[§cx§4/§cy§4/§cz units§4]§c...");
 							return;
 						}
 					std::string units_str = reader.next ();
 					if (!sutils::is_int (units_str))
 						{
-							pl->message ("§c * §eInvalid number§f: §c" + units_str);
+							pl->message ("§c * §7Invalid number§f: §c" + units_str);
 							return;
 						}
 					
 					int units = sutils::to_int (units_str);
 					if ((units > 100000) || (units < -100000))
 						{
-							pl->message ("§c * §eThe §cunits §evalue is too high/low");
+							pl->message ("§c * §7The §cunits §evalue is too high/low");
 							return;
 						}
 					
@@ -257,7 +257,7 @@ namespace hCraft {
 									case 'y': ax |= A_Y; break;
 									case 'z': ax |= A_Z; break;
 									default:
-										pl->message ("§c * §eInvalid direction§f, §emust be §cxyz");
+										pl->message ("§c * §7Invalid direction§f, §emust be §cxyz");
 										return;
 								}
 						}
@@ -314,16 +314,16 @@ namespace hCraft {
 		{
 			int num;
 			if (!sutils::is_int (arg) || ((num = sutils::to_int (arg)) <= 0))
-				{ pl->message ("§c * §eInvalid position number§f."); return; }
+				{ pl->message ("§c * §7Invalid position number§f."); return; }
 	
 			if (pl->selections.empty ())
-				{ pl->message ("§c * §eYou§f'§ere not selecting anything§f."); return; }
+				{ pl->message ("§c * §7You§f'§7re not selecting anything§f."); return; }
 			world_selection *selection = pl->curr_sel;
 			if (num > selection->needed_points ())
 				{
 					std::ostringstream ss;
-					ss << "§c * §eThe selection that you§f'§ere making requires only §f"
-						 << selection->needed_points ()<< " §epoints§f.";
+					ss << "§c * §7The selection that you§f'§7re making requires only §f"
+						 << selection->needed_points ()<< " §7points§f.";
 					pl->message (ss.str ());
 					return;
 				}
@@ -364,7 +364,7 @@ namespace hCraft {
 					if (!arg.is_block ())
 						{
 							std::ostringstream ss;
-							ss << "§c * §eInvalid block§f: §c" << n;
+							ss << "§c * §7Invalid block§f: §c" << n;
 							pl->message (ss.str ());
 							return;
 						}
@@ -374,7 +374,7 @@ namespace hCraft {
 			
 			if (blocks.empty ())
 				{
-					pl->message ("§c * §ePlease specify which blocks to select§f.");
+					pl->message ("§c * §7Please specify which blocks to select§f.");
 					pl->message ("§c   > §eUsage§f: §e/sel all §7but§8/§7except §cblocks...");
 					return;
 				}
@@ -511,7 +511,7 @@ namespace hCraft {
 		{
 			if (!reader.has_next ())
 				{
-					pl->message ("§c * §eUsage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
+					pl->message ("§c * §7Usage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
 					return;
 				}
 			
@@ -524,20 +524,20 @@ namespace hCraft {
 					std::string ax_str    = reader.next ();
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
+							pl->message ("§c * §7Usage§f: §e/sel §cexpand§4/§ccontract §4[§cx§4/§cy§4/§cz units§4]§c...");
 							return;
 						}
 					std::string units_str = reader.next ();
 					if (!sutils::is_int (units_str))
 						{
-							pl->message ("§c * §eInvalid number§f: §c" + units_str);
+							pl->message ("§c * §7Invalid number§f: §c" + units_str);
 							return;
 						}
 					
 					int units = sutils::to_int (units_str);
 					if ((units > 100000) || (units < -100000))
 						{
-							pl->message ("§c * §eThe §cunits §evalue is too high/low");
+							pl->message ("§c * §7The §cunits §7value is too high/low");
 							return;
 						}
 					
@@ -550,7 +550,7 @@ namespace hCraft {
 									case 'y': ax |= A_Y; break;
 									case 'z': ax |= A_Z; break;
 									default:
-										pl->message ("§c * §eInvalid direction§f, §emust be §cxyz");
+										pl->message ("§c * §7Invalid direction§f, §7must be §cxyz");
 										return;
 								}
 						}
@@ -623,7 +623,7 @@ namespace hCraft {
 				{
 					if (!reader.has_next ())
 						{
-							pl->message ("§c * §eUsage§f: §e/sel show/hide §call");
+							pl->message ("§c * §7Usage§f: §e/sel show/hide §call");
 							pl->message ("§c           §e/sel show/hide §7but§8/§7except §cselections...");
 							return;
 						}
@@ -633,14 +633,14 @@ namespace hCraft {
 							std::string str = reader.next ();
 							if (str[0] != '@')
 								{
-									pl->message ("§c * §eInvalid selection name§f: §c" + str);
+									pl->message ("§c * §7Invalid selection name§f: §c" + str);
 									return;
 								}
 							str.erase (str.begin ());
 							auto itr = pl->selections.find (str.c_str ());
 							if (itr == pl->selections.end ())
 								{
-									pl->message ("§c * §eNo such selection§f: §c" + str);
+									pl->message ("§c * §7No such selection§f: §c" + str);
 									return;
 								}
 							
@@ -694,14 +694,14 @@ namespace hCraft {
 		{
 			if (!reader.has_next () || !sutils::is_block (reader.arg (1)))
 				{
-					pl->message ("§c * §eUsage§f: §e/sel sb §cblock");
+					pl->message ("§c * §7Usage§f: §e/sel sb §cblock");
 					return;
 				}
 			
 			blocki blk = sutils::to_block (reader.arg (1));
 			if (!blk.valid ())
 				{
-					pl->message ("§c * §eInvalid block§f: §c" + reader.arg (1));
+					pl->message ("§c * §7Invalid block§f: §c" + reader.arg (1));
 					return;
 				}
 			
@@ -737,7 +737,7 @@ namespace hCraft {
 						check_all = true;
 					else
 						{
-							pl->message ("§c * §eInvalid option§f: §c" + narg.as_str ());
+							pl->message ("§c * §7Invalid option§f: §c" + narg.as_str ());
 							return;
 						}
 				}

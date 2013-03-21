@@ -250,7 +250,6 @@ namespace hCraft {
 								{
 									++ tries;
 									std::this_thread::sleep_for (std::chrono::milliseconds (30));
-									std::cout << "BUSY! Trying again! (" << tries << "/" << max_tries << " tries)." << std::endl;
 								}
 							else
 								break;
@@ -260,7 +259,7 @@ namespace hCraft {
 				}
 			while (!success && (tries < max_tries));
 			if (!success)
-				sql_error ("failed to prepare statement: "
+				throw sql_error ("failed to prepare statement: "
 					+ std::string (sqlite3_errmsg (this->conn.handle ())));
 			
 			this->col_count = sqlite3_column_count (this->stmt);

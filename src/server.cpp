@@ -1177,6 +1177,7 @@ namespace hCraft {
 		
 		world *main_world;
 		std::string prov_name;
+		entity_pos spos;
 		
 		log () << "Loading worlds:" << std::endl;
 		
@@ -1191,7 +1192,7 @@ namespace hCraft {
 					world_generator::create ("plains"),
 					world_provider::create ("hw", "worlds", this->get_config ().main_world));
 				main_world->set_size (64, 64);
-				main_world->prepare_spawn (10);
+				main_world->prepare_spawn (10, true);
 			}
 		else
 			{
@@ -1211,8 +1212,9 @@ namespace hCraft {
 				
 				main_world = new world (*this, this->get_config ().main_world, this->log, gen, prov);
 				main_world->set_size (winf.width, winf.depth);
+				main_world->set_spawn (winf.spawn_pos);
+				main_world->prepare_spawn (10, false);
 			}
-		main_world->prepare_spawn (10);
 		main_world->start ();
 		this->add_world (main_world);
 		this->main_world = main_world;
@@ -1259,7 +1261,9 @@ namespace hCraft {
 				log () << " - Loading \"" << wname << std::endl;
 				world *wr = new world (*this, wname.c_str (), this->log, gen, prov);
 				wr->set_size (winf.width, winf.depth);
-				wr->prepare_spawn (10);
+				
+				wr->set_spawn (winf.spawn_pos);
+				wr->prepare_spawn (10, false);
 				wr->start ();
 				if (!this->add_world (wr))
 					{

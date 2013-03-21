@@ -62,7 +62,7 @@ namespace hCraft {
 						target_name.c_str ());
 					if (!target)
 						{
-							pl->message ("§c * §ePlayer §b" + target_name + " §eis not online§f.");
+							pl->message ("§c * §7Player §b" + target_name + " §7is not online§f.");
 							return;
 						}
 					else if (target == pl)
@@ -76,8 +76,8 @@ namespace hCraft {
 						{
 							if (!pl->has ("command.world.world"))
 								{
-									pl->message ("§c * §ePlayer " + std::string (
-										target->get_colored_username ()) + " §eis in another world§f.");
+									pl->message ("§c * §7Player " + std::string (
+										target->get_colored_username ()) + " §7is in another world§f.");
 									return;
 								}
 							

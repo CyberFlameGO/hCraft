@@ -31,13 +31,13 @@ namespace hCraft {
 		{
 			auto& conn = srv.sql ().pop ();
 			int count = conn.query (
-				"SELECT count(*) FROM `autoloaded-worlds` WHERE `name`='"
+				"SELECT count(*) FROM `autoload-worlds` WHERE `name`='"
 				+ world_name + "'").step ().at (0).as_int ();
 			if (count == 0)
 				return false;
 			
 			conn.execute (
-				"DELETE FROM `autoloaded-worlds` WHERE `name`='"
+				"DELETE FROM `autoload-worlds` WHERE `name`='"
 				+ world_name + "'");
 			srv.sql ().push (conn);
 			return true;
@@ -79,12 +79,12 @@ namespace hCraft {
 								pl->message ("§cWorld §7" + world_name + " §cis not in the autoload list§7.");
 						}
 					else
-						pl->message ("§c * §eWorld §b" + world_name + " §eis not loaded§f.");
+						pl->message ("§c * §7World §b" + world_name + " §7is not loaded§f.");
 					return;
 				}
 			else if (wr == pl->get_server ().get_main_world ())
 				{
-					pl->message ("§c * §eYou can not unload the main world§f!");
+					pl->message ("§c * §7You can not unload the main world§f!");
 					return;
 				}
 			

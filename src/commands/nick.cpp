@@ -59,7 +59,7 @@ namespace hCraft {
 			stmt.bind (1, target_name.c_str (), sql::pass_transient);
 			if (!stmt.step (row))
 				{
-					pl->message ("§c * §eUnable to find player§f: §c" + target_name);
+					pl->message ("§c * §7Unable to find player§f: §c" + target_name);
 					return;
 				}
 			
@@ -72,8 +72,8 @@ namespace hCraft {
 				nickname.assign (row.at (1).as_cstr ());
 			if (nickname.empty () || nickname.length () > 36)
 				{
-					pl->message ("§c * §eThe nickname cannot have more than §a36 "
-											 "§echaracters or be empty§f.");
+					pl->message ("§c * §7A nickname cannot have more than §c36 "
+											 "§7characters or be empty§f.");
 					return;
 				}
 			else if (std::strcmp (nickname.c_str (), row.at (3).as_cstr ()) == 0)

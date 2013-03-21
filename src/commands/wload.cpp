@@ -32,13 +32,13 @@ namespace hCraft {
 		{
 			auto& conn = srv.sql ().pop ();
 			int count = conn.query (
-				"SELECT count(*) FROM `autoloaded-worlds` WHERE `name`='"
+				"SELECT count(*) FROM `autoload-worlds` WHERE `name`='"
 				+ world_name + "'").step ().at (0).as_int ();
 			if (count != 0)
 				return false;
 			
 			conn.execute (
-				"INSERT INTO `autoloaded-worlds` (`name`) VALUES ('"
+				"INSERT INTO `autoload-worlds` (`name`) VALUES ('"
 				+ world_name + "')");
 			srv.sql ().push (conn);
 			return true;
@@ -80,14 +80,14 @@ namespace hCraft {
 								pl->message ("§cWorld §7" + world_name + " §cis already autoloaded§7.");
 						}
 					else
-						pl->message ("§c * §eWorld §b" + world_name + " §eis already loaded§f.");
+						pl->message ("§c * §7World §b" + world_name + " §7is already loaded§f.");
 					return;
 				}
 			
 			std::string prov_name = world_provider::determine ("worlds", world_name.c_str ());
 			if (prov_name.empty ())
 				{
-					pl->message ("§c * §eWorld §b" + world_name + " §edoes not exist§f.");
+					pl->message ("§c * §7World §b" + world_name + " §7does not exist§f.");
 					return;
 				}
 			
@@ -111,7 +111,9 @@ namespace hCraft {
 			world *wr = new world (pl->get_server (), world_name.c_str (),
 				pl->get_logger (), gen, prov);
 			wr->set_size (winf.width, winf.depth);
-			wr->prepare_spawn (10);
+			
+			wr->set_spawn (winf.spawn_pos);
+			wr->prepare_spawn (10, false);
 			wr->start ();
 			if (!pl->get_server ().add_world (wr))
 				{

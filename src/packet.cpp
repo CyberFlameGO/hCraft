@@ -700,6 +700,36 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_update_health (short hearts, short hunger,
+		float hunger_saturation)
+	{
+		packet *pack = new packet (9);
+		
+		pack->put_byte (0x08);
+		pack->put_short (hearts);
+		pack->put_short (hunger);
+		pack->put_float (hunger_saturation);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_respawn (int dimension, char difficulty, char game_mode,
+		const char *level_type)
+	{
+		packet *pack = new packet (11 + (std::strlen (level_type) * 2));
+		
+		pack->put_byte (0x09);
+		pack->put_int (dimension);
+		pack->put_byte (difficulty);
+		pack->put_byte (game_mode);
+		pack->put_short (256);
+		pack->put_string (level_type);
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_player_pos_and_look (double x, double y, double z,
 		double stance, float r, float l, bool on_ground)
 	{
@@ -867,6 +897,18 @@ namespace hCraft {
 		pack->put_byte (0x23);
 		pack->put_int (eid);
 		pack->put_byte ((unsigned char)(std::fmod (std::floor (yaw), 360.0f) / 360.0 * 256.0));
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_entity_status (int eid, char status)
+	{
+		packet* pack = new packet (6);
+		
+		pack->put_byte (0x26);
+		pack->put_int (eid);
+		pack->put_byte (status);
 		
 		return pack;
 	}

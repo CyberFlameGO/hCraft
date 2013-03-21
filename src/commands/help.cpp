@@ -57,7 +57,7 @@ namespace hCraft {
 					if (opt.got_arg ())
 						{
 							if (!opt.is_int ())
-								{ pl->message ("§c * §eInvalid page number§: §c" + opt.as_string ()); return; }
+								{ pl->message ("§c * §7Invalid page number§: §c" + opt.as_string ()); return; }
 							int page = opt.as_int ();
 							this->show_help (pl, page, 12);
 						}
@@ -72,7 +72,7 @@ namespace hCraft {
 					command *cmd = pl->get_server ().get_commands ().find (reader.arg (0).c_str ());
 					if (!cmd || !pl->has (cmd->get_exec_permission ()))
 						{
-							pl->message ("§c * §eUnable to find help for§f: §c" + reader.arg (0));
+							pl->message ("§c * §7Unable to find help for§f: §c" + reader.arg (0));
 							return;
 						}
 					
@@ -83,7 +83,7 @@ namespace hCraft {
 					if (reader.arg_count () == 2)
 						{
 							if (!sutils::is_int (reader.arg (1)))
-								{ pl->message ("§c * §eInvalid page number§: §c" + reader.arg (1)); return; }
+								{ pl->message ("§c * §7Invalid page number§: §c" + reader.arg (1)); return; }
 							page = sutils::to_int (reader.arg (1));
 						}
 					cmd->show_help (pl, page, 12);

@@ -210,7 +210,7 @@ namespace hCraft {
 		 * Calls load_grid around () {x: 0, z: 0}, and attempts to find a suitable
 		 * spawn position. 
 		 */
-		void prepare_spawn (int radius);
+		void prepare_spawn (int radius, bool calc_spawn_point = false);
 		
 		
 		

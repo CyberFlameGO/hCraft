@@ -57,7 +57,7 @@ namespace hCraft {
 			world *wr = pl->get_server ().find_world (world_name.c_str ());
 			if (!wr)
 				{
-					pl->message ("§c * §eCannot find world§f: §c" + world_name);
+					pl->message ("§c * §7Cannot find world§f: §c" + world_name);
 					return;
 				}
 			
