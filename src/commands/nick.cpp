@@ -65,7 +65,6 @@ namespace hCraft {
 			
 			rank rnk (row.at (2).as_cstr (), pl->get_server ().get_groups ());
 			prev_nickname.assign (row.at (3).as_cstr ());
-			pl->get_logger () (LT_DEBUG) << "C" << std::endl;
 			if (reader.arg_count () >= 2)
 				nickname.assign (reader.all_from (1));
 			else
@@ -85,7 +84,7 @@ namespace hCraft {
 			{
 				std::ostringstream ss;
 				if (target)
-					pl->set_nickname (nickname.c_str (), false);
+					target->set_nickname (nickname.c_str (), false);
 				ss << "UPDATE `players` SET `nick`='"
 					 << nickname << "' WHERE `name`='"
 					 << target_name << "';";

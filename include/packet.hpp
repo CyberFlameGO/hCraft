@@ -85,6 +85,7 @@ namespace hCraft {
 		void put_bytes (const unsigned char *val, unsigned int len);
 		void put_bool (bool val)
 			{ put_byte (val ? 1 : 0); }
+		void put_slot (slot_item item);
 		
 	//----
 		
@@ -112,6 +113,10 @@ namespace hCraft {
 			char dimension, char difficulty, unsigned char max_players);
 		
 		static packet* make_message (const char *msg);
+		
+		static packet* make_time_update (long long world_age, long long day_time);
+		
+		static packet* make_entity_equipment (int eid, short slot, slot_item item);
 		
 		static packet* make_spawn_pos (int x, int y, int z);
 		

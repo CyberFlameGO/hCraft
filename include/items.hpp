@@ -55,7 +55,7 @@ namespace hCraft {
 		IT_DIAMOND_AXE,
 		IT_STICK,
 		IT_BOWL,
-		IT_MUSHROOM_SOUP,
+		IT_MUSHROOM_STEW,
 		IT_GOLDEN_SWORD,
 		IT_GOLDEN_SHOVEL,
 		IT_GOLDEN_PICKAXE,
@@ -192,6 +192,13 @@ namespace hCraft {
 	
 //----
 	
+	struct food_info
+	{
+		int hunger;
+		float saturation;
+	};
+	
+	
 	/* 
 	 * Item information.
 	 */
@@ -214,6 +221,13 @@ namespace hCraft {
 		 * specified ID number.
 		 */
 		static item_info* from_id (unsigned short id);
+		
+		
+		/* 
+		 * Returns an appropriate food_info structure which information about food
+		 * aspects of the item with the specified ID.
+		 */
+		static food_info get_food_info (unsigned short id);
 	};
 }
 

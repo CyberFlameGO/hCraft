@@ -111,7 +111,15 @@ namespace hCraft {
 		
 		int hearts; // 0-20 (the server will handle more)
 		int hunger; // 0-20 (the server will handle more)
-		float hunger_saturation; // 5.0 max
+		float hunger_saturation;
+		float exhaustion;
+		bool eating;
+		std::chrono::steady_clock::time_point eat_time;
+		
+		// used to handle exhaustion:
+		double total_walked, total_run;
+		double total_walked_old, total_run_old;
+		
 		double last_ground_height;
 		bool fall_flag;
 		
@@ -149,6 +157,10 @@ namespace hCraft {
 		std::mutex join_lock;
 		std::unordered_set<player *> visible_players;
 		std::mutex visible_player_lock;
+		
+		std::chrono::steady_clock::time_point last_tick;
+		std::chrono::steady_clock::time_point last_heart_regen;
+		std::chrono::milliseconds heal_delay;
 		
 		std::ostringstream msgbuf;
 		
@@ -212,7 +224,7 @@ namespace hCraft {
 		 */
 		int handle (const unsigned char *data);
 		
-		void handle_fall_damage (bool prev, bool curr);
+		void handle_falls_and_jumps (bool prev, bool curr, entity_pos old_pos);
 		
 	//----
 		
@@ -398,6 +410,7 @@ namespace hCraft {
 		void set_hunger (int hunger);
 		void set_hunger_saturation (float hunger_saturation);
 		void set_health (int hearts, int hunger, float hunger_saturation);
+		void increment_exhaustion (float val);
 		
 		
 		
@@ -462,6 +475,14 @@ namespace hCraft {
 			void (*dctor) (void *) = nullptr);
 		void delete_data (const char *name, bool destruct = true);
 		void* get_data (const char *name);
+		
+	//----
+		
+		/* 
+		 * Called by the world that's holding the entity every tick (50ms).
+		 * A return value of true will cause the world to destroy the entity.
+		 */
+		virtual bool tick (world &w) override;
 	};
 }
 

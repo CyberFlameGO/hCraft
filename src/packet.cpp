@@ -268,6 +268,22 @@ namespace hCraft {
 		this->size += len;
 	}
 	
+	void
+	packet::put_slot (slot_item item)
+	{
+		if (!item.is_valid () || item.amount () == 0)
+			this->put_short (-1);
+		else
+			{
+				this->put_short (item.id ());
+				this->put_byte ((item.amount () > 64) ? 64 : item.amount ());
+				this->put_short (item.damage ());
+				
+				// further metadata is currently not supported.
+				this->put_short (-1);
+			}
+	}
+	
 	
 	
 //----
@@ -644,6 +660,17 @@ namespace hCraft {
 		pack->put_byte (0x7F);
 	}
 	
+	static int
+	slot_size (slot_item item)
+	{
+		int size = 2;
+		if (item.id () != -1)
+			{
+				size += 5;
+			}
+		return size;
+	}
+	
 	
 	
 	packet*
@@ -682,6 +709,31 @@ namespace hCraft {
 		
 		pack->put_byte (0x03);
 		pack->put_string (msg);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_time_update (long long world_age, long long day_time)
+	{
+		packet *pack = new packet (17);
+		
+		pack->put_byte (0x04);
+		pack->put_long (world_age);
+		pack->put_long (day_time);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_entity_equipment (int eid, short slot, slot_item item)
+	{
+		packet *pack = new packet (7 + slot_size (item));
+		
+		pack->put_byte (0x05);
+		pack->put_int (eid);
+		pack->put_short (slot);
+		pack->put_slot (item);
 		
 		return pack;
 	}
@@ -1099,7 +1151,7 @@ namespace hCraft {
 	packet*
 	packet::make_set_slot (char wid, short slot, slot_item item)
 	{
-		packet *pack = new packet (11);
+		packet *pack = new packet (4 + slot_size (item));
 		
 		/* 
 		 * TODO: Item metadata.
@@ -1108,17 +1160,7 @@ namespace hCraft {
 		pack->put_byte (0x67);
 		pack->put_byte (wid);
 		pack->put_short (slot);
-		if (!item.is_valid () || item.amount () == 0)
-			pack->put_short (-1);
-		else
-			{
-				pack->put_short (item.id ());
-				pack->put_byte ((item.amount () > 64) ? 64 : item.amount ());
-				pack->put_short (item.damage ());
-				
-				// further metadata is currently not supported.
-				pack->put_short (-1);
-			}
+		pack->put_slot (item);
 		
 		return pack;
 	}
@@ -1136,19 +1178,7 @@ namespace hCraft {
 		pack->put_byte (wid);
 		pack->put_short (slots.size ());
 		for (const slot_item& item : slots)
-			{
-				if (!item.is_valid () || item.amount () == 0)
-					pack->put_short (-1);
-				else
-					{
-						pack->put_short (item.id ());
-						pack->put_byte ((item.amount () > 64) ? 64 : item.amount ());
-						pack->put_short (item.damage ());
-				
-						// further metadata is currently not supported.
-						pack->put_short (-1);
-					}
-			}
+			pack->put_slot (item);
 		
 		return pack;
 	}

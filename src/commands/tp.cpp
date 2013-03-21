@@ -103,7 +103,7 @@ namespace hCraft {
 							!sutils::is_int (reader.arg (1)) ||
 							!sutils::is_int (reader.arg (2)))
 						{
-							pl->message ("§eInvalid coordinates §f(§emust be integers§f).");
+							pl->message ("§c * §7Invalid coordinates §f(§7must be integers§f).");
 							return;
 						}
 					

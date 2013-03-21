@@ -20,6 +20,8 @@
 #include "player.hpp"
 #include <cstring>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -312,6 +314,23 @@ namespace hCraft {
 						pl->send (new packet (*pack));
 					}
 			}
+		delete pack;
+	}
+	
+	void
+	playerlist::send_to_all_visible (packet *pack, player *target)
+	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		
+		for (auto itr = this->players.begin (); itr != this->players.end (); ++itr)
+			{
+				player *pl = itr->second;
+				if (pl != target && pl->visible_to (target))
+					{
+						pl->send (new packet (*pack));
+					}
+			}
+		
 		delete pack;
 	}
 }

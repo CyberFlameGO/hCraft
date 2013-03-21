@@ -37,11 +37,7 @@
 #include <cmath>
 #include <iomanip>
 #include <cstdlib>
-
-
-// DEBUG
-#include <random>
-#include <chrono>
+#include <cmath>
 
 
 namespace hCraft {
@@ -76,9 +72,16 @@ namespace hCraft {
 		this->total_read = 0;
 		this->read_rem = 1;
 		
+		this->eating = false;
 		this->hearts = 20;
 		this->hunger = 20;
-		this->hunger_saturation = 5.0;
+		this->hunger_saturation = 20.0;
+		this->exhaustion = 0.0;
+		this->total_walked = this->total_run = this->total_walked_old = this->total_run_old = 0.0;
+		
+		this->last_tick = std::chrono::steady_clock::now ();
+		this->last_heart_regen = this->last_tick;
+		this->heal_delay = std::chrono::milliseconds (4000);
 		
 		this->curr_world = nullptr;
 		this->curr_chunk = chunk_pos (0, 0);
@@ -766,6 +769,28 @@ namespace hCraft {
 		float r_delta = dest.r - prev_pos.r;
 		float l_delta = dest.l - prev_pos.l;
 		
+	//----
+		/* 
+		 * Handle exhaustion from running\walking.
+		 */
+		double dist = std::sqrt (x_delta*x_delta + y_delta*y_delta + z_delta*z_delta);
+		if (this->is_sprinting ())
+			this->total_run += dist;
+		else
+			this->total_walked += dist;
+		if ((this->total_walked - this->total_walked_old) >= 1.0)
+			{
+				this->increment_exhaustion (0.01);
+				this->total_walked_old = this->total_walked;
+			}
+		else if ((this->total_run - this->total_run_old) >= 1.0)
+			{
+				this->increment_exhaustion (0.1);
+				this->total_run_old = this->total_run;
+			}
+	//----
+		
+		
 		if (x_delta == 0.0 && y_delta == 0.0 && z_delta == 0.0)
 			{
 				// position hasn't changed.
@@ -800,7 +825,7 @@ namespace hCraft {
 					}
 			}
 		
-		this->handle_fall_damage (prev_pos.on_ground, this->pos.on_ground);
+		this->handle_falls_and_jumps (prev_pos.on_ground, this->pos.on_ground, prev_pos);
 	}
 	
 	/* 
@@ -911,6 +936,7 @@ namespace hCraft {
 			this->get_eid (), col_name.c_str (),
 			me_pos.x, me_pos.y, me_pos.z, me_pos.r, me_pos.l, 0, me_meta));
 		pl->send (packet::make_entity_head_look (this->get_eid (), me_pos.r));
+		pl->send (packet::make_entity_equipment (this->eid, 0, this->inv.get (this->held_slot)));
 		//pl->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
 		
 		{
@@ -1265,12 +1291,19 @@ namespace hCraft {
 	void
 	player::set_hearts (int hearts)
 	{
+		if (hearts < this->hearts)
+			{
+				// exhaustion from damage
+				this->increment_exhaustion (0.3);
+			}
 		this->set_health (hearts, this->hunger, this->hunger_saturation);
 	}
 	
 	void
 	player::set_hunger (int hunger)
 	{
+		if (this->hunger_saturation > hunger)
+			this->hunger_saturation = hunger;
 		this->set_health (this->hearts, hunger, this->hunger_saturation);
 	}
 	
@@ -1294,11 +1327,131 @@ namespace hCraft {
 		bool hurt = p_hearts < this->hearts;
 		this->send (packet::make_update_health (p_hearts, p_hunger, hunger_saturation));
 		if (hurt)
-			this->send (packet::make_entity_status (this->eid, 2));
+			{
+				this->send (packet::make_entity_status (this->eid, 2));
+				
+				// notify others too
+				this->get_world ()->get_players ().send_to_all_visible (
+					packet::make_entity_status (this->eid, 2), this);
+			}
 		
 		this->hearts = hearts;
 		this->hunger = hunger;
 		this->hunger_saturation = hunger_saturation;
+	}
+	
+	void
+	player::increment_exhaustion (float val)
+	{
+		this->exhaustion += val;
+		if (this->exhaustion >= 4.0)
+			{
+				this->exhaustion -= 4.0;
+				if (this->hunger_saturation <= 0.0)
+					this->set_hunger (this->hunger - 1);
+				else
+					{
+						double new_sat = this->hunger_saturation - 1.0;
+						if (new_sat < 0.0) new_sat = 0.0;
+						this->set_hunger_saturation (new_sat);
+					}
+			}
+	}
+	
+	
+	
+	void
+	player::handle_falls_and_jumps (bool prev, bool curr, entity_pos old_pos)
+	{
+		if ((!prev && curr) && (this->curr_gamemode != GT_CREATIVE))
+			{
+				/* 
+				 * The player has hit the ground.
+				 */
+				
+				if (this->fall_flag)
+					this->fall_flag = false;
+				else
+					{
+						double delta = this->pos.y - this->last_ground_height;
+						if (delta <= -3.0)
+							{
+								double fd = (-delta) - 2.0;
+								this->last_heart_regen = std::chrono::steady_clock::now ();
+								this->set_hearts (this->hearts - (int)fd);
+							}
+					}
+			}
+		else if ((prev && !curr) && (this->pos.y > old_pos.y))
+			{
+				/* 
+				 * The player has jumped.
+				 */
+				if (this->is_sprinting ())
+					this->increment_exhaustion (0.8);
+				else
+					this->increment_exhaustion (0.2);
+			}
+		
+		if (curr)
+			this->last_ground_height = this->pos.y;
+	}
+	
+	
+	
+//----
+	
+	/* 
+	 * Called by the world that's holding the entity every tick (50ms).
+	 * A return value of true will cause the world to destroy the entity.
+	 */
+	bool
+	player::tick (world &w)
+	{
+		std::chrono::steady_clock::time_point now
+			= std::chrono::steady_clock::now ();
+		
+		// regenerate hearts
+		if (this->hearts < 20 && (this->hunger >= 18))
+			{
+				if ((now - this->last_heart_regen) >= this->heal_delay)
+					{
+						this->set_hearts (this->hearts + 1);
+						this->last_heart_regen = now;
+					}
+			}
+		else if (this->hunger <= 0)
+			{
+				if ((now - this->last_heart_regen) >= this->heal_delay)
+					{
+						this->set_hearts (this->hearts - 1);
+						this->last_heart_regen = now;
+					}
+			}
+		
+		// eat
+		if (this->eating && ((now - this->eat_time) >= std::chrono::seconds (2)))
+			{
+				slot_item s = this->inv.get (this->held_slot);
+				food_info finf = item_info::get_food_info (s.id ());
+				if (finf.hunger != 0) 
+					{
+						s.set_amount (s.amount () - 1);
+						this->inv.set (this->held_slot, s, true);
+						
+						// tell the client to stop eating
+						// the entity status packet seems to restore hunger itself.
+						this->send (packet::make_entity_status (this->eid, 9));
+						this->set_health (this->hearts, this->hunger + finf.hunger,
+							this->hunger_saturation + finf.saturation);
+					}
+				
+				this->eat_time = now;
+				this->eating = false;
+			}
+		
+		this->last_tick = now;
+		return false;
 	}
 	
 	
@@ -1381,15 +1534,15 @@ namespace hCraft {
 			}
 		
 		char username[17];
-		///*
+		/*
 		int username_len = reader.read_string (username, 16);
 		if (username_len < 2)
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
 			}
-		//*/
-		/*
+		*/
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -1442,9 +1595,11 @@ namespace hCraft {
 		pl->join_world (pl->get_server ().get_main_world ());
 		
 		pl->inv.subscribe (pl);
-		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
+		pl->inv.add (slot_item (IT_DIAMOND_SWORD, 0, 1));
+		pl->inv.add (slot_item (IT_MELON_SLICE, 0, 64));
 		pl->inv.add (slot_item (IT_DIAMOND_PICKAXE, 0, 1));
-		pl->inv.add (slot_item (BT_DIRT, 0, 128));
+		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
+		pl->inv.add (slot_item (IT_DIAMOND_AXE, 0, 1));
 		
 		return 0;
 	}
@@ -1578,30 +1733,6 @@ namespace hCraft {
 		return 0;
 	}
 	
-	
-	
-	void
-	player::handle_fall_damage (bool prev, bool curr)
-	{
-		if ((!prev && curr) && (this->curr_gamemode != GT_CREATIVE))
-			{
-				if (this->fall_flag)
-					this->fall_flag = false;
-				else
-					{
-						double delta = this->pos.y - this->last_ground_height;
-						if (delta <= -3.0)
-							{
-								double fd = (-delta) - 2.0;
-								this->set_hearts (this->hearts - (int)fd);
-							}
-					}
-			}
-		
-		if (curr)
-			this->last_ground_height = this->pos.y;
-	}
-	
 	int
 	player::handle_packet_0a (player *pl, packet_reader reader)
 	{
@@ -1706,12 +1837,13 @@ namespace hCraft {
 		int x;
 		unsigned char y;
 		int z;
+		unsigned char face;
 		
 		status = reader.read_byte (); // status
 		x = reader.read_int ();
 		y = reader.read_byte ();
 		z = reader.read_int ();
-		reader.read_byte (); // face
+		face = reader.read_byte (); // face
 		
 		int w_width = pl->get_world ()->get_width ();
 		int w_depth = pl->get_world ()->get_depth ();
@@ -1769,11 +1901,17 @@ namespace hCraft {
 			}
 		
 		block_data bd = pl->get_world ()->get_block (x, y, z);
-		if (pl->gamemode () == GT_CREATIVE || status == 2)
+		if (status == 2 || (status == 0 && pl->curr_gamemode == GT_CREATIVE))
 			{
+				/* 
+				 * Digging
+				 */
+				
 				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
 					{
+						pl->increment_exhaustion (0.025);
+						
 						blocki drop = block_info::get_drop ({bd.id, bd.meta});
 						if (drop.id != BT_AIR && drop.valid ())
 							{
@@ -1782,6 +1920,32 @@ namespace hCraft {
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
 								pl->get_world ()->spawn_entity (pick);
 							}
+					}
+			}
+		else if (status == 5)
+			{
+				/* 
+				 * Finished Eating / Shoot Arrow
+				 */
+				
+				if (x != 0 || y != 0 || z != 0 || face != 0xFF)
+					{
+						pl->log (LT_WARNING) << "Invalid \"finished eating\" packet from player '"
+							<< pl->get_username () << "'" << std::endl;
+						return -1;
+					}
+				
+				slot_item s = pl->inv.get (pl->held_slot);
+				food_info finf = item_info::get_food_info (s.id ());
+				if (finf.hunger == 0)
+					{
+						// TODO: handle arrows (if not a bow in hand, kick the player)
+					}
+				else
+					{
+						if (pl->eating && (std::chrono::steady_clock::now () - pl->eat_time)
+							< std::chrono::seconds (2))
+							pl->eating = false;
 					}
 			}
 		
@@ -1805,7 +1969,25 @@ namespace hCraft {
 		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
-				// Held item must be updated, or not enough room.
+				slot_item s = pl->inv.get (pl->held_slot);
+				food_info finf = item_info::get_food_info (s.id ());
+				if (finf.hunger != 0)
+					{
+						// player started eating
+						if (pl->hunger < 20)
+							{
+								pl->eat_time = std::chrono::steady_clock::now ();
+								pl->eating = true;
+								
+								// eating animation
+								pl->get_world ()->get_players ().send_to_all_visible (
+									packet::make_animation (pl->eid, 5), pl);
+							}
+					}
+				else
+					{
+						// TODO: handle arrows
+					}
 				return 0;
 			}
 		 
@@ -1869,6 +2051,8 @@ namespace hCraft {
 			}
 		
 		pl->held_slot = index + 36;
+		pl->get_world ()->get_players ().send_to_all_visible (
+			packet::make_entity_equipment (pl->eid, 0, pl->inv.get (pl->held_slot)), pl);
 		return 0;
 	}
 	
@@ -1885,8 +2069,8 @@ namespace hCraft {
 		
 		if (animation == 1)
 			{
-				pl->get_world ()->get_players ().send_to_all (
-					packet::make_animation (pl->get_eid (), animation), pl);
+				pl->get_world ()->get_players ().send_to_all_visible (
+					packet::make_animation (pl->eid, animation), pl);
 			}
 		
 		return 0;

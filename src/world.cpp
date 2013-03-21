@@ -358,6 +358,27 @@ namespace hCraft {
 										++ itr;
 								}
 					}
+					
+					/* 
+					 * Players
+					 */
+					{
+						// NOTE: a world tick is 5ms!
+						
+						if ((this->ticks % 10) == 0)
+							{
+								std::vector<player *> players;
+								this->get_players ().populate (players);
+								for (player *pl : players)
+									pl->tick (*this);
+						
+								// update time (every 4 seconds)
+								// NOTE: a 'world tick' = 5 milliseconds
+								if ((this->ticks % 800) == 0)
+									for (player *pl : players)
+										pl->send (packet::make_time_update (this->ticks / 10, this->ticks / 10));
+							}
+					}
 				}
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
