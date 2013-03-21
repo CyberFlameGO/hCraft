@@ -119,7 +119,7 @@ namespace hCraft {
 		char nick[37]; // 36 chars max
 		char colored_nick[48];
 		
-		bool curr_gamemode;
+		gamemode_type curr_gamemode;
 		short held_slot;
 		slot_item cursor_slot;
 		
@@ -282,7 +282,7 @@ namespace hCraft {
 		
 		inline slot_item held_item () { return this->inv.get (this->held_slot); }
 		inline slot_item cursor_item () { return this->cursor_slot; }
-		inline bool gamemode () { return this->curr_gamemode; }
+		inline gamemode_type gamemode () { return this->curr_gamemode; }
 		
 		inline int get_ping () { return this->ping_time_ms; }
 		

@@ -1579,7 +1579,7 @@ namespace hCraft {
 	void
 	player::handle_fall_damage (bool prev, bool curr)
 	{
-		if (!prev && curr)
+		if ((!prev && curr) && (this->curr_gamemode != GT_CREATIVE))
 			{
 				double delta = this->pos.y - this->last_ground_height;
 				if (delta <= -3.0)
