@@ -428,6 +428,9 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->join_lock};
 		bool had_prev_world = (this->curr_world != nullptr);
 		
+		// this will keep the player safe from fall damage right after spawning
+		this->fall_flag = true;
+		
 		if (had_prev_world && (this->curr_world != w))
 			{
 				// destroy selections
@@ -478,6 +481,8 @@ namespace hCraft {
 		this->curr_world = w;
 		this->pos = destpos;
 		this->curr_world->get_players ().add (this);
+		
+		this->last_ground_height = -128.0;
 		this->stream_chunks ();
 		
 		entity_pos epos = this->pos;
@@ -487,7 +492,6 @@ namespace hCraft {
 		if (!had_prev_world)
 			this->send (packet::make_player_pos_and_look (
 				epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
-		this->last_ground_height = epos.y + 1.65;
 			
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 	}
@@ -1581,11 +1585,16 @@ namespace hCraft {
 	{
 		if ((!prev && curr) && (this->curr_gamemode != GT_CREATIVE))
 			{
-				double delta = this->pos.y - this->last_ground_height;
-				if (delta <= -3.0)
+				if (this->fall_flag)
+					this->fall_flag = false;
+				else
 					{
-						double fd = (-delta) - 2.0;
-						this->set_hearts (this->hearts - (int)fd);
+						double delta = this->pos.y - this->last_ground_height;
+						if (delta <= -3.0)
+							{
+								double fd = (-delta) - 2.0;
+								this->set_hearts (this->hearts - (int)fd);
+							}
 					}
 			}
 		

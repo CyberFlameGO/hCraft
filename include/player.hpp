@@ -113,6 +113,7 @@ namespace hCraft {
 		int hunger; // 0-20 (the server will handle more)
 		float hunger_saturation; // 5.0 max
 		double last_ground_height;
+		bool fall_flag;
 		
 		char username[17];
 		char colored_username[24];
