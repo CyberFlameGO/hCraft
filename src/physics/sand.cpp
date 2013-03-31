@@ -25,37 +25,40 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		sand::tick (world &w, int x, int y, int z, int extra, void *ptr, block_physics_worker& worker)
+		sand::tick (world &w, int x, int y, int z, int extra, void *ptr)
 		{
-			if (y == 0)
+			if (y <= 0)
 				{ w.queue_update (x, y, z, BT_AIR); return; }
+			if (w.get_final_block (x, y, z).id != BT_SAND)
+				return;
 		
-			if (w.get_id (x, y - 1, z) == BT_AIR)
+			int below = w.get_final_block (x, y - 1, z).id;
+			if (below == BT_AIR)
 				{
-					w.queue_update (x, y - 1, z, BT_SAND);
 					w.queue_update (x, y, z, BT_AIR);
+					w.queue_update (x, y - 1, z, BT_SAND);
 				}
 			else
 				{
-					if (w.get_id (x - 1, y - 1, z) == BT_AIR && w.get_id (x - 1, y, z) == BT_AIR)
+					if (w.get_final_block (x - 1, y - 1, z).id == BT_AIR && w.get_final_block (x - 1, y, z).id == BT_AIR)
 						{
+							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x - 1, y - 1, z, BT_SAND);
-							w.queue_update (x, y, z, BT_AIR);
 						}
-					else if (w.get_id (x + 1, y - 1, z) == BT_AIR && w.get_id (x + 1, y, z) == BT_AIR)
+					else if (w.get_final_block (x + 1, y - 1, z).id == BT_AIR && w.get_final_block (x + 1, y, z).id == BT_AIR)
 						{
+							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x + 1, y - 1, z, BT_SAND);
-							w.queue_update (x, y, z, BT_AIR);
 						}
-					else if (w.get_id (x, y - 1, z - 1) == BT_AIR && w.get_id (x, y, z - 1) == BT_AIR)
+					else if (w.get_final_block (x, y - 1, z - 1).id == BT_AIR && w.get_final_block (x, y, z - 1).id == BT_AIR)
 						{
+							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x, y - 1, z - 1, BT_SAND);
-							w.queue_update (x, y, z, BT_AIR);
 						}
-					else if (w.get_id (x, y - 1, z + 1) == BT_AIR && w.get_id (x, y, z + 1) == BT_AIR)
+					else if (w.get_final_block (x, y - 1, z + 1).id == BT_AIR && w.get_final_block (x, y, z + 1).id == BT_AIR)
 						{
-							w.queue_update (x, y - 1, z + 1, BT_SAND);
 							w.queue_update (x, y, z, BT_AIR);
+							w.queue_update (x, y - 1, z + 1, BT_SAND);
 						}
 				}
 		}
@@ -64,8 +67,7 @@ namespace hCraft {
 		sand::on_neighbour_modified (world &w, int x, int y, int z,
 			int nx, int ny, int nz)
 		{
-			if (w.get_id (x, y - 1, z) == BT_AIR)
-				w.queue_physics_once (x, y, z);
+			w.queue_physics_once (x, y, z, 0, nullptr, this->tick_rate ());
 		}
 	}
 }

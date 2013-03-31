@@ -91,7 +91,10 @@ namespace hCraft {
 	 */
 	
 	struct ph_mem_subchunk {
-		std::bitset<4096> bits;
+		unsigned short blocks[4096];
+		
+	//----
+		ph_mem_subchunk ();
 	};
 	
 	struct ph_mem_chunk {
@@ -183,14 +186,15 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Queue an update to be processed by one of the workers:
+		 * Queues an update to be processed by one of the workers:
 		 */
-		
 		void queue_physics (world *w, int x, int y, int z, int extra = 0,
 			int tick_delay = 20, physics_params *params = nullptr);
 		
-		// Queues an update only if one with the same xyz coordinates does not
-		// already exist.
+		/* 
+		 * Queues an update only if one with the same xyz coordinates does not
+		 * already exist.
+		 */
 		void queue_physics_once (world *w, int x, int y, int z, int extra = 0,
 			int tick_delay = 20, physics_params *params = nullptr);
 	};

@@ -34,7 +34,7 @@ namespace hCraft {
 			virtual int  tick_rate () override { return 3; }
 		
 			virtual void tick (world &w, int x, int y, int z, int extra,
-				void *ptr, block_physics_worker& worker) override;
+				void *ptr) override;
 			virtual void on_neighbour_modified (world &w, int x, int y, int z,
 				int nx, int ny, int nz) override;
 		};

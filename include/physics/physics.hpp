@@ -44,7 +44,7 @@ namespace hCraft {
 		 * Called every "tick_rate ()" milliseconds by the world's physics loop.
 		 */
 		virtual void tick (world &w, int x, int y, int z, int extra,
-				void *ptr, block_physics_worker& worker) = 0;
+				void *ptr) = 0;
 		
 		/* 
 		 * Called when a neighbouring block is destroyed\changed.

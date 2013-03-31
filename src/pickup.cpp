@@ -119,6 +119,9 @@ namespace hCraft {
 		w.get_players ().all (
 			[&i, me, &closest] (player *pl)
 				{
+					if (pl->is_dead ())
+						return;
+					
 					double dist = calc_distance_squared (me->pos, pl->pos);
 					if (i == 0)
 						closest = {pl, dist};
@@ -129,14 +132,24 @@ namespace hCraft {
 						}
 					++ i;
 				});
+		
 		if ((i == 0) || (closest.second > 2.25))
 			return false;
 		
-		this->valid = false;
 		player *pl = closest.first;
-		pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
-		pl->inv.add (this->data);
-		return true;
+		if (!pl) return false;
+		
+		int r = pl->inv.add (this->data);
+		if (r < this->data.amount ())
+			pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
+		this->data.set_amount (r);
+		
+		if (this->data.empty ())
+			{
+				this->valid = false;
+				return true;	
+			}
+		return false;
 	}
 }
 

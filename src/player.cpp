@@ -38,6 +38,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <cmath>
+#include <random>
 
 
 namespace hCraft {
@@ -59,6 +60,7 @@ namespace hCraft {
 		std::strcpy (this->colored_nick, this->nick);
 		
 		this->held_slot = 36;
+		this->inv_painting = false;
 		
 		this->logged_in = false;
 		this->fail = false;
@@ -145,6 +147,54 @@ namespace hCraft {
 	 * libevent callback functions:
 	 */
 	
+	
+	struct handle_context
+	{
+		player *pl;
+		unsigned char **packets;
+		int count;
+	};
+	
+	/* 
+	 * Executed in a thread pool task, spawned by handle ().
+	 */
+	void
+	handle_func (void *ptr)
+	{
+		handle_context *ctx = static_cast<handle_context *> (ptr);
+		player *pl = ctx->pl;
+		unsigned char **packets = ctx->packets;
+		int count = ctx->count;
+		delete ctx; // no longer needed
+		
+		// this will destroy all pointers in case of failure
+		std::vector<std::unique_ptr<unsigned char []> > vec;
+		for (int i = 0; i < count; ++i)
+			vec.emplace_back (packets [i]);
+		delete[] packets;
+		
+		for (std::unique_ptr<unsigned char []>& data : vec)
+			{
+				try
+					{
+						int err = pl->handle (data.get ());
+						-- pl->handlers_scheduled;
+						if (pl->is_disconnecting ())
+							return;
+						else if (err != 0)
+							{
+								pl->disconnect ();
+								return;
+							}
+					}
+				catch (const std::exception& ex)
+					{
+						pl->log (LT_ERROR) << "Exception: " << ex.what () << std::endl;
+						pl->disconnect (false, false);
+					}
+			}
+	}
+	
 	void
 	player::handle_read (struct bufferevent *bufev, void *ctx)
 	{
@@ -191,31 +241,28 @@ namespace hCraft {
 						/* finished reading packet */
 						unsigned char *data = new unsigned char [pl->total_read];
 						std::memcpy (data, pl->rdbuf, pl->total_read);
-						++ pl->handlers_scheduled;
-						pl->get_server ().get_thread_pool ().enqueue (
-							[pl] (void *ctx)
-								{
-									std::unique_ptr<unsigned char[]> data (static_cast<unsigned char *> (ctx));
-									//std::cout << "handle: start""\n";
-									try
-										{
-											int err = pl->handle (data.get ());
-											-- pl->handlers_scheduled;
-											if (pl->is_disconnecting ())
-												return;
-											else if (err != 0)
-												{
-													pl->disconnect ();
-													return;
-												}
-										}
-									catch (const std::exception& ex)
-										{
-											pl->log (LT_ERROR) << "Exception: " << ex.what () << std::endl;
-											pl->disconnect (false, false);
-										}
-									//std::cout << "handle: end""\n";
-								}, data);
+						pl->exec_queue.push_back (data);
+						if (pl->test_packet_chain ())
+							{
+								// copy queue into an array, so we could use it in a pooled thread.
+								int packet_count = pl->exec_queue.size ();
+								unsigned char **packets = new unsigned char* [packet_count];
+								for (int i = 0; !pl->exec_queue.empty (); ++i)
+									{
+										packets[i] = pl->exec_queue.front ();
+										pl->exec_queue.pop_front ();
+									}
+								
+								// wrap everything up
+								handle_context *ctx = new handle_context;
+								ctx->pl = pl;
+								ctx->packets = packets;
+								ctx->count = packet_count;
+								
+								++ pl->handlers_scheduled;
+								pl->get_server ().get_thread_pool ().enqueue (
+									handle_func, ctx);
+							}
 						
 						pl->total_read = 0;
 						pl->read_rem = 1;
@@ -1333,6 +1380,12 @@ namespace hCraft {
 				// notify others too
 				this->get_world ()->get_players ().send_to_all_visible (
 					packet::make_entity_status (this->eid, 2), this);
+				
+				if (hearts <= 0)
+					{
+						// die
+						this->handle_death ();
+					}
 			}
 		
 		this->hearts = hearts;
@@ -1398,6 +1451,35 @@ namespace hCraft {
 	}
 	
 	
+	void 
+	player::handle_death ()
+	{
+		// drop everything
+		if (this->curr_gamemode != GT_CREATIVE)
+			{
+				std::minstd_rand rnd (utils::ns_since_epoch ());
+				std::uniform_real_distribution<> dis (0, 2);
+				
+				entity_pos pos = this->pos;
+				for (int j = 0; j < 5; ++j)
+					{
+						for (int i = 0; i <= 44; ++i)
+							{
+								slot_item s = this->inv.get (i);
+								if (!s.empty ())
+									{
+										pickup_item *pick = new pickup_item (this->srv.next_entity_id (), s);
+										pick->pos.set_pos (pos.x + dis (rnd), pos.y + dis (rnd), pos.z + dis (rnd));
+										this->get_world ()->spawn_entity (pick);
+									}
+							}
+					}
+			}
+		this->inv.clear ();
+		
+	}
+	
+	
 	
 //----
 	
@@ -1451,6 +1533,19 @@ namespace hCraft {
 			}
 		
 		this->last_tick = now;
+		return false;
+	}
+	
+	
+	
+	bool
+	player::handle_crafting (unsigned char wid)
+	{
+		if (wid == 0)
+			{
+				
+			}
+		
 		return false;
 	}
 	
@@ -1570,7 +1665,7 @@ namespace hCraft {
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
 		
-		pl->curr_gamemode = GT_SURVIVAL;
+		pl->curr_gamemode = GT_CREATIVE;
 		pl->send (packet::make_login (pl->get_eid (), "hCraft", pl->curr_gamemode,
 			0, 0, (pl->get_server ().get_config ().max_players > 64)
 				? 64 : (pl->get_server ().get_config ().max_players)));
@@ -1595,11 +1690,18 @@ namespace hCraft {
 		pl->join_world (pl->get_server ().get_main_world ());
 		
 		pl->inv.subscribe (pl);
-		pl->inv.add (slot_item (IT_DIAMOND_SWORD, 0, 1));
-		pl->inv.add (slot_item (IT_MELON_SLICE, 0, 64));
+		
+		//pl->inv.add (slot_item (IT_DIAMOND_SWORD, 0, 1));
+		/*pl->inv.add (slot_item (IT_MELON_SLICE, 0, 64));
 		pl->inv.add (slot_item (IT_DIAMOND_PICKAXE, 0, 1));
 		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
 		pl->inv.add (slot_item (IT_DIAMOND_AXE, 0, 1));
+		pl->inv.add (slot_item (BT_STONE, 0, 64));
+		pl->inv.add (slot_item (BT_STONE, 0, 32));
+		pl->inv.add (slot_item (BT_DIRT, 0, 32));*/
+		
+		pl->inv.add (slot_item (BT_SAND, 0, 1));
+		pl->inv.add (slot_item (BT_STONE, 0, 1));
 		
 		return 0;
 	}
@@ -1607,8 +1709,8 @@ namespace hCraft {
 	int
 	player::handle_packet_03 (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		bool is_global_message = false;
 		
@@ -1736,8 +1838,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0a (player *pl, packet_reader reader)
 	{
-		if (!pl->handshake)
-			{ return -1; }
+		if (!pl->handshake) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		bool on_ground;
 		
@@ -1756,8 +1858,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0b (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		double x, y, z;
 		bool on_ground;
@@ -1780,8 +1882,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0c (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		float r, l;
 		bool on_ground;
@@ -1802,8 +1904,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0d (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		double x, y, z;
 		float r, l;
@@ -1830,8 +1932,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0e (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		char status;
 		int x;
@@ -1955,8 +2057,8 @@ namespace hCraft {
 	int
 	player::handle_packet_0f (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		int x = reader.read_int ();
 		int y = reader.read_byte ();
@@ -2039,8 +2141,8 @@ namespace hCraft {
 	int
 	player::handle_packet_10 (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			return -1;
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		unsigned short index = reader.read_short ();
 		if (index > 8)
@@ -2059,8 +2161,8 @@ namespace hCraft {
 	int
 	player::handle_packet_12 (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		reader.read_int (); // entity ID
 		char animation = reader.read_byte ();
@@ -2135,18 +2237,287 @@ namespace hCraft {
 	int
 	player::handle_packet_66 (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			return -1;
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
-		pl->log (LT_DEBUG) << "click window" << std::endl;
+		unsigned char wid = reader.read_byte ();
+		short slot = reader.read_short ();
+		char mbtn = reader.read_byte ();
+		short actnum = reader.read_short ();
+		char mode = reader.read_byte ();
+		
+		//slot_item item = reader.read_slot ();
+		// use our own item:
+		slot_item item = pl->inv.get (slot);
+		
+		pl->log (LT_DEBUG) << "[" << slot << "]: btn(" << (int)mbtn << ") mode(" << (int)mode <<
+			") item(" << item.id () << ")" << std::endl;
+		
+		if (mode == 3 || mbtn == 3)
+			return 0;
+		
+		// TODO: This assumes that we're only handling the inventory.
+		if (slot < 0 || slot >= pl->inv.slot_count ())
+			{
+				if (mode == 5 && slot == -999)
+					{
+						// inv painting
+						switch (mbtn)
+							{
+							// begin painting
+							case 0:
+								if (pl->inv_painting)
+									return -1;
+								pl->inv_mb = 0;
+								pl->inv_paint_slots.clear ();
+								pl->inv_painting = true;
+								return 0;
+								
+							case 4:
+								if (pl->inv_painting)
+									return -1;
+								pl->inv_mb = 1;
+								pl->inv_paint_slots.clear ();
+								pl->inv_painting = true;
+								return 0;
+							
+							// end painting
+							case 2: case 6:
+								if (!pl->inv_painting)
+									return -1;
+								pl->inv_painting = false;
+								
+								// now that we have collected all affected slots, reorganize...
+								if (!pl->inv_paint_slots.empty ())
+									{
+										int give = (pl->inv_mb == 1) ? 1
+											: (pl->cursor_slot.amount () / pl->inv_paint_slots.size ());
+										
+										for (short s : pl->inv_paint_slots)
+											{
+												if (pl->cursor_slot.amount () < give)
+													return 0;
+												
+												slot_item prev = pl->inv.get (s);
+												
+												// make sure both items are compatible
+												if (item.compatible_with (pl->cursor_slot))
+													{
+														if (pl->cursor_slot.amount () < give)
+															return 0;
+														
+														short this_give = give;
+														if ((prev.id () != BT_AIR) && ((prev.amount () + this_give) > prev.max_stack ()))
+															this_give = prev.max_stack () - prev.amount ();
+														
+														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - this_give);
+														
+														int p_amount = prev.amount ();
+														if (prev.id () == BT_AIR)
+															prev = pl->cursor_slot;
+														prev.set_amount (p_amount + this_give);
+														pl->inv.set (s, prev, false);
+													}
+											}
+									}
+								
+								return 0;
+							}
+					}
+				else
+					return -1;
+			}
+		
+		if (mode == 5)
+			{
+				if (pl->inv_painting)
+					{
+						// remember slot
+						pl->inv_paint_slots.push_back (slot);
+					}
+				return 0;
+			}
+		
+		if (item.id () == BT_AIR)
+			{
+				// putting item back
+				if (pl->cursor_slot.id () == BT_AIR)
+					return 0;
+				pl->log (LT_DEBUG) << "Putting item back" << std::endl;
+				
+				pl->inv.set (slot, pl->cursor_slot);
+				pl->cursor_slot.set (BT_AIR);
+			}
+		else
+			{
+				if (mode == 1)
+					{
+						// shift clicking
+						if (slot >= 9 && slot <= 35)
+							{
+								// first slots with same id&damage
+								for (int i = 36; (i <= 44) && !item.empty (); ++i)
+									{
+										slot_item s = pl->inv.get (i);
+										if ((s.id () == item.id ()) && (s.damage () == item.damage ()))
+											{
+												int take = s.max_stack () - s.amount ();
+												if (take > item.amount ())
+													take = item.amount ();
+												
+												s.set_amount (s.amount () + take);
+												item.take (take);
+												pl->inv.set (i, s);
+											}
+									}
+								
+								// now do empty slots
+								for (int i = 36; (i <= 44) && !item.empty (); ++i)
+									{
+										slot_item s = pl->inv.get (i);
+										if (s.id () == BT_AIR)
+											{
+												int take = 64;
+												if (take > item.amount ())
+													take = item.amount ();
+												
+												s.set (item.id (), item.damage (), s.amount () + take);
+												item.take (take);
+												pl->inv.set (i, s);
+											}
+									}
+								
+								// update item
+								pl->inv.set (slot, item);
+							}
+						else if ((slot >= 36 && slot <= 44) || (slot >= 0 && slot <= 8))
+							{
+								// first slots with same id&damage
+								for (int i = 9; (i <= 35) && !item.empty (); ++i)
+									{
+										slot_item s = pl->inv.get (i);
+										if ((s.id () == item.id ()) && (s.damage () == item.damage ()))
+											{
+												int take = s.max_stack () - s.amount ();
+												if (take > item.amount ())
+													take = item.amount ();
+												
+												s.set_amount (s.amount () + take);
+												item.take (take);
+												pl->inv.set (i, s);
+											}
+									}
+								
+								// now do empty slots
+								for (int i = 9; (i <= 35) && !item.empty (); ++i)
+									{
+										slot_item s = pl->inv.get (i);
+										if (s.id () == BT_AIR)
+											{
+												int take = 64;
+												if (take > item.amount ())
+													take = item.amount ();
+												
+												s.set (item.id (), item.damage (), s.amount () + take);
+												item.take (take);
+												pl->inv.set (i, s);
+											}
+									}
+								
+								// update item
+								pl->inv.set (slot, item);
+							}
+					}
+				else if (mode == 2)
+					{
+						// pressing 1-9 while hovering over an item
+						
+						int dest = 36 + mbtn;
+						if (dest > 44)
+							return -1;
+						
+						pl->log (LT_DEBUG) << "Swapping between [" << slot << "] and [" << dest << "]" << std::endl;
+						pl->inv.set (slot, pl->inv.get (dest));
+						pl->inv.set (dest, item);
+					}
+				else
+					{
+						if (pl->cursor_slot.id () != BT_AIR)
+							{
+								if (mbtn == 1)
+									{
+										if (item.compatible_with (pl->cursor_slot) &&
+											(item.amount () < item.max_stack ()))
+											{
+												pl->log (LT_DEBUG) << "Putting one" << std::endl;
+												item.give (1);
+												pl->cursor_slot.take (1);
+												pl->inv.set (slot, item);
+											}
+									}
+								else
+									{
+										// attempt to merge stacks
+										pl->log (LT_DEBUG) << "Merging stacks" << std::endl;
+					
+										bool item_tool = item_info::is_tool (item.id ());
+										bool cursor_tool = item_info::is_tool (pl->cursor_slot.id ());
+					
+										if (item.compatible_with (pl->cursor_slot))
+											{
+												if (!item.full ())
+													{
+														int room = item.max_stack () - item.amount ();
+														int take = room;
+														if (take > pl->cursor_slot.amount ())
+															take = pl->cursor_slot.amount ();
+									
+														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - take);
+														item.set_amount (item.amount () + take);
+														pl->inv.set (slot, item);
+													}
+											}
+										else if (!item_tool && !cursor_tool)
+											{
+												// swap stacks
+												pl->log (LT_DEBUG) << "Swapping stacks" << std::endl;
+												slot_item temp = pl->cursor_slot;
+												pl->cursor_slot = item;
+												pl->inv.set (slot, temp);
+											}
+									}
+							}
+						else
+							{
+								if (mbtn == 1)
+									{
+										// split stack
+										pl->log (LT_DEBUG) << "Splitting stack" << std::endl;
+							
+										int rem = item.amount () % 2;
+										pl->cursor_slot = item;
+										item.set_amount (item.amount () / 2);
+										pl->cursor_slot.set_amount (pl->cursor_slot.amount () / 2 + rem);
+										pl->inv.set (slot, item);
+									}
+								else
+									{
+										// picking up item
+										pl->log (LT_DEBUG) << "Picking item up" << std::endl;
+										pl->cursor_slot = item;
+										pl->inv.set (slot, slot_item (BT_AIR));
+									}
+							}
+					}
+			}
+		
 		return 0;
 	}
 	
 	int
 	player::handle_packet_6a (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			return -1;
+		if (!pl->logged_in) return -1;
 		
 		pl->log (LT_DEBUG) << "confirm transaction" << std::endl;
 		return 0;
@@ -2155,30 +2526,26 @@ namespace hCraft {
 	int
 	player::handle_packet_6b (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			return -1;
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
 		
 		if (pl->gamemode () != GT_CREATIVE)
 			{
 				pl->log (LT_WARNING) << "Received a \"Creative Inventory Action\" packet "
-					"a player in survival mode. (" << pl->get_username () << ")" << std::endl;
+					"from a player in survival mode. (" << pl->get_username () << ")" << std::endl;
 				return -1;
 			}
 		
-		pl->log (LT_DEBUG) << "creative inventory action" << std::endl;
 		short index = reader.read_short ();
 		slot_item item = reader.read_slot ();
 		
-		pl->log (LT_DEBUG) << " - slot: " << index << " [id: " << item.id () << "]" << std::endl;
-		
-		if (index < 0 || index > 44)
+		if (index < 0)
 			{
-				// Dropping items is not supported yet, just remove it from the
-				// player's inventory. TODO ^
+				// TODO: drop item
 				return 0;
 			}
 		
-		if (!(index >= 36 && index <= 44))
+		if (index > 44)
 			{
 				// shouldn't be possible
 				pl->log (LT_WARNING) << "Received an invalid \"Creative Inventory Action\" "
@@ -2187,21 +2554,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		if (!item.is_valid ())
-			{
-				// The player picked the item up.
-				pl->cursor_slot = pl->inv.get (index);
-				pl->inv.set (index, slot_item (BT_AIR, 0, 0));
-				return 0;
-			}
-		
-		if (pl->cursor_slot.is_valid ())
-			{
-				pl->inv.set (index, pl->cursor_slot);
-				pl->cursor_slot.set (BT_AIR, 0, 0);
-			}
-		else
-			pl->inv.set (index, item);
+		pl->inv.set (index, item);
 		return 0;
 	}
 	
@@ -2227,8 +2580,7 @@ namespace hCraft {
 	}
 	
 	/* 
-	 * Executes the packet handler for the most recently read packet
-	 * (stored in `rdbuf').
+	 * Executes the appropriate packet handler for the given byte array.
 	 */
 	int
 	player::handle (const unsigned char *data)
@@ -2319,6 +2671,70 @@ namespace hCraft {
 		if (this->bad ()) return 0;
 		packet_reader reader {data};
 		return handlers[reader.read_byte ()] (this, reader);
+	}
+
+
+
+//----
+	
+	static bool
+	test_packet_66 (packet_reader reader)
+	{
+		reader.read_byte (); // wid
+		short slot = reader.read_short ();
+		char mbtn  = reader.read_byte ();
+		reader.read_short (); // action number
+		char mode = reader.read_byte ();
+		
+		if (mode == 5)
+			{
+				if (slot == -999 && ((mbtn == 2) || (mbtn == 6)))
+					return true;
+				
+				return false;
+			}			
+		
+		return true;
+	}
+	
+	/* 
+	 * Examines the queue that holds packets pending to be handled by
+	 * appropriate callback methods in-order to conclude whether it is safe
+	 * to handle the packets. 
+	 */
+	bool
+	player::test_packet_chain ()
+	{
+		// if the last packet is different compared to the existing ones,
+		// then consider it as the end of chain.
+		if (this->exec_queue.size () > 1)
+			{
+				int last_op = -1;
+				for (auto itr = this->exec_queue.rbegin (); itr != this->exec_queue.rend (); ++itr)
+					{
+						if (last_op == -1)
+							last_op = (*itr)[0];
+						else
+							{
+								if (last_op != (*itr)[0])
+									return true;
+							}
+					}
+			} 
+		
+		// we only test the last packet
+		unsigned char *data = this->exec_queue.back ();
+		packet_reader reader {data};
+		
+		switch (reader.read_byte ())
+			{
+				// window click
+				case 0x66: return test_packet_66 (reader);
+				case 0x6B: return false;
+				
+				default:
+					return true;
+			}
 	}
 }
 

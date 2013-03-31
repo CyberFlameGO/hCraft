@@ -43,8 +43,10 @@ namespace hCraft {
 			
 			task () {}
 			task (std::function<void (void *)>&& cb, void *ctx)
-				: callback (std::move (cb)), context (ctx)
-				{ }
+				: callback (std::move (cb))
+			{
+				this->context = ctx;
+			}
 		};
 		
 		struct worker_thread

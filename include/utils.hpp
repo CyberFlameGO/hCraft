@@ -60,6 +60,11 @@ namespace hCraft {
 			{ return (a > b) ? a : b; }
 		
 		
+		inline int
+		floor (double x)
+			{ return (x >= 0.0) ? (int)x : ((int)x - 1); }
+		
+		
 		// integer rotation
 		inline int
 		int_rot (float v)
@@ -67,6 +72,13 @@ namespace hCraft {
 			v = v - (((int)v / 360) * 360);
 			return v * 0.71111111111;
 		}
+		
+		
+		/* 
+		 * The amount of nanoseconds passed since epoch.
+		 * Useful to initialize random number generators.
+		 */
+		unsigned long long ns_since_epoch ();
 	}
 }
 

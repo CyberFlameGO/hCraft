@@ -17,12 +17,23 @@
  */
 
 #include "utils.hpp"
+#include <chrono>
 
 
 namespace hCraft {
 	namespace utils {
 		
-		
+		/* 
+		 * The amount of nanoseconds passed since epoch.
+		 * Useful to initialize random number generators.
+		 */
+		unsigned long long
+		ns_since_epoch ()
+		{
+			return std::chrono::duration_cast<std::chrono::nanoseconds> (
+				std::chrono::high_resolution_clock::now ().time_since_epoch ()).count ()
+				& 0x7FFFFFFF;
+		}
 	}
 }
 

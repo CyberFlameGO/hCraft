@@ -66,6 +66,7 @@ namespace hCraft {
 	public:
 		inline unsigned char wid () { return w_id; }
 		inline const std::string& title () { return w_title; }
+		inline int slot_count () { return w_slots.size (); }
 		
 	public:
 		/* 

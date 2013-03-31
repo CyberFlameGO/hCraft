@@ -214,7 +214,7 @@ namespace hCraft {
 			int id = 0, m = 0;
 			block_info *binf = block_info::from_id_or_name (name.str ().c_str ());
 			if (!binf)
-				return blocki (0xFFFF, 0xFF);
+				return blocki (BT_UNKNOWN, 0xFF);
 			id = binf->id;
 		
 			if (have_meta)

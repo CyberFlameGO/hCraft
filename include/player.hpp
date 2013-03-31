@@ -33,6 +33,7 @@
 
 #include <atomic>
 #include <queue>
+#include <deque>
 #include <unordered_set>
 #include <mutex>
 #include <chrono>
@@ -131,6 +132,9 @@ namespace hCraft {
 		gamemode_type curr_gamemode;
 		short held_slot;
 		slot_item cursor_slot;
+		bool inv_painting; // inventory paining mode, added in 1.5
+		char inv_mb; // mouse button ^
+		std::vector<short> inv_paint_slots;
 		
 		char kick_msg[384];
 		bool kicked;
@@ -141,6 +145,15 @@ namespace hCraft {
 		int total_read;
 		int read_rem;
 		std::atomic_int handlers_scheduled;
+		
+		// Using a thread pool to execute packet handling methods gives rise to a
+		// problem: Packets that must be executed in a certain order (such as, for
+		// example - 0x66 [window click] packets) are NOT guaranteed to be handled
+		// in the same order they were received. To solve this, received packets
+		// are first put into this queue, and only after a conclusion is made that
+		// it is indeed safe to call the packet callbacks, the packets in the queue
+		// are executed one after the other all at once in a pooled thread.
+		std::deque<unsigned char *> exec_queue;
 		
 		bool writing;
 		std::queue<packet *> out_queue;
@@ -219,12 +232,30 @@ namespace hCraft {
 		static int handle_packet_ff (player *pl, packet_reader reader);
 		
 		/* 
-		 * Executes the packet handler for the most recently read packet
-		 * (stored in `rdbuf').
+		 * Examines the queue that holds packets pending to be handled by
+		 * appropriate callback methods in-order to conclude whether it is safe
+		 * to handle the packets. 
+		 */
+		bool test_packet_chain ();
+		
+		/* 
+		 * Executes the appropriate packet handler for the given byte array.
 		 */
 		int handle (const unsigned char *data);
 		
+		/* 
+		 * Executed in a thread pool task, spawned by handle ().
+		 */
+		friend void handle_func (void *ctx);
+		
+		
+	//----
+		
 		void handle_falls_and_jumps (bool prev, bool curr, entity_pos old_pos);
+		
+		bool handle_crafting (unsigned char wid);
+		
+		void handle_death ();
 		
 	//----
 		
@@ -281,6 +312,7 @@ namespace hCraft {
 		inline int get_hearts () { return this->hearts; }
 		inline int get_hunger () { return this->hunger; }
 		inline int get_hunger_saturation () { return this->hunger_saturation; }
+		inline bool is_dead () { return this->hearts <= 0; }
 		
 		inline bool is_reading () { return this->reading; }
 		inline bool is_writing () { return this->writing; }
@@ -411,6 +443,7 @@ namespace hCraft {
 		void set_hunger_saturation (float hunger_saturation);
 		void set_health (int hearts, int hunger, float hunger_saturation);
 		void increment_exhaustion (float val);
+		void kill () { this->set_hearts (0); }
 		
 		
 		

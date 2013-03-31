@@ -54,7 +54,7 @@ namespace hCraft {
 	 */
 	world::world (server &srv, const char *name, logger &log, world_generator *gen,
 		world_provider *provider)
-		: srv (srv), log (log), lm (log, this)
+		: srv (srv), log (log), estage (*this), lm (log, this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -69,6 +69,7 @@ namespace hCraft {
 		this->players = new playerlist ();
 		this->th_running = false;
 		this->auto_lighting = true;
+		this->ticks = 0;
 		
 		// physics blocks
 		{
@@ -184,6 +185,7 @@ namespace hCraft {
 		
 		int update_count;
 		
+		this->ticks = 0;
 		while (this->th_running)
 			{
 				++ this->ticks;
@@ -269,16 +271,14 @@ namespace hCraft {
 									unsigned short old_id = this->get_id (u.x, u.y, u.z);
 									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
 									
-									this->set_id_and_meta (u.x, u.y, u.z,
-										u.id, u.meta);
+									this->set_id_and_meta (u.x, u.y, u.z, u.id, u.meta);
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
 										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
 							
 									// update players
-									pl_tr.insert (u.x, u.y, u.z,
-										ph ? ph->vanilla_id () : u.id, u.meta);
+									pl_tr.insert (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
 									
 									// track selection blocks
 									for (player *pl : pl_vc)
@@ -307,7 +307,7 @@ namespace hCraft {
 											// check neighbouring blocks
 											{
 												physics_block *nph;
-										
+												
 												int xx, yy, zz;
 												for (xx = (u.x - 1); xx <= (u.x + 1); ++xx)
 													for (yy = (u.y - 1); yy <= (u.y + 1); ++yy)
@@ -317,11 +317,13 @@ namespace hCraft {
 																	continue;
 																if ((yy < 0) || (yy > 255))
 																	continue;
-														
+																
 																nph = this->get_physics_at (xx, yy, zz);
 																if (nph)
-																	nph->on_neighbour_modified (*this, xx, yy, zz,
-																		u.x, u.y, u.z);
+																	{
+																		nph->on_neighbour_modified (*this, xx, yy, zz,
+																			u.x, u.y, u.z);	
+																	}
 															}
 											}
 										}
@@ -338,49 +340,50 @@ namespace hCraft {
 							//if (update_count)
 							//	this->log (LT_DEBUG) << update_count << " block updates." << std::endl;
 						}
-					
-					/* 
-					 * Lighting updates.
-					 */
-					this->lm.update (light_update_cap);
-					
-					/* 
-					 * Entities
-					 */
-					{
-						std::lock_guard<std::mutex> lock ((this->entity_lock));
-							for (auto itr = this->entities.begin (); itr != this->entities.end (); )
-								{
-									entity *e = *itr;
-									if (e->tick (*this))
-										itr = this->despawn_entity_nolock (itr);
-									else
-										++ itr;
-								}
-					}
-					
-					/* 
-					 * Players
-					 */
-					{
-						// NOTE: a world tick is 5ms!
 						
-						if ((this->ticks % 10) == 0)
+				} // release of update lock
+					
+				/* 
+				 * Lighting updates.
+				 */
+				this->lm.update (light_update_cap);
+				
+				/* 
+				 * Entities
+				 */
+				{
+					std::lock_guard<std::mutex> lock ((this->entity_lock));
+						for (auto itr = this->entities.begin (); itr != this->entities.end (); )
 							{
-								std::vector<player *> players;
-								this->get_players ().populate (players);
-								for (player *pl : players)
-									pl->tick (*this);
-						
-								// update time (every 4 seconds)
-								// NOTE: a 'world tick' = 5 milliseconds
-								if ((this->ticks % 800) == 0)
-									for (player *pl : players)
-										pl->send (packet::make_time_update (this->ticks / 10, this->ticks / 10));
+								entity *e = *itr;
+								if (e->tick (*this))
+									itr = this->despawn_entity_nolock (itr);
+								else
+									++ itr;
 							}
-					}
 				}
 				
+				/* 
+				 * Players
+				 */
+				{
+					// NOTE: a world tick is 5ms!
+					
+					if ((this->ticks % 10) == 0)
+						{
+							std::vector<player *> players;
+							this->get_players ().populate (players);
+							for (player *pl : players)
+								pl->tick (*this);
+					
+							// update time (every 4 seconds)
+							// NOTE: a 'world tick' = 5 milliseconds
+							if ((this->ticks % 800) == 0)
+								for (player *pl : players)
+									pl->send (packet::make_time_update (this->ticks / 10, this->ticks / 10));
+						}
+				}
+								
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
 			}
 	}
@@ -897,21 +900,17 @@ namespace hCraft {
 		return this->phblocks[id].get ();
 	}
 	
-	unsigned short
-	world::get_final_id_nolock (int x, int y, int z)
+	
+	
+	/* 
+	 * Instead of fetching the block from the underlying chunk, and attempt
+	 * to query the edit stage is made first.
+	 */
+	blocki
+	world::get_final_block (int x, int y, int z)
 	{
-		unsigned short id = this->get_id (x, y, z);
-		for (auto itr = std::begin (this->updates); itr != std::end (this->updates); ++itr)
-			{
-				block_update &u = *itr;
-				if (u.x == x && u.y == y && u.z == z)
-					{
-						id = u.id;
-						break;
-					}
-			}
-		
-		return id;
+		std::lock_guard<std::mutex> guard {this->estage_lock};
+		return this->estage.get (x, y, z);
 	}
 	
 	
@@ -929,14 +928,9 @@ namespace hCraft {
 		if (this->is_out_of_bounds (x, y, z)) return;
 		std::lock_guard<std::mutex> guard {this->update_lock};
 		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
-	}
-	
-	void
-	world::queue_update_nolock (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
-	{
-		if (this->is_out_of_bounds (x, y, z)) return;
-		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
+		
+		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
+		this->estage.set (x, y, z, id, meta);
 	}
 	
 	void

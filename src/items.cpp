@@ -94,5 +94,50 @@ namespace hCraft {
 			return {};
 		return itr->second;
 	}
+	
+	
+	
+	/* 
+	 * Checks whether the item associated with the given ID is a tool.
+	 * (Anything that has a durability bar is considered a tool (except armor)).
+	 */
+	bool
+	item_info::is_tool (unsigned short id)
+	{
+		switch (id)
+			{
+				case IT_WOODEN_AXE:
+				case IT_STONE_AXE:
+				case IT_IRON_AXE:
+				case IT_GOLDEN_AXE:
+				case IT_DIAMOND_AXE:
+				
+				case IT_WOODEN_PICKAXE:
+				case IT_STONE_PICKAXE:
+				case IT_IRON_PICKAXE:
+				case IT_GOLDEN_PICKAXE:
+				case IT_DIAMOND_PICKAXE:
+				
+				case IT_WOODEN_SHOVEL:
+				case IT_STONE_SHOVEL:
+				case IT_IRON_SHOVEL:
+				case IT_GOLDEN_SHOVEL:
+				case IT_DIAMOND_SHOVEL:
+				
+				case IT_WOODEN_HOE:
+				case IT_STONE_HOE:
+				case IT_IRON_HOE:
+				case IT_GOLD_HOE:
+				case IT_DIAMOND_HOE:
+				
+				case IT_FLINT_AND_STEEL:
+				case IT_FISHING_ROD:
+				case IT_CARROT_ON_A_STICK:
+				case IT_SHEARS:
+					return true;
+				
+				default: return false;
+			}
+	}
 }
 

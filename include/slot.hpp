@@ -52,20 +52,16 @@ namespace hCraft {
 		inline unsigned short amount () const { return s_amount; }
 		
 		inline int max_stack () const {
-			if (is_block ())
+			if (is_block () && this->s_info.binf)
 				return this->s_info.binf->max_stack;
-			else if (is_item ())
+			else if (is_item () && this->s_info.iinf)
 				return this->s_info.iinf->max_stack;
-			return 0;
+			return 1;
 		}
 		inline bool empty () const { return s_amount == 0; }
 		inline bool full () const
 		{
-			if (is_block ())
-				return this->s_amount == this->s_info.binf->max_stack;
-			else if (is_item ())
-				return this->s_amount == this->s_info.iinf->max_stack;
-			return true;
+			return this->s_amount >= this->max_stack ();
 		}
 		
 	public:
@@ -91,6 +87,18 @@ namespace hCraft {
 			{ this->set (BT_AIR, 0, 0); }
 		
 		const char* name () const;
+		
+		
+		/* 
+		 * Checks whether the given slot item can be stacked on top of this one.
+		 */
+		bool compatible_with (slot_item s);
+		
+		/* 
+		 * Increase\reduce amount
+		 */
+		void take (int a);
+		void give (int a);
 		
 	//----
 		bool operator== (const slot_item& other) const;

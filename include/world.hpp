@@ -26,6 +26,7 @@
 #include "lighting.hpp"
 #include "physics/physics.hpp"
 #include "block_physics.hpp"
+#include "editstage.hpp"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -107,6 +108,9 @@ namespace hCraft {
 		std::mutex update_lock;
 		world_physics_state ph_state;
 		unsigned long long ticks;
+		
+		edit_stage estage;
+		std::mutex estage_lock;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
@@ -284,7 +288,12 @@ namespace hCraft {
 		bool has_physics_at (int x, int y, int z);
 		physics_block* get_physics_at (int x, int y, int z);
 		physics_block* get_physics_of (int id);
-		unsigned short get_final_id_nolock (int x, int y, int z);
+		
+		/* 
+		 * Instead of fetching the block from the underlying chunk, and attempt
+		 * to query the edit stage is made first.
+		 */
+		blocki get_final_block (int x, int y, int z);
 		
 	//----
 		
@@ -293,10 +302,6 @@ namespace hCraft {
 		 * and sent to nearby players.
 		 */
 		void queue_update (int x, int y, int z, unsigned short id,
-			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
-			player *pl = nullptr, bool physics = true);
-		
-		void queue_update_nolock (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
 			player *pl = nullptr, bool physics = true);
 		

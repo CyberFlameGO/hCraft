@@ -29,11 +29,11 @@ namespace hCraft {
 		queue_update_if_empty (world &w, int x, int y, int z, unsigned short id,
 			unsigned char meta, int extra)
 		{
-			int prev_id = w.get_final_id_nolock (x, y, z);
+			int prev_id = w.get_final_block (x, y, z).id;
 			if (prev_id != BT_AIR)
 				return false;
 			
-			w.queue_update_nolock (x, y, z, id, meta, extra);
+			w.queue_update (x, y, z, id, meta, extra);
 			return true;
 		}
 		
@@ -100,13 +100,13 @@ namespace hCraft {
 		
 		
 		void
-		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr, block_physics_worker& worker)
+		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr)
 		{
 			if (y == 0)
-				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }
-			int block_below = w.get_final_id_nolock (x, y - 1, z);
+				{ w.queue_update (x, y, z, BT_AIR); return; }
+			int block_below = w.get_final_block (x, y - 1, z).id;
 			if (block_below != BT_WOOL && block_below != BT_GRASS)
-				{ w.queue_update_nolock (x, y, z, BT_AIR); return; }
+				{ w.queue_update (x, y, z, BT_AIR); return; }
 			
 			int col_below = color_from_wool (w.get_meta (x, y - 1, z));
 			int next_col  = next_color (col_below);

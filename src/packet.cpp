@@ -579,7 +579,7 @@ namespace hCraft {
 	{
 		short id = this->read_short ();
 		if (id == -1)
-			return slot_item (BT_AIR, 0, 0);
+			return slot_item (-1, 0, 0);
 		
 		char  amount = this->read_byte ();
 		short damage = this->read_short ();

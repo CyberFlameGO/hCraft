@@ -180,6 +180,37 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		/* 
+		 * /line -
+		 * 
+		 * Draws a line between two selected points.
+		 * 
+		 * Permissions:
+		 *   - command.draw.line
+		 *       Needed to execute the command.
+		 */
+		class c_line: public command
+		{
+		public:
+			const char* get_name () { return "line"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a line between two selected points."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.fill"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

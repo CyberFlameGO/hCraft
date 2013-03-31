@@ -213,6 +213,8 @@ namespace hCraft {
 		
 		item_info (unsigned short id, const char *name, unsigned short durability,
 			char max_stack);
+		
+		inline bool stackable () { return max_stack > 1; }
 			
 	//----
 		
@@ -228,6 +230,13 @@ namespace hCraft {
 		 * aspects of the item with the specified ID.
 		 */
 		static food_info get_food_info (unsigned short id);
+		
+		
+		/* 
+		 * Checks whether the item associated with the given ID is a tool.
+		 * (Anything that has a durability bar is considered a tool (except armor))
+		 */
+		static bool is_tool (unsigned short id);
 	};
 }
 

@@ -19,7 +19,11 @@
 #include "block_physics.hpp"
 #include "physics/physics.hpp"
 #include "world.hpp"
+#include "utils.hpp"
 #include <functional>
+#include <cstring>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -31,13 +35,19 @@ namespace hCraft {
 	
 	
 	
+	ph_mem_subchunk::ph_mem_subchunk ()
+	{
+		std::memset (this->blocks, 0, 4096 * sizeof (unsigned short));
+	}
+	
+	
+	
 	/* 
 	 * Constructs and starts the worker thread.
 	 */
 	block_physics_worker::block_physics_worker (block_physics_manager &man)
 		: paused (false), ticks (0), man (man),
-			rnd ((std::chrono::high_resolution_clock::now ().time_since_epoch ()).count ()
-				& 0x7FFFFFFF), _running (true),
+			rnd (utils::ns_since_epoch ()), _running (true),
 		
 			// and finally, the thread:
 			th (std::bind (std::mem_fn (&hCraft::block_physics_worker::main_loop), this))
@@ -123,9 +133,6 @@ namespace hCraft {
 		const static int updates_per_tick = 8000;
 		int i, fcount;
 		
-		// 
-		// TODO: Handle updates with more than 8 ticks.
-		// 
 		while (this->_running)
 			{
 				std::this_thread::sleep_for (std::chrono::milliseconds (50));
@@ -160,7 +167,7 @@ namespace hCraft {
 							continue;
 						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
 						if (pb)
-							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr, *this);
+							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr);
 					}
 			}
 	}
@@ -184,7 +191,7 @@ namespace hCraft {
 		ph_mem_subchunk* sub = ch.subs[y >> 4];
 		if (sub == nullptr)
 			return false;
-		return sub->bits.test (((y & 0xF) << 8) | ((z & 0xF) << 8) | (x & 0xF));
+		return (sub->blocks[((y & 0xF) << 8) | ((z & 0xF) << 4) | (x & 0xF)] > 0);
 	}
 	
 	void
@@ -198,7 +205,12 @@ namespace hCraft {
 		ph_mem_subchunk* sub = ch.subs[y >> 4];
 		if (sub == nullptr)
 			sub = ch.subs[y >> 4] = new ph_mem_subchunk ();
-		sub->bits.set (((y & 0xF) << 8) | ((z & 0xF) << 8) | (x & 0xF));
+		
+		unsigned int index = ((y & 0xF) << 8) | ((z & 0xF) << 4) | (x & 0xF);
+		if (sub->blocks[index] < 0xFFFF)
+			++ sub->blocks[index];
+		else
+			std::cout << "!!!" << std::endl;
 	}
 	
 	void
@@ -218,7 +230,10 @@ namespace hCraft {
 		ph_mem_subchunk* sub = ch.subs[y >> 4];
 		if (sub == nullptr)
 			return;
-		sub->bits.reset (((y & 0xF) << 8) | ((z & 0xF) << 8) | (x & 0xF));
+		
+		unsigned int index = ((y & 0xF) << 8) | ((z & 0xF) << 4) | (x & 0xF);
+		if (sub->blocks[index] > 0)
+			-- sub->blocks[index];
 	}
 	
 	
@@ -258,6 +273,9 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Queues an update to be processed by one of the workers:
+	 */
 	void
 	block_physics_manager::queue_physics (world *w, int x, int y, int z,
 		int extra, int tick_delay, physics_params *params)
@@ -277,11 +295,14 @@ namespace hCraft {
 					if (params->actions[i].type == PA_NONE)
 						break;
 				}
+		
 		this->updates.push (u);
 	}
 	
-	// Queues an update only if one with the same xyz coordinates does not
-	// already exist.
+	/* 
+	 * Queues an update only if one with the same xyz coordinates does not
+	 * already exist.
+	 */
 	void
 	block_physics_manager::queue_physics_once (world *w, int x, int y, int z,
 		int extra, int tick_delay, physics_params *params)
@@ -303,6 +324,8 @@ namespace hCraft {
 					if (params->actions[i].type == PA_NONE)
 						break;
 				}
+		
+		this->updates.push (u);
 	}
 }
 

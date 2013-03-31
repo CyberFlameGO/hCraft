@@ -33,7 +33,7 @@ namespace hCraft {
 	
 	slot_item::slot_item ()
 	{
-		this->set (BT_UNKNOWN, 0, 0);
+		this->set (BT_AIR, 0, 0);
 	}
 	
 	slot_item::slot_item (const slot_item& other)
@@ -50,17 +50,9 @@ namespace hCraft {
 	slot_item::set (unsigned short id, unsigned short damage,
 		unsigned short amount)
 	{
-		if (amount == 0)
-			{
-				// this sets the id and damage to 0 as well.
-				this->set_amount (0);
-			}
-		else
-			{
-				this->set_id (id);
-				this->set_damage (damage);
-				this->set_amount (amount);
-			}
+		this->set_id (id);
+		this->set_damage (damage);
+		this->set_amount (amount);
 	}
 	
 	void
@@ -88,7 +80,9 @@ namespace hCraft {
 		this->s_amount = amount;
 		if (this->s_amount == 0)
 			{
-				this->set_id (0);
+				if (this->s_id != 0xFFFF && this->s_id != 0)
+					this->set_id (0);
+				
 				this->set_damage (0);
 			}
 	}
@@ -107,6 +101,46 @@ namespace hCraft {
 			}
 		
 		return "unknown";
+	}
+	
+	
+	
+	/* 
+	 * Checks whether the given slot item can be stacked on top of this one.
+	 */
+	bool
+	slot_item::compatible_with (slot_item s)
+	{
+		if ((this->id () == BT_AIR) || (s.id () == BT_AIR))
+			return true;
+		
+		bool this_tool = item_info::is_tool (this->id ());
+		bool s_tool = item_info::is_tool (s.id ());
+		return ((this->id () == s.id ()) &&
+				(this->damage () == s.damage ()) &&
+				(!this_tool && !s_tool));
+	}
+	
+	
+	/* 
+	 * Increase\reduce amount
+	 */
+	void
+	slot_item::take (int a)
+	{
+		int new_a = this->amount () - a;
+		if (new_a < 0)
+			new_a = 0;
+		this->set_amount (new_a);
+	}
+	
+	void
+	slot_item::give (int a)
+	{
+		int new_a = this->amount () + a;
+		if (new_a > this->max_stack ())
+			new_a = this->max_stack ();
+		this->set_amount (new_a);
 	}
 	
 	

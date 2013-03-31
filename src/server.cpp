@@ -726,7 +726,9 @@ namespace hCraft {
 		
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
 			.run_forever (30000);
-		this->tpool.start (6); // 6 pooled threads
+		
+		// create pooled threads
+		this->tpool.start (6);
 	}
 	
 	void
@@ -779,6 +781,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "select");
 		_add_command (this->perms, this->commands, "fill");
 		_add_command (this->perms, this->commands, "gm");
+		_add_command (this->perms, this->commands, "line");
 	}
 	
 	void
@@ -819,6 +822,7 @@ namespace hCraft {
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->set_color ('b');
 		grp_designer->inherit (grp_builder);
+		grp_builder->add ("command.draw.line");
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->set_color ('3');
@@ -1313,7 +1317,7 @@ namespace hCraft {
 		if (this->worker_count <= 1)
 			this->worker_count = 2;
 		this->workers.reserve (this->worker_count);
-		log () << "Creating " << this->worker_count << " server workers." << std::endl;
+		log () << "Creating " << this->worker_count << " server worker(s)." << std::endl;
 		
 		this->workers_stop = false;
 		this->workers_ready = false;

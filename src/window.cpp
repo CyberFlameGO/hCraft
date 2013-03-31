@@ -22,8 +22,6 @@
 #include <mutex>
 #include <algorithm>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -176,6 +174,9 @@ namespace hCraft {
 	void
 	window::set (int index, slot_item item, bool update)
 	{
+		if (item.id () == BT_UNKNOWN)
+			item.set_id (BT_AIR);
+		
 		if (index > 44 || index < 0)
 			return;
 		

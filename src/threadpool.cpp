@@ -18,6 +18,8 @@
 
 #include "threadpool.hpp"
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
