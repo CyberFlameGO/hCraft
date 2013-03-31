@@ -1629,15 +1629,15 @@ namespace hCraft {
 			}
 		
 		char username[17];
-		/*
+		///*
 		int username_len = reader.read_string (username, 16);
 		if (username_len < 2)
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
 			}
-		*/
-		///*
+		//*/
+		/*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -1691,16 +1691,7 @@ namespace hCraft {
 		
 		pl->inv.subscribe (pl);
 		
-		//pl->inv.add (slot_item (IT_DIAMOND_SWORD, 0, 1));
-		/*pl->inv.add (slot_item (IT_MELON_SLICE, 0, 64));
-		pl->inv.add (slot_item (IT_DIAMOND_PICKAXE, 0, 1));
-		pl->inv.add (slot_item (IT_DIAMOND_SHOVEL, 0, 1));
-		pl->inv.add (slot_item (IT_DIAMOND_AXE, 0, 1));
-		pl->inv.add (slot_item (BT_STONE, 0, 64));
-		pl->inv.add (slot_item (BT_STONE, 0, 32));
-		pl->inv.add (slot_item (BT_DIRT, 0, 32));*/
-		
-		pl->inv.add (slot_item (BT_SAND, 0, 1));
+		pl->inv.add (slot_item (IT_FEATHER, 0, 1));
 		pl->inv.add (slot_item (BT_STONE, 0, 1));
 		
 		return 0;
@@ -2173,6 +2164,19 @@ namespace hCraft {
 			{
 				pl->get_world ()->get_players ().send_to_all_visible (
 					packet::make_animation (pl->eid, animation), pl);
+			}
+		
+		if (pl->curr_gamemode == GT_CREATIVE && pl->inv.get (pl->held_slot).id () == IT_FEATHER)
+			{
+				// TODO: check permissions
+				
+				double ux = -std::cos (pl->pos.l * 0.017453293) * std::sin (pl->pos.r * 0.017453293);
+				double uy = -std::sin (pl->pos.l * 0.017453293);
+				double uz =  std::cos (pl->pos.l * 0.017453293) * std::cos (pl->pos.r * 0.017453293);
+				
+				int speed = pl->is_crouched () ? 32767 : 13500;
+				pl->send (packet::make_entity_velocity (pl->eid,
+					ux * speed, uy * speed, uz * speed));
 			}
 		
 		return 0;

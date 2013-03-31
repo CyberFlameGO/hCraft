@@ -54,12 +54,16 @@ namespace hCraft {
 			double uz = vz / mag;
 			
 			world *w = pl->get_world ();
+			sparse_edit_stage es (*w);
+			
 			double x = marked[0].x, y = marked[0].y, z = marked[0].z;
 			while (((ux > 0.0) ? (x <= marked[1].x) : (x >= marked[1].x)) &&
 						 ((uy > 0.0) ? (y <= marked[1].y) : (y >= marked[1].y)) &&
 						 ((uz > 0.0) ? (z <= marked[1].z) : (z >= marked[1].z)))
 				{
-					w->queue_update (std::floor (x), std::floor (y), std::floor (z),
+					//w->queue_update (std::floor (x), std::floor (y), std::floor (z),
+					//	data->bl.id, data->bl.meta);
+					es.set (std::floor (x), std::floor (y), std::floor (z),
 						data->bl.id, data->bl.meta);
 					
 					x += ux;
@@ -67,13 +71,7 @@ namespace hCraft {
 					z += uz;
 				}
 			
-			{
-				std::ostringstream ss;
-				
-				ss << "§7Magnitude: " << mag << "; Unit Vector: [" << ux << ", " << uy << ", " << uz << "]";
-				
-				pl->message (ss.str ());
-			}
+			es.preview_to (pl);
 			
 			pl->delete_data ("line");
 			pl->message ("§3Line complete");

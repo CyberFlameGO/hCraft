@@ -38,6 +38,7 @@ namespace hCraft {
 	
 	static std::vector<item_info> item_list {
 		{ 0x100, "iron-shovel", 251, 1 },
+		{ 0x120, "feather", 0, 64 },
 	};
 	
 	static std::unordered_map<unsigned short, food_info> food_list {

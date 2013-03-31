@@ -206,7 +206,40 @@ namespace hCraft {
 				return "";
 			}
 			
-			const char* get_exec_permission () { return "command.draw.fill"; }
+			const char* get_exec_permission () { return "command.draw.l;ine"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /bezier -
+		 * 
+		 * Draws a quadratic beizer curves using three control points.
+		 * The curve will pass through the first and last points, but not necessarily
+		 * through the middle one.
+		 * 
+		 * Permissions:
+		 *   - command.draw.bezier
+		 *       Needed to execute the command.
+		 */
+		class c_bezier: public command
+		{
+		public:
+			const char* get_name () { return "bezier"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a quadratic beizer curves using three control points."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.bezier"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

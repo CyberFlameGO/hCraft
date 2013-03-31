@@ -22,44 +22,16 @@
 #include "position.hpp"
 #include "blocks.hpp"
 #include <unordered_map>
+#include <unordered_set>
+#include <bitset>
+#include <vector>
 
 
 namespace hCraft {
 	
 	class world; // forward dec
+	class player;
 	
-	
-	// 8x8x8
-	struct es_microchunk
-	{
-		// an array of both IDs and meta values packed together in 16-bit shorts.
-		// (id << 12) | meta
-		unsigned short data[512];
-		
-	//----
-		es_microchunk ();
-	};
-	
-	// 16x16x16 (8 microchunks)
-	struct es_subchunk
-	{
-		es_microchunk *micro[8];
-	
-	//----
-		es_subchunk ();
-		~es_subchunk ();
-	};
-	
-	// 16x256x16 (16 subchunks)
-	struct es_chunk
-	{
-		es_subchunk *subs[16];
-		
-	
-	//----
-		es_chunk ();
-		~es_chunk ();
-	};
 	
 	/* 
 	 * When block modification updates are queued to be handled by a world,
@@ -76,23 +48,160 @@ namespace hCraft {
 	 */
 	class edit_stage
 	{
+	public:
+		/* 
+		 * Block modification \ retrieval:
+		 */
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) = 0;
+		virtual blocki get (int x, int y, int z) = 0;
+		
+		/* 
+		 * Sends all modified blocks to the specified player(s).
+		 */
+		void preview_to (player *pl);
+		virtual void preview (std::vector<player *>& players) { };
+		
+		/* 
+		 * Restores back all block modifications sent by preview().
+		 */
+		void restore_to (player *pl);
+		virtual void restore (std::vector<player *>& players) { };
+		
+		
+		/* 
+		 * Clears the edit stage.
+		 */
+		virtual void reset () = 0;
+	};
+	
+	
+	
+//------------------------------------------------------------------------------
+
+	// 8x8x8
+	struct des_microchunk
+	{
+		// an array of both IDs and meta values packed together in 16-bit shorts.
+		// (id << 12) | meta
+		unsigned short data[512];
+		
+	//----
+		des_microchunk ();
+	};
+	
+	// 16x16x16 (8 microchunks)
+	struct des_subchunk
+	{
+		des_microchunk *micro[8];
+	
+	//----
+		des_subchunk ();
+		~des_subchunk ();
+	};
+	
+	// 16x256x16 (16 subchunks)
+	struct des_chunk
+	{
+		des_subchunk *subs[16];
+		
+	
+	//----
+		des_chunk ();
+		~des_chunk ();
+	};
+	
+	
+	
+	/* 
+	 * The dense edit stage is more appropriate for situations that require
+	 * a big amount of block modifications. This kind of edit stage stores
+	 * all changes in a way very similar to how a regular chunk does.
+	 */
+	class dense_edit_stage: public edit_stage
+	{
 		world &w;
-		std::unordered_map<chunk_pos, es_chunk, chunk_pos_hash> chunks;
+		std::unordered_map<chunk_pos, des_chunk, chunk_pos_hash> chunks;
+		
+	private:
+		void send_to_players (std::vector<player *>& players, bool restore);
 		
 	public:
-		edit_stage (world &w);
+		dense_edit_stage (world &w);
 		
 		
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		void set (int x, int y, int z, unsigned short id, unsigned char meta);
-		blocki get (int x, int y, int z);
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0);
+		virtual blocki get (int x, int y, int z);
+		
+		
+		/* 
+		 * Sends all modified blocks to the specified player(s).
+		 */
+		virtual void preview (std::vector<player *>& players);
+		
+		/* 
+		 * Restores back all block modifications sent by preview().
+		 */
+		virtual void restore (std::vector<player *>& players);
+		
 		
 		/* 
 		 * Clears the edit stage.
 		 */
-		void reset ();
+		virtual void reset ();
+	};
+
+	
+	
+//------------------------------------------------------------------------------
+	
+	struct ses_chunk
+	{
+		std::unordered_map<block_pos, unsigned short, block_pos_hash> changes;
+	};
+	
+	
+	
+	/* 
+	 * This type of an edit stage is more suitable for cases in which a relatively
+	 * small amount of blocks are going to be modified.
+	 */
+	class sparse_edit_stage: public edit_stage
+	{
+		world &w;
+		std::unordered_map<chunk_pos, ses_chunk, chunk_pos_hash> chunks;
+		
+	private:
+		void send_to_players (std::vector<player *>& players, bool restore);
+		
+	public:
+		sparse_edit_stage (world &w);
+		
+		
+		/* 
+		 * Block modification \ retrieval:
+		 */
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0);
+		virtual blocki get (int x, int y, int z);
+		
+		
+		/* 
+		 * Sends all modified blocks to the specified player(s).
+		 */
+		virtual void preview (std::vector<player *>& players);
+		
+		/* 
+		 * Restores back all block modifications sent by preview().
+		 */
+		virtual void restore (std::vector<player *>& players);
+		
+		
+		/* 
+		 * Clears the edit stage.
+		 */
+		virtual void reset ();
 	};
 }
 

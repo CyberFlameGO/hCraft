@@ -782,6 +782,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "fill");
 		_add_command (this->perms, this->commands, "gm");
 		_add_command (this->perms, this->commands, "line");
+		_add_command (this->perms, this->commands, "bezier");
 	}
 	
 	void
@@ -823,6 +824,7 @@ namespace hCraft {
 		grp_designer->set_color ('b');
 		grp_designer->inherit (grp_builder);
 		grp_builder->add ("command.draw.line");
+		grp_builder->add ("command.draw.bezier");
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->set_color ('3');

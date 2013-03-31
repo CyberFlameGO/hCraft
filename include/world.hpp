@@ -109,7 +109,7 @@ namespace hCraft {
 		world_physics_state ph_state;
 		unsigned long long ticks;
 		
-		edit_stage estage;
+		dense_edit_stage estage;
 		std::mutex estage_lock;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
