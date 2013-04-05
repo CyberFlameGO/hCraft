@@ -28,12 +28,11 @@ hCraft_sources = Split("""
 		sql.cpp
 		lighting.cpp
 		manual.cpp
-		world_transaction.cpp
-		player_transaction.cpp
 		block_physics.cpp
 		pickup.cpp
 		crafting.cpp
 		editstage.cpp
+		drawops.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -53,8 +52,11 @@ hCraft_sources = Split("""
 		commands/select.cpp
 		commands/fill.cpp
 		commands/gm.cpp
+		commands/cuboid.cpp
 		commands/line.cpp
 		commands/bezier.cpp
+		commands/aid.cpp
+		commands/circle.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

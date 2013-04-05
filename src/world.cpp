@@ -22,8 +22,6 @@
 #include "player.hpp"
 #include "packet.hpp"
 #include "logger.hpp"
-#include "world_transaction.hpp"
-#include "player_transaction.hpp"
 #include <stdexcept>
 #include <cassert>
 #include <cstring>
@@ -54,7 +52,7 @@ namespace hCraft {
 	 */
 	world::world (server &srv, const char *name, logger &log, world_generator *gen,
 		world_provider *provider)
-		: srv (srv), log (log), estage (*this), lm (log, this)
+		: srv (srv), log (log), lm (log, this), estage (this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -170,9 +168,6 @@ namespace hCraft {
 	
 	
 	
-	
-	struct sb_correction { player *pl; int x, y, z; };
-	
 	/* 
 	 * The function ran by the world's thread.
 	 */
@@ -181,9 +176,9 @@ namespace hCraft {
 	{
 		const static int block_update_cap = 10000; // per tick
 		const static int light_update_cap = 10000; // per tick
-		const static int tr_update_cap    = 3;
 		
 		int update_count;
+		sparse_edit_stage pl_tr;
 		
 		this->ticks = 0;
 		while (this->th_running)
@@ -193,44 +188,12 @@ namespace hCraft {
 					std::lock_guard<std::mutex> guard {this->update_lock};
 					
 					/* 
-					 * Transactions.
-					 */
-					update_count = 0;
-					while (!this->tr_updates.empty () && (update_count++ < tr_update_cap))
-						{
-							world_transaction *tr = this->tr_updates.front ();
-							this->tr_updates.pop_front ();
-							
-							tr->commit (this);
-							delete tr;
-							
-							// transactions write over selection blocks, so re-show them to all players.
-							this->get_players ().all (
-								[] (player *pl)
-									{
-										for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
-											{
-												world_selection *sel = itr->second;
-												if (sel->visible ())
-													{
-														sel->hide (pl);
-														sel->show (pl);
-													}
-											}
-										pl->sb_commit ();
-									});
-						}
-					
-					/* 
 					 * Block updates.
 					 */
 					if (!this->updates.empty ())
 						{
-							player_transaction pl_tr;
 							std::vector<player *> pl_vc;
 							this->get_players ().populate (pl_vc);
-							
-							std::vector<sb_correction> sb_corrects;
 							
 							update_count = 0;
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
@@ -278,13 +241,8 @@ namespace hCraft {
 										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
 							
 									// update players
-									pl_tr.insert (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
+									pl_tr.set (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
 									
-									// track selection blocks
-									for (player *pl : pl_vc)
-										if (pl->sb_exists (u.x, u.y, u.z))
-											sb_corrects.push_back ({pl, u.x, u.y, u.z});
-							
 									if (ch)
 										{
 											if (auto_lighting)
@@ -331,14 +289,9 @@ namespace hCraft {
 									this->updates.pop_front ();
 								}
 							
-							pl_tr.commit (pl_vc, true);
-							
-							// correct selection blocks
-							for (sb_correction& sbc : sb_corrects)
-								sbc.pl->sb_send (sbc.x, sbc.y, sbc.z);
-							
-							//if (update_count)
-							//	this->log (LT_DEBUG) << update_count << " block updates." << std::endl;
+							// send updates to players
+							pl_tr.preview (pl_vc);
+							pl_tr.reset ();
 						}
 						
 				} // release of update lock
@@ -595,8 +548,8 @@ namespace hCraft {
 	chunk*
 	world::get_chunk (int x, int z)
 	{
-		if (((this->width > 0) && (((x * 16) >= this->width) || (x < 0))) ||
-				((this->depth > 0) && (((z * 16) >= this->depth) || (z < 0))))
+		if (((this->width > 0) && (((x << 4) >= this->width) || (x < 0))) ||
+				((this->depth > 0) && (((z << 4) >= this->depth) || (z < 0))))
 			return this->edge_chunk;
 		
 		unsigned long long key = chunk_key (x, z);

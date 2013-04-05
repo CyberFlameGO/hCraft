@@ -172,6 +172,9 @@ namespace hCraft {
 		tbb::concurrent_queue<physics_update> updates;
 				
 	protected:
+		bool block_exists_nolock (world *w, int x, int y, int z);
+		void add_block_nolock (world *w, int x, int y, int z);
+		
 		bool block_exists (world *w, int x, int y, int z);
 		void add_block (world *w, int x, int y, int z);
 		void remove_block (world *w, int x, int y, int z);

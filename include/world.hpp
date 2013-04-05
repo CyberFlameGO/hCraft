@@ -109,9 +109,6 @@ namespace hCraft {
 		world_physics_state ph_state;
 		unsigned long long ticks;
 		
-		dense_edit_stage estage;
-		std::mutex estage_lock;
-		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
 		
@@ -126,11 +123,13 @@ namespace hCraft {
 		world_generator *gen;
 		world_provider *prov;
 		
-		lighting_manager lm;
-		
 	public:
 		bool auto_lighting;
 		block_physics_manager physics;
+		lighting_manager lm;
+		
+		dense_edit_stage estage;
+		std::mutex estage_lock;
 		
 	public:
 		inline const char* get_name () { return this->name; }
@@ -307,6 +306,8 @@ namespace hCraft {
 		
 		void queue_update (world_transaction *tr);
 		
+		void queue_lighting (int x, int y, int z)
+			{ this->lm.enqueue (x, y, z); }
 		void queue_lighting_nolock (int x, int y, int z)
 			{ this->lm.enqueue_nolock (x, y, z); }
 		

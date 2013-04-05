@@ -33,6 +33,13 @@ namespace hCraft {
 			return (x < 0) ? -x : x;
 		}
 		
+		inline double
+		abs (double x)
+		{
+			return (x < 0.0) ? -x : x;
+		}
+		
+		
 		inline int
 		div (int x, int y)
 		{
@@ -47,6 +54,13 @@ namespace hCraft {
 			if (-13 / 5 == -2 && (x < 0) != (y < 0) && x % y != 0)
 	  		return x % y + y;
 			return x % y;
+		}
+		
+		
+		inline int
+		zsgn (int x)
+		{
+			return (x < 0) ? (-1) : ((x > 0) ? 1 : 0);
 		}
 		
 		

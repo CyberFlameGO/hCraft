@@ -19,6 +19,7 @@
 #include "drawc.hpp"
 #include "player.hpp"
 #include "server.hpp"
+#include "world.hpp"
 #include "stringutils.hpp"
 #include "utils.hpp"
 #include "drawops.hpp"
@@ -27,9 +28,9 @@
 
 namespace hCraft {
 	namespace commands {
-		
+	
 		namespace {
-			struct line_data {
+			struct cuboid_data {
 				blocki bl;
 			};
 		}
@@ -38,35 +39,32 @@ namespace hCraft {
 		static bool
 		on_blocks_marked (player *pl, block_pos marked[], int markedc)
 		{
-			line_data *data = static_cast<line_data *> (pl->get_data ("line"));
+			cuboid_data *data = static_cast<cuboid_data *> (pl->get_data ("cuboid"));
 			if (!data) return true; // shouldn't happen
 			
-			pl->get_logger () (LT_DEBUG) << "Drawing line from [" << marked[0].x << ", " << marked[0].y << ", " << marked[0].z << "] to ["
-				<< marked[1].x << ", " << marked[1].y << ", " << marked[1].z << "]" << std::endl;
-			sparse_edit_stage es (pl->get_world ());
+			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
-			draw.draw_line (marked[0], marked[1], data->bl);
+			draw.fill_cuboid (marked[0], marked[1], data->bl);
 			es.commit ();
 			
-			pl->delete_data ("line");
-			pl->message ("§3Line complete");
+			pl->delete_data ("cuboid");
+			pl->message ("§3Cuboid complete");
 			return true;
 		}
 		
-		
 		/* 
-		 * /line -
+		 * /cuboid -
 		 * 
-		 * Draws a line between two selected points.
+		 * Fills a region marked by two points with a specified block.
 		 * 
 		 * Permissions:
-		 *   - command.draw.line
+		 *   - command.draw.cuboid
 		 *       Needed to execute the command.
 		 */
 		void
-		c_line::execute (player *pl, command_reader& reader)
+		c_cuboid::execute (player *pl, command_reader& reader)
 		{
-			if (!pl->perm ("command.draw.line"))
+			if (!pl->perm (this->get_exec_permission ()))
 					return;
 		
 			if (!reader.parse_args (this, pl))
@@ -88,14 +86,14 @@ namespace hCraft {
 					return;
 				}
 			
-			line_data *data = new line_data {bl};
-			pl->create_data ("line", data,
-				[] (void *ptr) { delete static_cast<line_data *> (ptr); });
+			cuboid_data *data = new cuboid_data {bl};
+			pl->create_data ("cuboid", data,
+				[] (void *ptr) { delete static_cast<cuboid_data *> (ptr); });
 			pl->get_nth_marking_callback (2) += on_blocks_marked;
 			
-			pl->message ("§8Line §7(§8Block§7: §b" + str + "§7):");
+			pl->message ("§8Cuboid §7(§8Block§7: §b" + str + "§7):");
 			pl->message ("§8 * §7Please mark §btwo §7blocks§7.");
 		}
 	}
 }
-
+		

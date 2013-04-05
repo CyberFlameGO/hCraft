@@ -161,10 +161,9 @@ namespace hCraft {
 								continue;
 							}
 						
-						this->man.remove_block (u.w, u.x, u.y, u.z);
-						
 						if (!handle_params (u, this->man, this->rnd))
 							continue;
+						this->man.remove_block (u.w, u.x, u.y, u.z);
 						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
 						if (pb)
 							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr);
@@ -175,9 +174,10 @@ namespace hCraft {
 	
 	
 	bool
-	block_physics_manager::block_exists (world *w, int x, int y, int z)
+	block_physics_manager::block_exists_nolock (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return false;
+		
 		auto w_itr = this->block_mem.find (w);
 		if (w_itr == this->block_mem.end ())
 			return false;
@@ -195,12 +195,12 @@ namespace hCraft {
 	}
 	
 	void
-	block_physics_manager::add_block (world *w, int x, int y, int z)
+	block_physics_manager::add_block_nolock (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
+		
 		std::unordered_map<chunk_pos, ph_mem_chunk, chunk_pos_hash>&
 			mem_chunks = this->block_mem[w];
-		
 		ph_mem_chunk& ch = mem_chunks[{x >> 4, z >> 4}];
 		ph_mem_subchunk* sub = ch.subs[y >> 4];
 		if (sub == nullptr)
@@ -213,10 +213,27 @@ namespace hCraft {
 			std::cout << "!!!" << std::endl;
 	}
 	
+		
+	bool
+	block_physics_manager::block_exists (world *w, int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		return this->block_exists_nolock (w, x, y, z);
+	}
+	
+	void
+	block_physics_manager::add_block (world *w, int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		this->add_block_nolock (w, x, y, z);
+	}
+	
 	void
 	block_physics_manager::remove_block (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
+		std::lock_guard<std::mutex> guard {this->lock};
+		
 		auto w_itr = this->block_mem.find (w);
 		if (w_itr == this->block_mem.end ())
 			return;
@@ -242,9 +259,6 @@ namespace hCraft {
 	
 	/* 
 	 * Changes the number of worker threads to utilize.
-	 * 
-	 * BUG (and TODO): Crashes when trying to change the number of threads from
-	 *                 a higher amount to a lower one.
 	 */
 	void
 	block_physics_manager::set_thread_count (unsigned int count)
@@ -284,7 +298,7 @@ namespace hCraft {
 		-- tick_delay;
 		
 		std::lock_guard<std::mutex> guard {this->lock};
-		this->add_block (w, x, y, z);
+		this->add_block_nolock (w, x, y, z);
 		
 		physics_update u (w, x, y, z, extra, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
@@ -308,13 +322,13 @@ namespace hCraft {
 		int extra, int tick_delay, physics_params *params)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
-		if (this->block_exists (w, x, y, z))
+		if (this->block_exists_nolock (w, x, y, z))
 			return;
 		
 		if (tick_delay == 0) tick_delay = 1;
 		-- tick_delay;
 		
-		this->add_block (w, x, y, z);
+		this->add_block_nolock (w, x, y, z);
 		physics_update u (w, x, y, z, extra, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
 		if (params)

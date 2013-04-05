@@ -183,6 +183,48 @@ namespace hCraft {
 		
 		
 		/* 
+		 * /cuboid -
+		 * 
+		 * Fills a region marked by two points with a specified block.
+		 * 
+		 * Permissions:
+		 *   - command.draw.cuboid
+		 *       Needed to execute the command.
+		 */
+		class c_cuboid: public command
+		{
+		public:
+			const char* get_name () { return "cuboid"; }
+			
+			const char*
+			get_summary ()
+				{ return "Fills a region marked by two points with a specified block."; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						"c",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.cuboid"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
 		 * /line -
 		 * 
 		 * Draws a line between two selected points.
@@ -240,6 +282,68 @@ namespace hCraft {
 			}
 			
 			const char* get_exec_permission () { return "command.draw.bezier"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /aid -
+		 * 
+		 * Places a block at the player's feet.
+		 * 
+		 * Permissions:
+		 *   - command.draw.aid
+		 *       Needed to execute the command.
+		 */
+		class c_aid: public command
+		{
+		public:
+			const char* get_name () { return "aid"; }
+			
+			const char*
+			get_summary ()
+				{ return "Places a block at the player's feet."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.aid"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /circle -
+		 * 
+		 * Draws a two-dimensional circle centered at a point.
+		 * 
+		 * Permissions:
+		 *   - command.draw.circle
+		 *       Needed to execute the command.
+		 */
+		class c_circle: public command
+		{
+		public:
+			const char* get_name () { return "circle"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a two-dimensional circle centered at a point."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.circle"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

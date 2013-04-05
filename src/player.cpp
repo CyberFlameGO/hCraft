@@ -481,6 +481,8 @@ namespace hCraft {
 		// this will keep the player safe from fall damage right after spawning
 		this->fall_flag = true;
 		
+		this->sb_updates.set_world (w, true);
+		
 		if (had_prev_world && (this->curr_world != w))
 			{
 				// destroy selections
@@ -1207,6 +1209,45 @@ namespace hCraft {
 		return this->mark_callbacks[n - 1];
 	}
 	
+	bool
+	player::mark_block (int x, int y, int z)
+	{
+		if (this->have_marking_callbacks ())
+			{
+				// undo the change.
+				this->send (packet::make_block_change (
+					x, y, z,
+					this->get_world ()->get_id (x, y, z),
+					this->get_world ()->get_meta (x, y, z)));
+				
+				this->marked_blocks.emplace_back (x, y, z);
+				
+				bool executed = false;
+				if (this->mark_callbacks.size () >= this->marked_blocks.size ())
+					{
+						// execute the callback(s)
+						for (size_t i = 0; i < this->marked_blocks.size (); ++i)
+							{
+								auto& cb = this->mark_callbacks[i];
+								if (cb.size () == 0) continue;
+								
+								block_pos *arr = new block_pos[i + 1];
+								for (size_t j = 0; j < (i + 1); ++j)
+									arr[j] = this->marked_blocks[j];
+								cb (this, arr, i + 1);
+								executed = true;
+							}
+					}
+				
+				if (executed)
+					this->marked_blocks.clear ();
+				
+				return true;
+			}
+		
+		return false;
+	}
+	
 	
 	
 	/* 
@@ -1221,7 +1262,7 @@ namespace hCraft {
 		if (itr != this->sel_blocks.end ())
 			{ ++ itr->counter; return; }
 		
-		this->sb_updates.insert (x, y, z, this->sb_block.id, this->sb_block.meta);
+		this->sb_updates.set (x, y, z, this->sb_block.id, this->sb_block.meta);
 		this->sel_blocks.insert (selection_block (x, y, z, 1));
 	}
 	
@@ -1238,7 +1279,7 @@ namespace hCraft {
 			{
 				this->sel_blocks.erase (itr);
 				block_data bd = this->curr_world->get_block (x, y, z);
-				this->sb_updates.insert (x, y, z, bd.id, bd.meta);
+				this->sb_updates.set (x, y, z, bd.id, bd.meta);
 			}
 	}
 	
@@ -1253,7 +1294,8 @@ namespace hCraft {
 	void
 	player::sb_commit ()
 	{
-		this->sb_updates.commit (this, true);
+		this->sb_updates.preview_to (this);
+		this->sb_updates.reset ();
 	}
 	
 	void
@@ -1960,38 +2002,8 @@ namespace hCraft {
 		/* 
 		 * Handle marking callbacks
 		 */
-		if (pl->have_marking_callbacks ())
-			{
-				// undo the change.
-				pl->send (packet::make_block_change (
-					x, y, z,
-					pl->get_world ()->get_id (x, y, z),
-					pl->get_world ()->get_meta (x, y, z)));
-				
-				pl->marked_blocks.emplace_back (x, y, z);
-				
-				bool executed = false;
-				if (pl->mark_callbacks.size () >= pl->marked_blocks.size ())
-					{
-						// execute the callback(s)
-						for (size_t i = 0; i < pl->marked_blocks.size (); ++i)
-							{
-								auto& cb = pl->mark_callbacks[i];
-								if (cb.size () == 0) continue;
-								
-								block_pos *arr = new block_pos[i + 1];
-								for (size_t j = 0; j < (i + 1); ++j)
-									arr[j] = pl->marked_blocks[j];
-								cb (pl, arr, i + 1);
-								executed = true;
-							}
-					}
-				
-				if (executed)
-					pl->marked_blocks.clear ();
-				
-				return 0;
-			}
+		if (pl->mark_block (x, y, z))
+			return 0;
 		
 		block_data bd = pl->get_world ()->get_block (x, y, z);
 		if (status == 2 || (status == 0 && pl->curr_gamemode == GT_CREATIVE))

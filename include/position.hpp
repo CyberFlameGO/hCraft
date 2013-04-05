@@ -43,6 +43,7 @@ namespace hCraft {
 	};
 	
 	
+	
 	/* 
 	 * Represents the position of an entity within a world.
 	 */
@@ -220,6 +221,53 @@ namespace hCraft {
 		{
 			return int_hash (bpos.x) ^ (int_hash (bpos.y) << 11) ^ (int_hash (bpos.z) << 5);
 		}
+	};
+	
+	
+	
+//----
+	
+	struct vector3
+	{
+		double x, y, z;
+		
+	public:
+		/* 
+		 * Constructors:
+		 */
+		vector3 ();
+		vector3 (double x, double y, double z);
+		vector3 (entity_pos& epos);
+		vector3 (block_pos bpos);
+		
+		
+		double magnitude ();
+		vector3 normalize ();
+		
+		
+		/* 
+		 * Operators:
+		 */
+		
+		friend inline vector3
+		operator+ (vector3 a, vector3 b)
+			{ return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+		
+		friend inline vector3
+		operator- (vector3 a, vector3 b)
+			{ return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+		
+		friend inline vector3
+		operator- (vector3 v)
+			{ return {-v.x, -v.y, -v.z}; }
+		
+		friend inline vector3
+		operator* (double s, vector3 v)
+			{ return {s * v.x, s * v.y, s * v.z}; }
+		
+		friend inline vector3
+		operator/ (vector3 v, double s)
+			{ return {v.x / s, v.y / s, v.z / s}; }
 	};
 }
 

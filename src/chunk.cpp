@@ -19,6 +19,8 @@
 #include "chunk.hpp"
 #include <cstring>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -457,6 +459,8 @@ namespace hCraft {
 	chunk::get_block (int x, int y, int z)
 	{
 		int sy = y >> 4;
+		if (sy >= 16 || sy < 0)
+			std::cout << "sy PROBLEM!" << std::endl;
 		subchunk *sub = this->subs[sy];
 		if (!sub)
 			return block_data ();

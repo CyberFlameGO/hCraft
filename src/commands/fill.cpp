@@ -19,7 +19,6 @@
 #include "commands/drawc.hpp"
 #include "player.hpp"
 #include "world.hpp"
-#include "world_transaction.hpp"
 #include "stringutils.hpp"
 #include <sstream>
 #include <mutex>
@@ -84,6 +83,7 @@ namespace hCraft {
 			// fill all selections
 			{
 				world *wr = pl->get_world ();
+				dense_edit_stage es (wr);
 				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
 					{
 						world_selection *sel = itr->second;
@@ -99,9 +99,7 @@ namespace hCraft {
 						
 						block_pos min_p = sel->min ();
 						block_pos max_p = sel->max ();
-					
-						world_transaction *tr = new world_transaction (min_p, max_p, do_physics);
-					
+						
 						if (min_p.y < 0) min_p.y = 0;
 						if (min_p.y > 255) min_p.y = 255;
 						if (max_p.y < 0) max_p.y = 0;
@@ -119,9 +117,8 @@ namespace hCraft {
 											continue;
 										if (bd.id == bd_out.id && bd.meta == bd_out.meta)
 											continue;
-								
-										//wr->queue_update_nolock (x, y, z, bd_out.id, bd_out.meta);
-										tr->set_id_and_meta (x, y, z, bd_out.id, bd_out.meta);
+										
+										es.set (x, y, z, bd_out.id, bd_out.meta);
 								
 										++ block_counter;
 								
@@ -130,7 +127,7 @@ namespace hCraft {
 										sel_cont = true;
 									}
 					
-						pl->get_world ()->queue_update (tr);
+						es.commit (do_physics);
 						if (do_hollow)
 							delete sel_inner;
 					}

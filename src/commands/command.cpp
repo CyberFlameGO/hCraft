@@ -61,8 +61,11 @@ namespace hCraft {
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
 	static command* create_c_fill () { return new commands::c_fill (); }
+	static command* create_c_cuboid () { return new commands::c_cuboid (); }
 	static command* create_c_line () { return new commands::c_line (); }
 	static command* create_c_bezier () { return new commands::c_bezier (); }
+	static command* create_c_aid () { return new commands::c_aid (); }
+	static command* create_c_circle () { return new commands::c_circle (); }
 	
 	// admin commands
 	static command* create_c_gm () { return new commands::c_gm (); }
@@ -87,8 +90,11 @@ namespace hCraft {
 			{ "select", create_c_select },
 			{ "fill", create_c_fill },
 			{ "gm", create_c_gm },
+			{ "cuboid", create_c_cuboid },
 			{ "line", create_c_line },
 			{ "bezier", create_c_bezier },
+			{ "aid", create_c_aid },
+			{ "circle", create_c_circle },
 			};
 		
 		auto itr = creators.find (name);

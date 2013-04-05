@@ -20,9 +20,10 @@
 #include "player.hpp"
 #include "server.hpp"
 #include "stringutils.hpp"
-#include "utils.hpp"
+#include "position.hpp"
+#include "drawops.hpp"
 #include <sstream>
-#include <cmath>
+#include <vector>
 
 
 namespace hCraft {
@@ -30,76 +31,18 @@ namespace hCraft {
 		
 		namespace {
 			struct bezier_data {
+				std::vector<vector3> points;
+				sparse_edit_stage es;
 				blocki bl;
-			};
-		}
-		
-		struct vector3 {
-			double x, y, z;
-		
-		//---
-			vector3 () : x (), y (), z () { }
-			vector3 (double x, double y, double z)
-				: x (x), y (y), z (z) 
-				{ }
-			vector3 (block_pos bpos)
-				: x (bpos.x), y (bpos.y), z (bpos.z)
-				{ }
+				int order;
 				
-		//---
-			friend vector3
-			operator+ (vector3 a, vector3 b)
-				{ return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-			
-			friend vector3
-			operator* (double a, vector3 b)
-				{ return {a * b.x, a * b.y, a * b.z}; }
-		};
-		
-		
-		static void
-		draw_line (world *w, vector3 pt1, vector3 pt2, unsigned short id,
-			unsigned char meta)
-		{
-			// construct a vector in the direction that corresponds to the
-			// diagonal formed in the cuboid selected by the player.
-			double vx = (pt2.x - pt1.x);
-			double vy = (pt2.y - pt1.y);
-			double vz = (pt2.z - pt1.z);
-			
-			// normalize
-			double mag = std::sqrt (vx*vx + vy*vy + vz*vz);
-			double ux = vx / mag;
-			double uy = vy / mag;
-			double uz = vz / mag;
-			
-			double x = pt1.x, y = pt1.y, z = pt1.z;
-			while (((ux > 0.0) ? (x <= pt2.x) : (x >= pt2.x)) &&
-						 ((uy > 0.0) ? (y <= pt2.y) : (y >= pt2.y)) &&
-						 ((uz > 0.0) ? (z <= pt2.z) : (z >= pt2.z)))
+				bezier_data (world *w, blocki bl, int order)
+					: es (w)
 				{
-					w->queue_update (std::floor (x), std::floor (y), std::floor (z),
-						id, meta);
-					
-					x += ux;
-					y += uy;
-					z += uz;
+					this->bl = bl;
+					this->order = order;
 				}
-		}
-		
-		
-		static vector3
-		quadratic_bezier (double t, vector3 p0, vector3 p1, vector3 p2)
-		{
-			return ((1.0 - t) * ((1.0 - t) * p0 + (t * p1)))
-					 + (t * ((1.0 - t) * p1 + (t * p2)));
-		}
-		
-		static vector3
-		cubic_bezier (double t, vector3 p0, vector3 p1, vector3 p2, vector3 p3)
-		{
-			return ((1.0 - t) * quadratic_bezier (t, p0, p1, p2))
-					 + (t * quadratic_bezier (t, p1, p2, p3));
+			};
 		}
 		
 		
@@ -109,17 +52,39 @@ namespace hCraft {
 			bezier_data *data = static_cast<bezier_data *> (pl->get_data ("bezier"));
 			if (!data) return true; // shouldn't happen
 			
-			vector3 prev_pt = marked[0];
-			
-			int pt_count = 50;
-			double t_inc = 1.0 / pt_count;
-			for (double t = 0.0; t <= 1.0; t += t_inc)
+			edit_stage &es = data->es;
+			if (es.get_world () != pl->get_world ())
 				{
-					vector3 next_pt = cubic_bezier (t, marked[0], marked[1], marked[2], marked[3]);
-					draw_line (pl->get_world (), prev_pt, next_pt, data->bl.id, data->bl.meta);
-					prev_pt = next_pt;
+					pl->message ("§4 * §cWorlds changed§4.");
+					pl->delete_data ("bezier");
+					return true;
 				}
 			
+			std::vector<vector3>& points = data->points;
+			points.push_back (marked[0]);
+			if (points.size () == 1)
+				{
+					es.set (marked[0].x, marked[0].y, marked[0].z, data->bl.id, data->bl.meta);
+					es.preview_to (pl);
+					return false;
+				}
+			
+			if (points.size () != 2)
+				{
+					es.restore_to (pl);
+					es.reset ();
+				}
+			
+			draw_ops draw (es);
+			draw.draw_bezier (points, data->bl);
+			
+			if (points.size () < (size_t)(data->order + 1))
+				{
+					es.preview_to (pl);
+					return false;
+				}
+			
+			es.commit ();
 			pl->delete_data ("bezier");
 			pl->message ("§3Bezier curve complete");
 			return true;
@@ -144,7 +109,7 @@ namespace hCraft {
 		
 			if (!reader.parse_args (this, pl))
 					return;
-			if (reader.no_args () || reader.arg_count () > 1)
+			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
 			
 			std::string& str = reader.next ().as_str ();
@@ -161,13 +126,36 @@ namespace hCraft {
 					return;
 				}
 			
-			bezier_data *data = new bezier_data {bl};
+			int order = 2;
+			if (reader.has_next ())
+				{
+					cmd_arg arg = reader.next ();
+					if (!arg.is_int ())
+						{
+							pl->message ("§c * §7Usage§f: §e/bezier §cblock §8[§corder§8]");
+							return;
+						}
+					
+					order = arg.as_int ();
+					if (order <= 0 || order > 20)
+						{
+							pl->message ("§c * §7Invalid bezier curve order §f(§7Must be between §b1-20§f)");
+							return;
+						}
+				}
+			
+			bezier_data *data = new bezier_data (pl->get_world (), bl, order);
 			pl->create_data ("bezier", data,
 				[] (void *ptr) { delete static_cast<bezier_data *> (ptr); });
-			pl->get_nth_marking_callback (4) += on_blocks_marked;
+			pl->get_nth_marking_callback (1) += on_blocks_marked;
 			
-			pl->message ("§8Bezier curve §7(§8Block§7: §b" + str + "§7):");
-			pl->message ("§8 * §7Please mark §bfour §7blocks§7.");
+			std::ostringstream ss;
+			ss << "§8Bezier curve §7(§8Order§7: §b" << order << "§7, §8Block§7: §b" << str << "§7):";
+			pl->message (ss.str ());
+			
+			ss.str (std::string ()); ss.clear ();
+			ss << "§8 * §7Please mark §b" << (order + 1) << " §7blocks§7.";
+			pl->message (ss.str ());
 		}
 	}
 }

@@ -67,6 +67,8 @@ namespace hCraft {
 		inline world* get_world () const { return this->wr; }
 		inline logger& get_logger () const { return this->log; }
 		
+		inline std::mutex& get_lock () { return this->lock; }
+		
 	public:
 		/* 
 		 * Constructs a new lighting manager on top of the given world.

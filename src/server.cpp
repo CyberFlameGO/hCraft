@@ -781,8 +781,11 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "select");
 		_add_command (this->perms, this->commands, "fill");
 		_add_command (this->perms, this->commands, "gm");
+		_add_command (this->perms, this->commands, "cuboid");
 		_add_command (this->perms, this->commands, "line");
 		_add_command (this->perms, this->commands, "bezier");
+		_add_command (this->perms, this->commands, "aid");
+		_add_command (this->perms, this->commands, "circle");
 	}
 	
 	void
@@ -817,18 +820,21 @@ namespace hCraft {
 		grp_builder->inherit (grp_member);
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
-		grp_builder->add ("command.draw.select");
-		grp_builder->add ("command.draw.fill");
+		grp_builder->add ("command.draw.cuboid");
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->set_color ('b');
 		grp_designer->inherit (grp_builder);
-		grp_builder->add ("command.draw.line");
-		grp_builder->add ("command.draw.bezier");
+		grp_builder->add ("command.draw.select");
+		grp_builder->add ("command.draw.fill");
+		grp_builder->add ("command.draw.aid");
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->set_color ('3');
 		grp_architect->inherit (grp_designer);
+		grp_builder->add ("command.draw.circle");
+		grp_builder->add ("command.draw.line");
+		grp_builder->add ("command.draw.bezier");
 		
 		group* grp_moderator = groups.add (6, "moderator");
 		grp_moderator->set_color ('c');
@@ -1249,7 +1255,7 @@ namespace hCraft {
 					"worlds", wname.c_str ());
 				if (!prov)
 					{
-						log (LT_ERROR) << "Failed to load world \"" << wname
+						log (LT_ERROR) << " - Failed to load world \"" << wname
 							<< "\": Invalid provider." << std::endl;
 						continue;
 					}
@@ -1259,12 +1265,12 @@ namespace hCraft {
 				if (!gen)
 					{
 						delete prov;
-						log (LT_ERROR) << "Failed to load world \"" << wname
+						log (LT_ERROR) << " - Failed to load world \"" << wname
 							<< "\": Invalid generator." << std::endl;
 						continue;
 					}
 				
-				log () << " - Loading \"" << wname << std::endl;
+				log () << " - Loading \"" << wname << "\"" << std::endl;
 				world *wr = new world (*this, wname.c_str (), this->log, gen, prov);
 				wr->set_size (winf.width, winf.depth);
 				
@@ -1273,7 +1279,7 @@ namespace hCraft {
 				wr->start ();
 				if (!this->add_world (wr))
 					{
-						log (LT_ERROR) << "Failed to load world \"" << wname << "\": Already loaded." << std::endl;
+						log (LT_ERROR) << "   - Failed to load world \"" << wname << "\": Already loaded." << std::endl;
 						delete wr;
 						continue;
 					}

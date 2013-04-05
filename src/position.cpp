@@ -17,14 +17,11 @@
  */
 
 #include "position.hpp"
+#include "utils.hpp"
+#include <cmath>
 
 
 namespace hCraft {
-	
-	inline int
-	fast_floor (double x)
-		{ return (x >= 0.0) ? (int)x : ((int)x - 1); }
-	
 	
 	entity_pos::entity_pos (const block_pos &other)
 	{
@@ -79,9 +76,9 @@ namespace hCraft {
 	block_pos&
 	block_pos::operator= (const entity_pos &other)
 	{
-		this->x = fast_floor (other.x);
-		this->y = fast_floor (other.y);
-		this->z = fast_floor (other.z);
+		this->x = utils::floor (other.x);
+		this->y = utils::floor (other.y);
+		this->z = utils::floor (other.z);
 		
 		//if (this->y <   0) this->y = 0;
 		//if (this->y > 255) this->y = 255;
@@ -115,8 +112,8 @@ namespace hCraft {
 	chunk_pos&
 	chunk_pos::operator= (const entity_pos &other)
 	{
-		this->x = fast_floor (other.x) >> 4;
-		this->z = fast_floor (other.z) >> 4;
+		this->x = utils::floor (other.x) >> 4;
+		this->z = utils::floor (other.z) >> 4;
 		return *this;
 	}
 	
@@ -126,6 +123,50 @@ namespace hCraft {
 		this->x = other.x >> 4;
 		this->z = other.z >> 4;
 		return *this;
+	}
+	
+	
+	
+//----
+	
+	vector3::vector3 ()
+	{
+		this->x = this->y = this->z = 0;
+	}
+	
+	vector3::vector3 (double x, double y, double z)
+	{
+		this->x = x;
+		this->y = y;
+		this->z = z;
+	}
+	
+	vector3::vector3 (entity_pos& epos)
+	{
+		this->x = epos.x;
+		this->y = epos.y;
+		this->z = epos.z;
+	}
+	
+	vector3::vector3 (block_pos bpos)
+	{
+		this->x = bpos.x;
+		this->y = bpos.y;
+		this->z = bpos.z;
+	}
+	
+	
+	
+	double
+	vector3::magnitude ()
+	{
+		return std::sqrt (x*x + y*y + z*z);
+	}
+	
+	vector3
+	vector3::normalize ()
+	{
+		return *this / this->magnitude ();
 	}
 }
 

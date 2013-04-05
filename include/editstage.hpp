@@ -48,12 +48,26 @@ namespace hCraft {
 	 */
 	class edit_stage
 	{
+	protected:
+		world *w;
+		
 	public:
+		edit_stage (world *w = nullptr)
+			: w (w)
+			{ }
+		
+		
+		// @{w} can be null
+		virtual void set_world (world *w, bool reset = true);
+		world* get_world () { return this->w; }
+		
+		
 		/* 
 		 * Block modification \ retrieval:
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) = 0;
 		virtual blocki get (int x, int y, int z) = 0;
+		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
@@ -66,6 +80,13 @@ namespace hCraft {
 		 */
 		void restore_to (player *pl);
 		virtual void restore (std::vector<player *>& players) { };
+		
+		
+		/* 
+		 * Commits all block modifications to the underlying world.
+		 * The edit stage is then cleared.
+		 */
+		virtual void commit (bool physics = true) = 0;
 		
 		
 		/* 
@@ -104,6 +125,8 @@ namespace hCraft {
 	{
 		des_subchunk *subs[16];
 		
+		// the total number of blocks modified (out of 65,536).
+		int mod_count;
 	
 	//----
 		des_chunk ();
@@ -119,38 +142,44 @@ namespace hCraft {
 	 */
 	class dense_edit_stage: public edit_stage
 	{
-		world &w;
 		std::unordered_map<chunk_pos, des_chunk, chunk_pos_hash> chunks;
 		
 	private:
 		void send_to_players (std::vector<player *>& players, bool restore);
 		
 	public:
-		dense_edit_stage (world &w);
+		dense_edit_stage (world *w = nullptr);
 		
 		
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0);
-		virtual blocki get (int x, int y, int z);
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual blocki get (int x, int y, int z) override;
 		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
 		 */
-		virtual void preview (std::vector<player *>& players);
+		virtual void preview (std::vector<player *>& players) override;
 		
 		/* 
 		 * Restores back all block modifications sent by preview().
 		 */
-		virtual void restore (std::vector<player *>& players);
+		virtual void restore (std::vector<player *>& players) override;
+		
+		
+		/* 
+		 * Commits all block modifications to the underlying world.
+		 * The edit stage is then cleared.
+		 */
+		virtual void commit (bool physics = true) override;
 		
 		
 		/* 
 		 * Clears the edit stage.
 		 */
-		virtual void reset ();
+		virtual void reset () override;
 	};
 
 	
@@ -170,38 +199,110 @@ namespace hCraft {
 	 */
 	class sparse_edit_stage: public edit_stage
 	{
-		world &w;
 		std::unordered_map<chunk_pos, ses_chunk, chunk_pos_hash> chunks;
 		
 	private:
 		void send_to_players (std::vector<player *>& players, bool restore);
 		
 	public:
-		sparse_edit_stage (world &w);
+		sparse_edit_stage (world *w = nullptr);
 		
 		
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0);
-		virtual blocki get (int x, int y, int z);
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual blocki get (int x, int y, int z) override;
 		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
 		 */
-		virtual void preview (std::vector<player *>& players);
+		virtual void preview (std::vector<player *>& players) override;
 		
 		/* 
 		 * Restores back all block modifications sent by preview().
 		 */
-		virtual void restore (std::vector<player *>& players);
+		virtual void restore (std::vector<player *>& players) override;
+		
+		
+		/* 
+		 * Commits all block modifications to the underlying world.
+		 * The edit stage is then cleared.
+		 */
+		virtual void commit (bool physics = true) override;
 		
 		
 		/* 
 		 * Clears the edit stage.
 		 */
-		virtual void reset ();
+		virtual void reset () override;
+	};
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	/* 
+	 * This type of edit stage serves as a bare wrapper around a world, and should
+	 * used mainly as an interface between a drawops instance and a world.
+	 */
+	class direct_edit_stage: public edit_stage
+	{
+		bool queue_updates;
+		
+	public:
+		/* 
+		 * @{queue_updates} determins the set of methods that will be used to set\get
+		 * blocks. If it's true, then all block modifications will be sent to the
+		 * world's queue_update () method, otherwise, set_id_and_meta () will be used
+		 * instead. The same applies for block retrieval - if @{queue_updates} is
+		 * true, get_final_block(), otherwise, get_block().
+		 */
+		direct_edit_stage (world *w, bool queue_updates = true);
+		
+		
+		/* 
+		 * Block modification \ retrieval:
+		 */
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual blocki get (int x, int y, int z) override;
+		
+		
+		/* 
+		 * Sends all modified blocks to the specified player(s).
+		 * 
+		 * NOTE: The direct edit stage does NOT implement this.
+		 */
+		virtual void preview (std::vector<player *>& players) override
+			{ }
+		
+		/* 
+		 * Restores back all block modifications sent by preview().
+		 * 
+		 * NOTE: The direct edit stage does NOT implement this.
+		 */
+		virtual void restore (std::vector<player *>& players) override
+			{ }
+		
+		
+		/* 
+		 * Commits all block modifications to the underlying world.
+		 * The edit stage is then cleared.
+		 * 
+		 * NOTE: The direct edit stage does NOT implement this.
+		 */
+		virtual void commit (bool physics = true) override
+			{ }
+		
+		
+		/* 
+		 * Clears the edit stage.
+		 * 
+		 * NOTE: The direct edit stage does NOT implement this.
+		 */
+		virtual void reset () override
+			{ }
 	};
 }
 

@@ -29,7 +29,6 @@
 #include "callback.hpp"
 #include "selection/world_selection.hpp"
 #include "cistring.hpp"
-#include "player_transaction.hpp"
 
 #include <atomic>
 #include <queue>
@@ -182,16 +181,13 @@ namespace hCraft {
 		std::unordered_map<std::string, player_extra_data> extra_data;
 		std::mutex data_lock;
 		
-		player_transaction sb_updates; // selection block updates
+		sparse_edit_stage sb_updates; // selection block updates
 		
 	public:
 		std::unordered_map<cistring, world_selection *> selections;
 		world_selection *curr_sel;
 		std::unordered_set<selection_block, selection_block_hash> sel_blocks;
 		blocki sb_block;
-		
-		// personal block updates
-		player_transaction pb_updates;
 		
 		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
 		
@@ -294,10 +290,6 @@ namespace hCraft {
 		 * Loads information about the player from the server's SQL database.
 		 */
 		void load_data ();
-		
-	//----
-		
-		bool have_marking_callbacks ();
 		
 	public:
 		inline server& get_server () { return this->srv; }
@@ -487,6 +479,9 @@ namespace hCraft {
 		 */
 		callback<bool (player *, block_pos[], int)>&
 		get_nth_marking_callback (int n);
+		
+		bool have_marking_callbacks ();
+		bool mark_block (int x, int y, int z);
 		
 		
 		/* 
