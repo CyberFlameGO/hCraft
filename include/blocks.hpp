@@ -36,7 +36,7 @@ namespace hCraft {
 		BT_STONE,
 		BT_GRASS,
 		BT_DIRT,
-		BT_COBBLESTONE,
+		BT_COBBLE,
 		BT_WOOD,
 		BT_SAPLING,
 		BT_BEDROCK,
@@ -201,7 +201,7 @@ namespace hCraft {
 			{ this->id = i; this->meta = m; }
 		
 		bool valid ()
-			{ return ((this->id <= 145) && (this->meta <= 0xF)); }
+			{ return ((this->id != BT_UNKNOWN) && (this->meta <= 0xF)); }
 			
 	//---
 		bool

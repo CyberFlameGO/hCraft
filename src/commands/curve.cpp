@@ -29,17 +29,15 @@ namespace hCraft {
 	namespace commands {
 		
 		namespace {
-			struct line_data {
+			struct curve_data {
 				sparse_edit_stage es;
 				std::vector<vector3> points;
 				blocki bl;
-				bool cont;
 				
-				line_data (world *wr, blocki bl, bool cont)
+				curve_data (world *wr, blocki bl)
 					: es (wr)
 				{
 					this->bl = bl;
-					this->cont = cont;
 				}
 			};
 		}
@@ -48,58 +46,49 @@ namespace hCraft {
 		static bool
 		on_blocks_marked (player *pl, block_pos marked[], int markedc)
 		{
-			line_data *data = static_cast<line_data *> (pl->get_data ("line"));
+			curve_data *data = static_cast<curve_data *> (pl->get_data ("curve"));
 			if (!data) return true; // shouldn't happen
 			
 			sparse_edit_stage& es = data->es;
-			
-			if (data->cont)
+			std::vector<vector3>& points = data->points;
+			points.push_back (marked[0]);
+			if (points.size () > 1)
 				{
-					std::vector<vector3>& points = data->points;
-					points.push_back (marked[0]);
-					if (points.size () > 1)
-						{
-							es.restore_to (pl);
-							es.reset ();
-						}
-					
-					if (points.size () == 1)
-						es.set (marked[0].x, marked[0].y, marked[0].z, data->bl.id, data->bl.meta);
-					else
-						{
-							draw_ops draw (es);
-							for (int i = 0; i < ((int)points.size () - 1); ++i)
-								draw.draw_line (points[i], points[i + 1], data->bl);
-						}
-					
-					es.preview_to (pl);
-					return false;
+					es.restore_to (pl);
+					es.reset ();
 				}
 			
-			draw_ops draw (es);
-			draw.draw_line (marked[0], marked[1], data->bl);
-			es.commit ();
+			vector3 first = points[0];
+			if (points.size () > 1)
+				{
+					draw_ops draw (es);
+					draw.draw_curve (points, data->bl);
+					
+					vector3 last = points[points.size () - 1];
+					if ( ((int)first.x == (int)last.x) && 
+							 ((int)first.y == (int)last.y) && 
+							 ((int)first.z == (int)last.z) )
+						es.set (last.x, last.y, last.z, BT_WOOL, 1);
+					else
+						es.set (last.x, last.y, last.z, BT_WOOL, 14);
+				}
 			
-			pl->delete_data ("line");
-			pl->message ("§3Line complete");
-			return true;
+			es.set (first.x, first.y, first.z, BT_WOOL, 11);
+			
+			es.preview_to (pl);
+			return false;
+			
+			return false;
 		}
 		
 		
 		static void
-		draw_line (player *pl)
+		draw_curve (player *pl)
 		{
-			line_data *data = static_cast<line_data *> (pl->get_data ("line"));
+			curve_data *data = static_cast<curve_data *> (pl->get_data ("curve"));
 			if (!data)
 				{
-					pl->message ("§4 * §cYou are not drawing any lines§4.");
-					return;
-				}
-			
-			if (!data->cont)
-				{
-					pl->stop_marking ();
-					pl->delete_data ("line");
+					pl->message ("§4 * §cYou are not drawing any curves§4.");
 					return;
 				}
 			
@@ -108,7 +97,7 @@ namespace hCraft {
 			if (points.empty ())
 				{
 					pl->stop_marking ();
-					pl->delete_data ("line");
+					pl->delete_data ("curve");
 					return;
 				}
 			
@@ -116,44 +105,42 @@ namespace hCraft {
 			es.reset ();
 			
 			draw_ops draw (es);
-			for (int i = 0; i < ((int)points.size () - 1); ++i)
-				draw.draw_line (points[i], points[i + 1], data->bl);
+			draw.draw_curve (points, data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();
-			pl->delete_data ("line");
-			pl->message ("§3Line complete");
+			pl->delete_data ("curve");
+			pl->message ("§3Curve complete");
 			return;
 		}
 		
 		
 		/* 
-		 * /line -
+		 * /curve -
 		 * 
-		 * Draws a line between two selected points.
+		 * Draws a curve between a given set of points.
+		 * Unlike /bezier, this command will attempt to make the curve pass through
+		 * ALL points except for the first and last.
 		 * 
 		 * Permissions:
-		 *   - command.draw.line
+		 *   - command.draw.curve
 		 *       Needed to execute the command.
 		 */
 		void
-		c_line::execute (player *pl, command_reader& reader)
+		c_curve::execute (player *pl, command_reader& reader)
 		{
-			if (!pl->perm ("command.draw.line"))
+			if (!pl->perm (this->get_exec_permission ()))
 					return;
 			
-			reader.add_option ("cont", "c");
 			if (!reader.parse_args (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 1)
 				{ this->show_summary (pl); return; }
 			
-			bool do_cont = reader.opt ("cont")->found ();
-			
 			std::string& str = reader.next ().as_str ();
 			if (sutils::iequals (str, "stop"))
 				{
-					draw_line (pl);
+					draw_curve (pl);
 					return;
 				}
 			
@@ -170,19 +157,14 @@ namespace hCraft {
 					return;
 				}
 			
-			line_data *data = new line_data (pl->get_world (), bl, do_cont);
-			pl->create_data ("line", data,
-				[] (void *ptr) { delete static_cast<line_data *> (ptr); });
-			pl->get_nth_marking_callback (do_cont ? 1 : 2) += on_blocks_marked;
+			curve_data *data = new curve_data (pl->get_world (), bl);
+			pl->create_data ("curve", data,
+				[] (void *ptr) { delete static_cast<curve_data *> (ptr); });
+			pl->get_nth_marking_callback (1) += on_blocks_marked;
 			
-			pl->message ("§8Line §7(§8Block§7: §b" + str + "§7):");
-			if (do_cont)
-				{
-					pl->message ("§8 * §7Please mark the required points§8.");
-					pl->message ("§8 * §7Type §c/line stop §7to stop§8."); 
-				}
-			else
-				pl->message ("§8 * §7Please mark §btwo §7blocks§7.");
+			pl->message ("§8Curve §7(§8Block§7: §b" + str + "§7):");
+			pl->message ("§8 * §7Please mark the required points§8.");
+			pl->message ("§8 * §7Type §c/curve stop §7to stop§8."); 
 		}
 	}
 }

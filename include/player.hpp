@@ -317,7 +317,7 @@ namespace hCraft {
 		inline std::mutex& get_world_lock () { return this->world_lock; }
 		static constexpr int chunk_radius () { return 10; }
 		
-		inline slot_item held_item () { return this->inv.get (this->held_slot); }
+		inline slot_item& held_item () { return this->inv.get (this->held_slot); }
 		inline slot_item cursor_item () { return this->cursor_slot; }
 		inline gamemode_type gamemode () { return this->curr_gamemode; }
 		
@@ -482,6 +482,7 @@ namespace hCraft {
 		
 		bool have_marking_callbacks ();
 		bool mark_block (int x, int y, int z);
+		void stop_marking ();
 		
 		
 		/* 

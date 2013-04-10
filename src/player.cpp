@@ -1248,6 +1248,12 @@ namespace hCraft {
 		return false;
 	}
 	
+	void
+	player::stop_marking ()
+	{
+		this->mark_callbacks.clear ();
+	}
+	
 	
 	
 	/* 
@@ -1736,6 +1742,11 @@ namespace hCraft {
 		pl->inv.add (slot_item (IT_FEATHER, 0, 1));
 		pl->inv.add (slot_item (BT_STONE, 0, 1));
 		
+		slot_item sword (IT_IRON_SWORD, 0, 1);
+		sword.lore.emplace_back ("§7Poison I");
+		sword.enchants.push_back ({ENC_KNOCKBACK, 1});
+		pl->inv.add (sword);
+		
 		return 0;
 	}
 	
@@ -2011,6 +2022,16 @@ namespace hCraft {
 				/* 
 				 * Digging
 				 */
+				
+				// degrade tool
+				if (pl->curr_gamemode != GT_CREATIVE)
+					{
+						slot_item& held = pl->held_item ();
+						if (item_info::is_tool (held.id ()))
+							{
+								held.set_damage (held.damage () + 1);
+							}
+					}
 				
 				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
@@ -2314,7 +2335,7 @@ namespace hCraft {
 												if (pl->cursor_slot.amount () < give)
 													return 0;
 												
-												slot_item prev = pl->inv.get (s);
+												slot_item& prev = pl->inv.get (s);
 												
 												// make sure both items are compatible
 												if (item.compatible_with (pl->cursor_slot))
@@ -2332,7 +2353,7 @@ namespace hCraft {
 														if (prev.id () == BT_AIR)
 															prev = pl->cursor_slot;
 														prev.set_amount (p_amount + this_give);
-														pl->inv.set (s, prev, false);
+														//pl->inv.set (s, prev, false);
 													}
 											}
 									}
@@ -2361,12 +2382,12 @@ namespace hCraft {
 					return 0;
 				pl->log (LT_DEBUG) << "Putting item back" << std::endl;
 				
-				pl->inv.set (slot, pl->cursor_slot);
-				pl->cursor_slot.set (BT_AIR);
+				pl->inv.get (slot) = pl->cursor_slot;
+				pl->cursor_slot.set_id (BT_AIR);
 			}
 		else
 			{
-				if (mode == 1)
+				if (mode == 1 && !item.empty ())
 					{
 						// shift clicking
 						if (slot >= 9 && slot <= 35)
@@ -2374,32 +2395,34 @@ namespace hCraft {
 								// first slots with same id&damage
 								for (int i = 36; (i <= 44) && !item.empty (); ++i)
 									{
-										slot_item s = pl->inv.get (i);
-										if ((s.id () == item.id ()) && (s.damage () == item.damage ()))
+										slot_item& s = pl->inv.get (i);
+										if (s.id () != BT_AIR && s.compatible_with (item))
 											{
 												int take = s.max_stack () - s.amount ();
 												if (take > item.amount ())
 													take = item.amount ();
 												
-												s.set_amount (s.amount () + take);
+												int am = s.amount () + take;
+												s = item;
+												s.set_amount (am);
 												item.take (take);
-												pl->inv.set (i, s);
 											}
 									}
 								
 								// now do empty slots
 								for (int i = 36; (i <= 44) && !item.empty (); ++i)
 									{
-										slot_item s = pl->inv.get (i);
+										slot_item& s = pl->inv.get (i);
 										if (s.id () == BT_AIR)
 											{
 												int take = 64;
 												if (take > item.amount ())
 													take = item.amount ();
 												
-												s.set (item.id (), item.damage (), s.amount () + take);
+												s = item;
+												s.set_amount (take);
 												item.take (take);
-												pl->inv.set (i, s);
+												//pl->inv.update_slot (i, s);
 											}
 									}
 								
@@ -2411,32 +2434,33 @@ namespace hCraft {
 								// first slots with same id&damage
 								for (int i = 9; (i <= 35) && !item.empty (); ++i)
 									{
-										slot_item s = pl->inv.get (i);
-										if ((s.id () == item.id ()) && (s.damage () == item.damage ()))
+										slot_item& s = pl->inv.get (i);
+										if (s.id () != BT_AIR && s.compatible_with (item))
 											{
 												int take = s.max_stack () - s.amount ();
 												if (take > item.amount ())
 													take = item.amount ();
 												
-												s.set_amount (s.amount () + take);
+												int am = s.amount () + take;
+												s = item;
+												s.set_amount (am);
 												item.take (take);
-												pl->inv.set (i, s);
 											}
 									}
 								
 								// now do empty slots
 								for (int i = 9; (i <= 35) && !item.empty (); ++i)
 									{
-										slot_item s = pl->inv.get (i);
+										slot_item& s = pl->inv.get (i);
 										if (s.id () == BT_AIR)
 											{
 												int take = 64;
 												if (take > item.amount ())
 													take = item.amount ();
 												
-												s.set (item.id (), item.damage (), s.amount () + take);
+												s = item;
+												s.set_amount (take);
 												item.take (take);
-												pl->inv.set (i, s);
 											}
 									}
 								
@@ -2466,9 +2490,15 @@ namespace hCraft {
 											(item.amount () < item.max_stack ()))
 											{
 												pl->log (LT_DEBUG) << "Putting one" << std::endl;
-												item.give (1);
+												if (item.id () == BT_AIR)
+													{
+														slot_item &s = pl->inv.get (slot);
+														s = pl->cursor_slot;
+														s.set_amount (1);
+													}
+												else
+													pl->inv.get (slot).give (1);
 												pl->cursor_slot.take (1);
-												pl->inv.set (slot, item);
 											}
 									}
 								else
@@ -2490,7 +2520,7 @@ namespace hCraft {
 									
 														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - take);
 														item.set_amount (item.amount () + take);
-														pl->inv.set (slot, item);
+														pl->inv.get (slot).set_amount (item.amount ());
 													}
 											}
 										else if (!item_tool && !cursor_tool)
@@ -2499,7 +2529,7 @@ namespace hCraft {
 												pl->log (LT_DEBUG) << "Swapping stacks" << std::endl;
 												slot_item temp = pl->cursor_slot;
 												pl->cursor_slot = item;
-												pl->inv.set (slot, temp);
+												pl->inv.set (slot, temp, false);
 											}
 									}
 							}
@@ -2514,14 +2544,15 @@ namespace hCraft {
 										pl->cursor_slot = item;
 										item.set_amount (item.amount () / 2);
 										pl->cursor_slot.set_amount (pl->cursor_slot.amount () / 2 + rem);
-										pl->inv.set (slot, item);
+										pl->inv.get (slot).set_amount (item.amount ());
 									}
 								else
 									{
 										// picking up item
 										pl->log (LT_DEBUG) << "Picking item up" << std::endl;
 										pl->cursor_slot = item;
-										pl->inv.set (slot, slot_item (BT_AIR));
+										pl->inv.get (slot).set_id (BT_AIR);
+										pl->log (LT_DEBUG) << "  [" << slot << "] = " << pl->inv.get (slot).id () << ", [cur] = " << pl->cursor_slot.id () << std::endl;
 									}
 							}
 					}

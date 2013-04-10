@@ -88,11 +88,26 @@ namespace hCraft {
 		}
 		
 		
+		
+	//----
+		
 		/* 
 		 * The amount of nanoseconds passed since epoch.
 		 * Useful to initialize random number generators.
 		 */
 		unsigned long long ns_since_epoch ();
+		
+		
+		
+		//----
+		
+		/* 
+		 * GZIP compression.
+		 */
+		long gz_compress (unsigned char *src, unsigned long slen,
+			unsigned char *dest, int level = 9);
+		unsigned char* gz_compress (unsigned char *src, unsigned long slen,
+			long& dest_size, int level = 9);
 	}
 }
 

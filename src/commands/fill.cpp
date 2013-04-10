@@ -20,8 +20,12 @@
 #include "player.hpp"
 #include "world.hpp"
 #include "stringutils.hpp"
+#include "utils.hpp"
 #include <sstream>
 #include <mutex>
+#include <random>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -44,6 +48,7 @@ namespace hCraft {
 			
 			reader.add_option ("no-physics", "p");
 			reader.add_option ("hollow", "o");
+			reader.add_option ("random", "r", true, true);
 			if (!reader.parse_args (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
@@ -51,6 +56,19 @@ namespace hCraft {
 			
 			bool do_physics = !reader.opt ("no-physics")->found ();
 			bool do_hollow  = reader.opt ("hollow")->found ();
+			
+			// randomness
+			std::minstd_rand rnd (utils::ns_since_epoch ());
+			std::uniform_real_distribution<> dis (0, 100);
+			double rprec = 100.0;
+			auto rand_opt = reader.opt ("random");
+			if (rand_opt->found () && rand_opt->got_arg ())
+				{
+					rprec = rand_opt->as_float ();
+					if (rprec < 0.0) rprec = 0.0;
+					else if (rprec > 100.0) rprec = 100.0;
+				}
+			bool is_rand = (rprec != 100.0);
 			
 			if (!sutils::is_block (reader.arg (0)))
 				{ pl->message ("§c * §7Invalid block§f: §c" + reader.arg (0)); return; }
@@ -118,9 +136,19 @@ namespace hCraft {
 										if (bd.id == bd_out.id && bd.meta == bd_out.meta)
 											continue;
 										
-										es.set (x, y, z, bd_out.id, bd_out.meta);
-								
-										++ block_counter;
+										if (is_rand)
+											{
+												if (dis (rnd) < rprec)
+													{
+														es.set (x, y, z, bd_out.id, bd_out.meta);
+														++ block_counter;
+													}
+											}
+										else
+											{
+												es.set (x, y, z, bd_out.id, bd_out.meta);
+												++ block_counter;
+											}
 								
 										if (!sel_cont)
 											++ selection_counter;

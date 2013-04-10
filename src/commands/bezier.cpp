@@ -93,9 +93,9 @@ namespace hCraft {
 		/* 
 		 * /bezier -
 		 * 
-		 * Draws a quadratic beizer curves using three control points.
+		 * Draws a beizer curvee using between user-specified control points.
 		 * The curve will pass through the first and last points, but not necessarily
-		 * through the middle one.
+		 * through the rest.
 		 * 
 		 * Permissions:
 		 *   - command.draw.bezier

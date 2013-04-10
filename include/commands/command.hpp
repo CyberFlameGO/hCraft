@@ -44,11 +44,13 @@ namespace hCraft {
 		cmd_arg (std::string& str);
 		
 		bool is_int ();
+		bool is_float ();
 		bool is_block ();
 		
 		std::string& as_str () { return this->str; }
 		const char* as_cstr () { return this->str.c_str (); }
 		int as_int ();
+		double as_float ();
 		blocki as_block ();
 		
 		operator std::string&() { return this->str; }
@@ -103,8 +105,12 @@ namespace hCraft {
 			inline bool is_string () const { return true; }
 			inline const std::string& as_string () const { return this->arg; }
 			
+		//---
 			bool is_int () const;
 			int as_int () const;
+			
+			bool is_float () const;
+			double as_float () const;
 		};
 		
 	private:

@@ -258,9 +258,9 @@ namespace hCraft {
 		/* 
 		 * /bezier -
 		 * 
-		 * Draws a quadratic beizer curves using three control points.
+		 * Draws a beizer curvee using between user-specified control points.
 		 * The curve will pass through the first and last points, but not necessarily
-		 * through the middle one.
+		 * through the rest.
 		 * 
 		 * Permissions:
 		 *   - command.draw.bezier
@@ -273,7 +273,7 @@ namespace hCraft {
 			
 			const char*
 			get_summary ()
-				{ return "Draws a quadratic beizer curves using three control points."; }
+				{ return "Draws a beizer curve using between user-specified control points."; }
 			
 			const char*
 			get_help ()
@@ -344,6 +344,132 @@ namespace hCraft {
 			}
 			
 			const char* get_exec_permission () { return "command.draw.circle"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /ellipse -
+		 * 
+		 * Draws a two-dimensional ellipse centered at a point.
+		 * 
+		 * Permissions:
+		 *   - command.draw.ellipse
+		 *       Needed to execute the command.
+		 */
+		class c_ellipse: public command
+		{
+		public:
+			const char* get_name () { return "ellipse"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a two-dimensional ellipse centered at a point."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.ellipse"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /sphere -
+		 * 
+		 * Draws a three-dimensional sphere centered at a point.
+		 * 
+		 * Permissions:
+		 *   - command.draw.sphere
+		 *       Needed to execute the command.
+		 */
+		class c_sphere: public command
+		{
+		public:
+			const char* get_name () { return "sphere"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a three-dimensional sphere centered at a point."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.sphere"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /polygon -
+		 * 
+		 * Creates a wireframe rendering of the polygon specified by marked points.
+		 * 
+		 * Permissions:
+		 *   - command.draw.polygon
+		 *       Needed to execute the command.
+		 */
+		class c_polygon: public command
+		{
+		public:
+			const char* get_name () { return "polygon"; }
+			
+			const char*
+			get_summary ()
+				{ return "Creates a wireframe rendering of the polygon specified by marked points."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.polygon"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/* 
+		 * /curve -
+		 * 
+		 * Draws a curve between a given set of points.
+		 * Unlike /bezier, this command will attempt to make the curve pass through
+		 * ALL points except for the first and last.
+		 * 
+		 * Permissions:
+		 *   - command.draw.curve
+		 *       Needed to execute the command.
+		 */
+		class c_curve: public command
+		{
+		public:
+			const char* get_name () { return "curve"; }
+			
+			const char*
+			get_summary ()
+				{ return "Draws a curve between a given set of points."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.curve"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

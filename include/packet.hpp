@@ -85,7 +85,7 @@ namespace hCraft {
 		void put_bytes (const unsigned char *val, unsigned int len);
 		void put_bool (bool val)
 			{ put_byte (val ? 1 : 0); }
-		void put_slot (slot_item item);
+		void put_slot (const slot_item& item);
 		
 	//----
 		
@@ -171,9 +171,12 @@ namespace hCraft {
 		static packet* make_block_change (int x, unsigned char y, int z,
 			unsigned short id, unsigned char meta);
 		
+		static packet* make_named_sound_effect (const char *sound, double x, double y,
+			double z, float volume, unsigned char pitch);
+		
 		static packet* make_change_game_state (char reason, char gm);
 		
-		static packet* make_set_slot (char wid, short slot, slot_item item);
+		static packet* make_set_slot (char wid, short slot, const slot_item& item);
 		
 		static packet* make_set_window_items (char wid,
 			const std::vector<slot_item>& slots);

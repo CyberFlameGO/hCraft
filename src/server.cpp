@@ -786,6 +786,10 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "bezier");
 		_add_command (this->perms, this->commands, "aid");
 		_add_command (this->perms, this->commands, "circle");
+		_add_command (this->perms, this->commands, "ellipse");
+		_add_command (this->perms, this->commands, "sphere");
+		_add_command (this->perms, this->commands, "polygon");
+		_add_command (this->perms, this->commands, "curve");
 	}
 	
 	void
@@ -821,13 +825,14 @@ namespace hCraft {
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
 		grp_builder->add ("command.draw.cuboid");
+		grp_builder->add ("command.draw.aid");
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->set_color ('b');
 		grp_designer->inherit (grp_builder);
 		grp_builder->add ("command.draw.select");
 		grp_builder->add ("command.draw.fill");
-		grp_builder->add ("command.draw.aid");
+		grp_builder->add ("command.draw.sphere");
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->set_color ('3');
@@ -835,6 +840,9 @@ namespace hCraft {
 		grp_builder->add ("command.draw.circle");
 		grp_builder->add ("command.draw.line");
 		grp_builder->add ("command.draw.bezier");
+		grp_builder->add ("command.draw.ellipse");
+		grp_builder->add ("command.draw.polygon");
+		grp_builder->add ("command.draw.curve");
 		
 		group* grp_moderator = groups.add (6, "moderator");
 		grp_moderator->set_color ('c');

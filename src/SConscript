@@ -57,6 +57,10 @@ hCraft_sources = Split("""
 		commands/bezier.cpp
 		commands/aid.cpp
 		commands/circle.cpp
+		commands/ellipse.cpp
+		commands/sphere.cpp
+		commands/polygon.cpp
+		commands/curve.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

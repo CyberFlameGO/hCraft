@@ -56,7 +56,7 @@ namespace hCraft {
 		/* 
 		 * Queues an update that must be sent to all subscribers.
 		 */
-		void enqueue (int index, slot_item item);
+		void enqueue (int index, const slot_item& item);
 		
 		/* 
 		 * Sends the specified packet to all subscribed players.
@@ -97,10 +97,16 @@ namespace hCraft {
 		 */
 		void unsubscribe_all ();
 		
+		
 		/* 
 		 * Sends queued slot updates to all subscribers.
 		 */
 		void update ();
+		
+		/* 
+		 * Calls either enqueue () or notify () based on @{update}.
+		 */
+		void update_slot (int index, const slot_item& item, bool update = true);
 		
 		
 		
@@ -112,24 +118,24 @@ namespace hCraft {
 		/* 
 		 * Sets the slot located at @{index} to @{item}.
 		 */
-		virtual void set (int index, slot_item item, bool update = true);
+		virtual void set (int index, const slot_item& item, bool update = true);
 		
 		/* 
 		 * Returns the item located at the specified slot index.
 		 */
-		virtual slot_item get (int index);
+		virtual slot_item& get (int index);
 		
 		/* 
 		 * Attempts to add @{item} at empty or compatible locations.
 		 * Returns the number of items NOT added due to insufficient room.
 		 */
-		virtual int add (slot_item item, bool update = true) = 0;
+		virtual int add (const slot_item& item, bool update = true) = 0;
 		
 		/* 
 		 * Attempts to remove items matching item @{item}.
 		 * Returns the number of items removed.
 		 */
-		virtual int remove (slot_item item, bool update = true) = 0;
+		virtual int remove (const slot_item& item, bool update = true) = 0;
 		
 		/* 
 		 * Clears out all slots in this window.
@@ -148,8 +154,8 @@ namespace hCraft {
 		 * Used by add () and remove ().
 		 */
 		
-		int try_add (int index, slot_item item, bool update = true);
-		int try_remove (int index, slot_item item, bool update = true);
+		int try_add (int index, const slot_item& item, int left, bool update = true);
+		int try_remove (int index, const slot_item& item, int left, bool update = true);
 		
 	public:
 		/* 
@@ -163,13 +169,13 @@ namespace hCraft {
 		 * Attempts to add @{item} at empty or compatible locations.
 		 * Returns the number of items NOT added due to insufficient room.
 		 */
-		virtual int add (slot_item item, bool update = true) override;
+		virtual int add (const slot_item& item, bool update = true) override;
 		
 		/* 
 		 * Attempts to remove items matching item @{item}.
 		 * Returns the number of items removed.
 		 */
-		virtual int remove (slot_item item, bool update = true) override;
+		virtual int remove (const slot_item& item, bool update = true) override;
 	};
 }
 

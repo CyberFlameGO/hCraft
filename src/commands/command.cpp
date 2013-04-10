@@ -66,6 +66,10 @@ namespace hCraft {
 	static command* create_c_bezier () { return new commands::c_bezier (); }
 	static command* create_c_aid () { return new commands::c_aid (); }
 	static command* create_c_circle () { return new commands::c_circle (); }
+	static command* create_c_ellipse () { return new commands::c_ellipse (); }
+	static command* create_c_sphere () { return new commands::c_sphere (); }
+	static command* create_c_polygon () { return new commands::c_polygon (); }
+	static command* create_c_curve () { return new commands::c_curve (); }
 	
 	// admin commands
 	static command* create_c_gm () { return new commands::c_gm (); }
@@ -95,6 +99,10 @@ namespace hCraft {
 			{ "bezier", create_c_bezier },
 			{ "aid", create_c_aid },
 			{ "circle", create_c_circle },
+			{ "ellipse", create_c_ellipse },
+			{ "sphere", create_c_sphere },
+			{ "polygon", create_c_polygon },
+			{ "curve", create_c_curve },
 			};
 		
 		auto itr = creators.find (name);
@@ -134,6 +142,21 @@ namespace hCraft {
 		return sutils::to_int (this->as_string ());
 	}
 	
+	
+	bool
+	command_reader::option::is_float () const
+	{
+		if (!this->found_arg)
+			return false;
+		return sutils::is_float (this->as_string ());
+	}
+	
+	double
+	command_reader::option::as_float () const
+	{
+		return sutils::to_float (this->as_string ());
+	}
+
 	
 	
 //----
@@ -630,6 +653,12 @@ namespace hCraft {
 	{
 		return sutils::is_int (this->str);
 	}
+	
+	bool
+	cmd_arg::is_float ()
+	{
+		return sutils::is_float (this->str);
+	}
 
 	bool
 	cmd_arg::is_block ()
@@ -643,6 +672,12 @@ namespace hCraft {
 	cmd_arg::as_int ()
 	{
 		return sutils::to_int (this->str);
+	}
+	
+	double
+	cmd_arg::as_float ()
+	{
+		return sutils::to_float (this->str);
 	}
 	
 	blocki

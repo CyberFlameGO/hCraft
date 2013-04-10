@@ -26,9 +26,11 @@ namespace hCraft {
 	 * and amount (optional).
 	 */
 	slot_item::slot_item (unsigned short id, unsigned short damage,
-		unsigned short amount)
+		unsigned short amount, const enchantment_list *enchants)
 	{
 		this->set (id, damage, amount);
+		if (enchants)
+			this->set_enchants (*enchants);
 	}
 	
 	slot_item::slot_item ()
@@ -39,6 +41,9 @@ namespace hCraft {
 	slot_item::slot_item (const slot_item& other)
 	{
 		this->set (other.s_id, other.s_damage, other.s_amount);
+		this->enchants = other.enchants;
+		this->display_name = other.display_name;
+		this->lore = other.lore;
 	}
 	
 	
@@ -46,13 +51,37 @@ namespace hCraft {
 	/* 
 	 * Resets the item's fields.
 	 */
+	
+	void
+	slot_item::set_enchants (const enchantment_list& enc)
+	{
+		this->enchants = enc;
+	}
+	
+	void
+	slot_item::copy_enchants_from (const slot_item& other)
+	{
+		this->set_enchants (other.enchants);
+	}
+	
+	void
+	slot_item::set (const slot_item& other)
+	{
+		this->set (other.s_id, other.s_damage, other.s_amount);
+		this->copy_enchants_from (other);
+		this->display_name = other.display_name;
+		this->lore = other.lore;
+	}
+	
 	void
 	slot_item::set (unsigned short id, unsigned short damage,
-		unsigned short amount)
+		unsigned short amount, const enchantment_list *enchants)
 	{
 		this->set_id (id);
 		this->set_damage (damage);
 		this->set_amount (amount);
+		if (enchants)
+			this->set_enchants (*enchants);
 	}
 	
 	void
@@ -104,12 +133,28 @@ namespace hCraft {
 	}
 	
 	
+	int
+	slot_item::max_stack () const
+	{
+		if (is_block () && this->s_info.binf)
+			return this->s_info.binf->max_stack;
+		else if (is_item ())
+			{
+				if (this->s_info.iinf)
+					return this->s_info.iinf->max_stack;
+				if (item_info::is_tool (this->s_id))
+					return 1;
+			}
+		return 64;
+	}
+	
+	
 	
 	/* 
 	 * Checks whether the given slot item can be stacked on top of this one.
 	 */
 	bool
-	slot_item::compatible_with (slot_item s)
+	slot_item::compatible_with (const slot_item& s)
 	{
 		if ((this->id () == BT_AIR) || (s.id () == BT_AIR))
 			return true;
@@ -168,6 +213,11 @@ namespace hCraft {
 	slot_item::operator= (const slot_item& other)
 	{
 		this->set (other.s_id, other.s_damage, other.s_amount);
+		
+		this->enchants = other.enchants;
+		this->display_name = other.display_name;
+		this->lore = other.lore;
+			
 		return *this;
 	}
 }

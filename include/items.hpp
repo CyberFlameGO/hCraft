@@ -19,6 +19,8 @@
 #ifndef _hCraft__ITEMS_H_
 #define _hCraft__ITEMS_H_
 
+#include <vector>
+
 
 namespace hCraft {
 	
@@ -188,6 +190,62 @@ namespace hCraft {
 		IT_DISC_11,
 	};
 	
+	
+	
+//----
+	
+	enum enchantment_type: short
+	{
+		ENC_PROTECTION = 0,
+		ENC_FIRE_PROTECTION,
+		ENC_FEATHER_FALLING,
+		ENC_BLAST_PROTECTION,
+		ENC_PROJECTILE_PROTECTION,
+		ENC_RESPIRATION,
+		ENC_AQUA_AFFINITY,
+		ENC_THORNS,
+		
+		ENC_SHARPNESS = 16,
+		ENC_SMITE,
+		ENC_BANE_OF_ARTHROPODS,
+		ENC_KNOCKBACK,
+		ENC_FIRE_ASPECT,
+		ENC_LOOTING,
+		
+		ENC_EFFICIENCY = 32,
+		ENC_SILK_TOUCH,
+		ENC_UNBREAKING,
+		ENC_FORTUNE,
+		
+		ENC_POWER = 48,
+		ENC_PUNCH,
+		ENC_FLAME,
+		ENC_INFINITY,
+		
+		// custom enchants
+		ENC_UNBREAKABLE = 64,
+		ENC_POISON = 65,
+		ENC_HUNGER = 66,
+		ENC_REGENERATION = 67,
+		ENC_HEALTH = 68,
+	};
+	
+	
+	struct enchantment
+	{
+		short eid;
+		short lvl;
+		bool visible;
+		
+		enchantment (short eid, short lvl = 1, bool visible = true)  
+		{
+		 	this->eid = eid;
+		 	this->lvl = lvl;
+		 	this->visible = visible;
+		}
+	};
+	
+	typedef std::vector<enchantment> enchantment_list;
 	
 	
 //----

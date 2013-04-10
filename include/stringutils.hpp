@@ -63,6 +63,9 @@ namespace hCraft {
 		bool is_int (const std::string& str);
 		int  to_int (const std::string& str);
 		
+		bool is_float (const std::string& str);
+		double to_float (const std::string& str);
+		
 		bool is_block (const std::string& str);
 		blocki to_block (const std::string& str);
 	}

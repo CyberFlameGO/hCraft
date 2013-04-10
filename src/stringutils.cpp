@@ -154,6 +154,53 @@ namespace hCraft {
 		
 		
 		bool
+		is_float (const std::string& str)
+		{
+			bool minus = false;
+			bool exp = false;
+			bool dot = false;
+			for (int i = 0; i < (int)str.size (); ++i)
+				{
+					char c = str[i];
+					if (c == '-')
+						{
+							if (minus)
+								return false;
+							minus = true;
+						}
+					else if (c == '.')
+						{
+							if (dot)
+								return false;
+							dot = true;
+						}
+					else if (!std::isdigit (c))
+						{
+						 	if (c == 'e' || c == 'E')
+						 		{
+						 			if (exp)
+						 				return false;
+						 			exp = true;
+						 			minus = false;
+						 		}
+						}
+				}
+			
+			return true;
+		}
+		
+		double
+		to_float (const std::string& str)
+		{
+			double f;
+			std::istringstream ss (str);
+			ss >> f;
+			return f;
+		}
+		
+		
+		
+		bool
 		is_block (const std::string& str)
 		{
 			// Syntax: <name/id>[:metadata]

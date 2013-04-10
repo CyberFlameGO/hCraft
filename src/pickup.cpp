@@ -61,7 +61,7 @@ namespace hCraft {
 	{
 		pl->send (
 			packet::make_spawn_object (this->eid, 2, this->pos.x, this->pos.y,
-				this->pos.z, 0.0f, 0.0f, 1, 0, 0, 0));
+				this->pos.z, 0.0f, 0.0f, 1, 0, 2000, 0));
 			
 		entity_metadata dict;
 		this->build_metadata (dict);
@@ -141,7 +141,11 @@ namespace hCraft {
 		
 		int r = pl->inv.add (this->data);
 		if (r < this->data.amount ())
-			pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
+			{
+				pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
+				pl->send (packet::make_named_sound_effect ("random.pop",
+					this->pos.x, this->pos.y, this->pos.z, 0.2f, 98));
+			}
 		this->data.set_amount (r);
 		
 		if (this->data.empty ())

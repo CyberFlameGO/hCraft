@@ -21,6 +21,9 @@
 #include "utils.hpp"
 #include <alloca.h>
 #include <cmath>
+#include <algorithm>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -329,6 +332,182 @@ namespace hCraft {
 	
 	
 	
+	static int
+	_plot_ellipse_points (edit_stage& es, int cx, int cy, int cz, int a, int b, 
+		blocki material, draw_ops::plane pn)
+	{
+		switch (pn)
+			{
+			case draw_ops::XZ_PLANE:
+				if (a != 0)
+					{
+						es.set (cx - a, cy, cz + b, material.id, material.meta);
+						es.set (cx + a, cy, cz + b, material.id, material.meta);
+						es.set (cx + a, cy, cz - b, material.id, material.meta);
+						es.set (cx - a, cy, cz - b, material.id, material.meta);
+						return 4;
+					}
+				
+				es.set (cx, cy, cz + b, material.id, material.meta);
+				es.set (cx, cy, cz - b, material.id, material.meta);
+				return 2;
+			
+			case draw_ops::YX_PLANE:
+				if (a != 0)
+					{
+						es.set (cx - a, cy + b, cz, material.id, material.meta);
+						es.set (cx + a, cy + b, cz, material.id, material.meta);
+						es.set (cx + a, cy - b, cz, material.id, material.meta);
+						es.set (cx - a, cy - b, cz, material.id, material.meta);
+						return 4;
+					}
+				
+				es.set (cx, cy + b, cz, material.id, material.meta);
+				es.set (cx, cy - b, cz, material.id, material.meta);
+				return 2;
+			
+			case draw_ops::YZ_PLANE:
+				if (a != 0)
+					{
+						es.set (cx, cy + b, cz - a, material.id, material.meta);
+						es.set (cx, cy + b, cz + a, material.id, material.meta);
+						es.set (cx, cy - b, cz + a, material.id, material.meta);
+						es.set (cx, cy - b, cz - a, material.id, material.meta);
+						return 4;
+					}
+				
+				es.set (cx, cy + b, cz, material.id, material.meta);
+				es.set (cx, cy - b, cz, material.id, material.meta);
+				return 2;
+			}
+		
+		return 0;
+	}
+	
+	/* 
+	 * Draws a 2D ellipse centered at @{pt} with the given radius and material.
+	 * Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::draw_ellipse (vector3 pt, double a, double b, blocki material, plane pn)
+	{
+		int modified = 0;
+		long x = -a, z = 0;
+		long e2 = b, dx = (1+2*x)*e2*e2;
+		long dz = x*x, err = dx+dz;
+		
+		do
+			{
+				modified += _plot_ellipse_points (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
+				
+				e2 = 2*err;
+				if (e2 >= dx) { ++ x; err += dx += 2*(long)b*b; }
+				if (e2 <= dz) { ++ z; err += dz += 2*(long)a*a; }
+			}
+		while (x <= 0);
+		
+		while (z++ < b)
+			{
+				modified += _plot_ellipse_points (this->es, pt.x, pt.y, pt.z, 0, z, material, pn);
+			}
+		
+		return modified;
+	}
+	
+	
+	
+	/* 
+	 * Connects all specified points with lines to form a shape.
+	 * Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::draw_polygon (const std::vector<vector3>& points, blocki material)
+	{
+		if (points.empty ()) return 0;
+		if (points.size () == 1)
+			{
+				this->es.set (points[0].x, points[0].y, points[0].z, material.id, material.meta);
+				return 1;
+			}
+		
+		int modified = 0;
+		for (int i = 0; i < ((int)points.size () - 1); ++i)
+			modified += this->draw_line (points[i], points[i + 1], material);
+		modified += this->draw_line (points[points.size () - 1], points[0], material);
+		
+		return modified;
+	}
+	
+	
+	
+	static vector3
+	catmull_spline (vector3 p0, vector3 p1, vector3 p2, vector3 p3, double t)
+	{
+		return 0.5 * ( ((2 * p1)) +
+									 (t * (-p0 + p2)) +
+									 ((t*t) * (2*p0 - 5*p1 + 4*p2 - p3)) +
+									 ((t*t*t) * (-p0 + 3*p1 - 3*p2 + p3)) );
+	}
+	
+	static int
+	draw_curve_segment (draw_ops &draw, vector3 p0, vector3 p1, vector3 p2,
+		vector3 p3, blocki material)
+	{
+		int modified = 0;
+		
+		vector3 last = p1;
+		double t = 0.0;
+		double t_inc = 1.0 / (p2 - p1).magnitude ();
+		while (t <= 1.0)
+			{
+				vector3 next = catmull_spline (p0, p1, p2, p3, t);
+				modified += draw.draw_line (last, next, material);
+				last = next;
+				t += t_inc;
+			}
+		
+		return modified;
+	}
+	
+	/* 
+	 * Approximates a curve between the given vector of points.
+	 * NOTE: The curve is guaranteed to pass through all BUT the first and last
+	 * points.
+	 * Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::draw_curve (const std::vector<vector3>& points, blocki material)
+	{
+		int modified = 0;
+		
+		switch (points.size ())
+			{
+				case 0: return 0;
+				case 1:
+					this->es.set (points[0].x, points[0].y, points[0].z, material.id, material.meta);
+					return 1;
+				case 2:
+					this->es.set (points[1].x, points[1].y, points[1].z, material.id, material.meta);
+					return 1;
+				case 3:
+					return this->draw_line (points[1], points[2], material);
+			}
+		
+		int j = points.size () - 3;
+		for (int i = 0; i < j; ++i)
+			{
+				modified += draw_curve_segment (*this,
+					points[i + 0],
+					points[i + 1],
+					points[i + 2],
+					points[i + 3], material);
+			}
+		
+		return modified;
+	}
+	
+	
+	
 	/* 
 	 * Fills the cuboid bounded between the two specified points with the given
 	 * block. Returns the total number of blocks modified.
@@ -366,6 +545,16 @@ namespace hCraft {
 	}
 	
 	static int
+	straight_y_line (edit_stage& es, int x, int y1, int y2, int z, blocki material)
+	{
+		int ey = utils::max (y1, y2);
+		int sy = utils::min (y1, y2);
+		for (int y = sy; y <= ey; ++y)
+			es.set (x, y, z, material.id, material.meta);
+		return (ey - sy + 1);
+	}
+	
+	static int
 	straight_z_line (edit_stage& es, int x, int y, int z1, int z2, blocki material)
 	{
 		int ez = utils::max (z1, z2);
@@ -374,6 +563,8 @@ namespace hCraft {
 			es.set (x, y, z, material.id, material.meta);
 		return (ez - sz + 1);
 	}
+	
+	
 	
 	static int
 	_plot_four_lines (edit_stage& es, int cx, int cy, int cz, int x, int z,
@@ -471,6 +662,162 @@ namespace hCraft {
 						error -= x;
 					}
 			}
+		
+		return modified;
+	}
+	
+	
+	
+	static int
+	_plot_ellipse_lines (edit_stage& es, int cx, int cy, int cz, int a, int b, 
+		blocki material, draw_ops::plane pn)
+	{
+		int modified = 0;
+		switch (pn)
+			{
+			case draw_ops::XZ_PLANE:
+				if (a != 0)
+					{
+						modified += straight_x_line (es, cx - a, cx + a, cy, cz + b, material);
+						modified += straight_x_line (es, cx - a, cx + a, cy, cz - b, material);
+					}
+				else
+					modified += straight_z_line (es, cx, cy, cz - b, cz + b, material);
+				break;
+			
+			case draw_ops::YX_PLANE:
+				if (a != 0)
+					{
+						modified += straight_x_line (es, cx - a, cx + a, cy + b, cz, material);
+						modified += straight_x_line (es, cx - a, cx + a, cy - b, cz, material);
+					}
+				else
+					modified += straight_y_line (es, cx, cy - b, cy + b, cz, material);
+				break;
+			
+			case draw_ops::YZ_PLANE:
+				if (a != 0)
+					{
+						modified += straight_z_line (es, cx, cy + b, cz - a, cz + a, material);
+						modified += straight_z_line (es, cx, cy - b, cz - a, cz + a, material);
+					}
+				else
+					modified += straight_y_line (es, cx, cy - b, cy + b, cz, material);
+				break;
+			}
+		
+		return modified;
+	}
+	
+	/* 
+	 * Fills a 2D ellipse centered at @{pt} with the given radius and material.
+	 * Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::fill_ellipse (vector3 pt, double a, double b, blocki material, plane pn)
+	{
+		int modified = 0;
+		long x = -a, z = 0;
+		long e2 = b, dx = (1+2*x)*e2*e2;
+		long dz = x*x, err = dx+dz;
+		
+		do
+			{
+				modified += _plot_ellipse_lines (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
+				
+				e2 = 2*err;
+				if (e2 >= dx) { ++ x; err += dx += 2*(long)b*b; }
+				if (e2 <= dz) { ++ z; err += dz += 2*(long)a*a; }
+			}
+		while (x <= 0);
+		
+		while (z++ < b)
+			{
+				modified += _plot_ellipse_lines (this->es, pt.x, pt.y, pt.z, 0, z, material, pn);
+			}
+		
+		return modified;
+	}
+	
+	
+	
+	/* 
+	 * Fills the sphere centered at @{pt} with the radius of @{radius} with the
+	 * given block. Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::fill_sphere (vector3 pt, double radius, blocki material)
+	{
+		int rad = std::round (radius);
+		int srad = rad * rad;
+		
+		int cx = pt.x, cy = pt.y, cz = pt.z;
+		
+		int modified = 0;
+		for (int x = -rad; x <= rad; ++x)
+			for (int y = -rad; y <= rad; ++y)
+				for (int z = -rad; z <= rad; ++z)
+					{
+						if (x*x + y*y + z*z <= srad)
+							{
+								this->es.set (x + cx, y + cy, z + cz, material.id, material.meta);
+								++ modified;
+							}
+					}
+		
+		return modified;
+	}
+	
+	
+	
+	/* 
+	 * Fills a hollow sphere centered at @{pt} with the radius of @{radius} with the
+	 * given block. Returns the total number of blocks modified.
+	 */
+	int
+	draw_ops::fill_hollow_sphere (vector3 pt, double radius, blocki material)
+	{
+		int srad = std::round (radius * radius);
+		int rad = std::round (radius);
+		int cx = pt.x, cy = pt.y, cz = pt.z;
+		
+		enum {
+			ST_BEFORE,
+			ST_IN,
+			ST_AFTER,
+		} state = ST_BEFORE;
+		
+		int modified = 0;
+		for (int y = -rad; y <= rad; ++y)
+			for (int x = -rad; x <= rad; ++x)
+				{
+					state = ST_BEFORE;
+					for (int z = -rad; z <= rad; ++z)
+						{
+							switch (state)
+								{
+								case ST_BEFORE:
+									if ((x*x + y*y + z*z) <= srad)
+										{
+											this->es.set (x + cx, y + cy, z + cz, material.id, material.meta);
+											state = ST_IN;
+											++ modified;
+										}
+									break;
+								
+								case ST_IN:
+									if ((x*x + y*y + z*z) > srad)
+										{
+											this->es.set (x + cx, y + cy, z + cz - 1, material.id, material.meta);
+											state = ST_AFTER;
+											++ modified;
+										}
+									break;
+								
+								case ST_AFTER: break;
+								}
+						}
+				}
 		
 		return modified;
 	}

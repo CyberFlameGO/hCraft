@@ -21,6 +21,8 @@
 
 #include "blocks.hpp"
 #include "items.hpp"
+#include <vector>
+#include <string>
 
 
 namespace hCraft {
@@ -41,6 +43,11 @@ namespace hCraft {
 				item_info  *iinf;
 				void       *ptr;
 			} s_info;
+			
+	public:
+		enchantment_list enchants;
+		std::string display_name;
+		std::vector<std::string> lore;
 		
 	public:
 		inline bool is_valid () const { return s_id != BT_UNKNOWN && s_id != IT_UNKNOWN && s_id != BT_AIR; }
@@ -51,13 +58,6 @@ namespace hCraft {
 		inline unsigned short damage () const { return s_damage; }
 		inline unsigned short amount () const { return s_amount; }
 		
-		inline int max_stack () const {
-			if (is_block () && this->s_info.binf)
-				return this->s_info.binf->max_stack;
-			else if (is_item () && this->s_info.iinf)
-				return this->s_info.iinf->max_stack;
-			return 1;
-		}
 		inline bool empty () const { return s_amount == 0; }
 		inline bool full () const
 		{
@@ -70,7 +70,7 @@ namespace hCraft {
 		 * and amount (optional).
 		 */
 		slot_item (unsigned short id, unsigned short damage = 0,
-			unsigned short amount = 1);
+			unsigned short amount = 1, const enchantment_list *enchants = nullptr);
 		slot_item ();
 		slot_item (const slot_item& other);
 		
@@ -78,21 +78,26 @@ namespace hCraft {
 		/* 
 		 * Resets the item's fields.
 		 */
+		void set (const slot_item& other);
 		void set (unsigned short id, unsigned short damage = 0,
-			unsigned short amount = 1);
+			unsigned short amount = 1, const enchantment_list *enchants = nullptr);
 		void set_id (unsigned short id);
 		void set_damage (unsigned short damage);
 		void set_amount (unsigned short amount);
 		void clear ()
 			{ this->set (BT_AIR, 0, 0); }
 		
+		void set_enchants (const enchantment_list& enc);
+		void copy_enchants_from (const slot_item& other);
+		
 		const char* name () const;
+		int max_stack () const;
 		
 		
 		/* 
 		 * Checks whether the given slot item can be stacked on top of this one.
 		 */
-		bool compatible_with (slot_item s);
+		bool compatible_with (const slot_item& s);
 		
 		/* 
 		 * Increase\reduce amount

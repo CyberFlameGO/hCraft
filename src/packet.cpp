@@ -20,6 +20,7 @@
 #include "chunk.hpp"
 #include "entity.hpp"
 #include "utils.hpp"
+#include "nbt.hpp"
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
@@ -268,8 +269,72 @@ namespace hCraft {
 		this->size += len;
 	}
 	
+	
+	
+	static nbt_tag_compound*
+	build_slot_metadata (const slot_item& item)
+	{
+		nbt_tag_compound *root = new nbt_tag_compound ("");
+		
+		// display
+		if (!item.display_name.empty () || !item.lore.empty ())
+			{
+				nbt_tag_compound *display = new nbt_tag_compound ("display");
+				
+				if (!item.display_name.empty ())
+					{
+						nbt_tag_string *name = new nbt_tag_string ("Name");
+						name->set (item.display_name);
+						display->add (name);
+					}
+				
+				if (!item.lore.empty ())
+					{
+						nbt_tag_list *lore = new nbt_tag_list ("Lore", TAG_STRING);
+						for (const std::string& str : item.lore)
+							{
+								nbt_tag_string *t = new nbt_tag_string ("");
+								t->set (str);
+								lore->add (t);
+							}
+						display->add (lore);
+					}
+				
+				root->add (display);
+			}
+		
+		// enchantments
+		nbt_tag_list *ench_list = new nbt_tag_list ("ench", TAG_COMPOUND);
+		for (enchantment ench : item.enchants)
+			{
+				nbt_tag_compound *t = new nbt_tag_compound ("");
+				
+				nbt_tag_short *t_id = new nbt_tag_short ("id");
+				t_id->value () = ench.eid;
+				t->add (t_id);
+				
+				nbt_tag_short *t_lvl = new nbt_tag_short ("lvl");
+				t_lvl->value () = ench.lvl;
+				t->add (t_lvl);
+				
+				ench_list->add (t);
+			}
+		root->add (ench_list);
+		
+		return root;
+	}
+	
+	
+	
+	static bool
+	slot_has_metadata (const slot_item& item)
+	{
+		return (!item.enchants.empty () || !item.display_name.empty ()
+			|| !item.lore.empty ());
+	}
+	
 	void
-	packet::put_slot (slot_item item)
+	packet::put_slot (const slot_item& item)
 	{
 		if (!item.is_valid () || item.amount () == 0)
 			this->put_short (-1);
@@ -279,8 +344,28 @@ namespace hCraft {
 				this->put_byte ((item.amount () > 64) ? 64 : item.amount ());
 				this->put_short (item.damage ());
 				
-				// further metadata is currently not supported.
-				this->put_short (-1);
+				// enchantments
+				if (!slot_has_metadata (item))
+					this->put_short (-1);
+				else
+					{
+						nbt_tag_compound *t = build_slot_metadata (item);
+						unsigned char *data = new unsigned char [t->size ()];
+						int s = t->encode (data);
+						delete t;
+						
+						long comp_size = 0;
+						unsigned char *comp = utils::gz_compress (data, s, comp_size);
+						delete[] data;
+						if (!comp) // shouldn't happen
+							this->put_short (-1);
+						else
+							{
+								this->put_short (comp_size);
+								this->put_bytes (comp, comp_size);
+								delete[] comp;
+							}
+					}
 			}
 	}
 	
@@ -659,15 +744,33 @@ namespace hCraft {
 			}
 		pack->put_byte (0x7F);
 	}
+	 
 	
 	static int
-	slot_size (slot_item item)
+	slot_size (const slot_item& item)
 	{
 		int size = 2;
 		if (item.id () != -1)
 			{
-				size += 5;
+				size += 7;
 			}
+		
+		// very rough estimation
+		bool has_nbt = slot_has_metadata (item);
+		if (has_nbt)
+			{
+				size += 192;
+				if (!item.enchants.empty ())
+					size += (item.enchants.size () * 8);
+				if (!item.display_name.empty ())
+					size += item.display_name.size () * 2 + 3;
+				if (!item.lore.empty ())
+					{
+						for (const std::string& str : item.lore)
+							size += str.size () * 2 + 3;
+					}
+			}
+		
 		return size;
 	}
 	
@@ -864,8 +967,8 @@ namespace hCraft {
 		if (data != 0)
 			{
 				pack->put_short (speed_x);
-				pack->put_short (speed_x);
-				pack->put_short (speed_x);
+				pack->put_short (speed_y);
+				pack->put_short (speed_z);
 			}
 		
 		return pack;
@@ -1137,6 +1240,23 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_named_sound_effect (const char *sound, double x, double y, double z,
+		float volume, unsigned char pitch)
+	{
+		packet* pack = new packet (20 + (std::strlen (sound) * 2));
+		
+		pack->put_byte (0x3E);
+		pack->put_string (sound);
+		pack->put_int (x * 8.0);
+		pack->put_int (y * 8.0);
+		pack->put_int (z * 8.0);
+		pack->put_float (volume);
+		pack->put_byte (pitch);
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_change_game_state (char reason, char gm)
 	{
 		packet *pack = new packet (3);
@@ -1149,7 +1269,7 @@ namespace hCraft {
 	}
 	
 	packet*
-	packet::make_set_slot (char wid, short slot, slot_item item)
+	packet::make_set_slot (char wid, short slot, const slot_item& item)
 	{
 		packet *pack = new packet (4 + slot_size (item));
 		

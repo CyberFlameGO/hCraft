@@ -135,10 +135,25 @@ namespace hCraft {
 	 * Queues an update that must be sent to all subscribers.
 	 */
 	void
-	window::enqueue (int index, slot_item item)
+	window::enqueue (int index, const slot_item& item)
 	{
 		std::lock_guard<std::mutex> guard {this->w_out_lock};
 		this->w_out_queue.push (std::make_pair (index, item));
+	}
+	
+	/* 
+	 * Calls either enqueue () or notify () based on @{update}.
+	 */
+	void
+	window::update_slot (int index, const slot_item& item, bool update)
+	{
+		if (update)
+			{
+				packet *pack = packet::make_set_slot (this->wid (), index, item);
+				this->notify (pack);
+			}
+		else
+			this->enqueue (index, item);
 	}
 	
 	/* 
@@ -172,11 +187,8 @@ namespace hCraft {
 	 * Sets the slot located at @{index} to @{item}.
 	 */
 	void
-	window::set (int index, slot_item item, bool update)
+	window::set (int index, const slot_item& item, bool update)
 	{
-		if (item.id () == BT_UNKNOWN)
-			item.set_id (BT_AIR);
-		
 		if (index > 44 || index < 0)
 			return;
 		
@@ -186,25 +198,24 @@ namespace hCraft {
 		else if (curr.amount () > 64)
 			curr.set_amount (64);
 		
-		if (this->w_slots[index] == item)
+		if (curr == item)
 			return;
-		this->w_slots[index] = item;
+		curr = item;
+		if (curr.id () == BT_UNKNOWN)
+			curr.set_id (BT_AIR);
 		
-		packet *pack = packet::make_set_slot (this->wid (), index, curr);
-		if (update)
-			this->notify (pack);
-		else
-			this->enqueue (index, this->w_slots[index]);
+		this->update_slot (index, item, update);
 	}
 	
 	/* 
 	 * Returns the item located at the specified slot index.
 	 */
-	slot_item
+	slot_item&
 	window::get (int index)
 	{
+		static slot_item invalid_slot (BT_UNKNOWN, 0, 0);
 		if (index > 44 || index < 0)
-			return slot_item (BT_UNKNOWN, 0, 0);
+			return invalid_slot;
 		return this->w_slots[index];
 	}
 	
@@ -242,13 +253,15 @@ namespace hCraft {
 	
 	
 	int
-	inventory::try_add (int index, slot_item item, bool update)
+	inventory::try_add (int index, const slot_item& item, int left, bool update)
 	{
 		slot_item &curr_item = this->w_slots[index];
 		if (curr_item.empty ())
 			{
-				int take = (item.amount () > 64) ? 64 : item.amount ();
-				this->set (index, slot_item (item.id (), item.damage (),take), update);
+				int take = (left > 64) ? 64 : left;
+				curr_item = item;
+				curr_item.set_amount (take);
+				this->update_slot (index, curr_item, update);
 				return take;
 			}
 		
@@ -260,8 +273,11 @@ namespace hCraft {
 		int take = 64 - curr_item.amount ();
 		if (take > item.amount ())
 			take = item.amount ();
-		this->set (index, slot_item (item.id (), item.damage (), curr_item.amount ()
-			+ take), update);
+		int am = take + curr_item.amount ();
+		
+		curr_item = item;
+		curr_item.set_amount (am);
+		this->update_slot (index, curr_item, update);
 		return take;
 	}
 	
@@ -270,22 +286,24 @@ namespace hCraft {
 	 * Returns the number of items NOT added due to insufficient room.
 	 */
 	int
-	inventory::add (slot_item item, bool update)
+	inventory::add (const slot_item& item, bool update)
 	{
 		int i, added;
 		int left = item.amount ();
 		
 		// hotbar first
 		for (i = 36; i <= 44 && left > 0; ++i)
-			{ added = this->try_add (i, item, update);
+			{
+				added = this->try_add (i, item, left, update);
 				left -= added;
-				item.set_amount (left); }
+			}
 		
 		// and the rest of the inventory
 		for (i = 9; i <= 35 && left > 0; ++i)
-			{ added = this->try_add (i, item, update);
+			{
+				added = this->try_add (i, item, left, update);
 				left -= added;
-				item.set_amount (left); }
+			}
 		
 		return left;
 	}
@@ -293,7 +311,7 @@ namespace hCraft {
 	
 	
 	int
-	inventory::try_remove (int index, slot_item item, bool update)
+	inventory::try_remove (int index, const slot_item& item, int left, bool update)
 	{
 		slot_item &curr_item = this->w_slots[index];
 		if (curr_item.empty ())
@@ -302,11 +320,13 @@ namespace hCraft {
 			return 0;
 		
 		int take = curr_item.amount ();
-		if (take > item.amount ())
-			take = item.amount ();
+		if (take > left)
+			take = left;
+		int am = curr_item.amount () - take;
 		
-		this->set (index, slot_item (item.id (), item.damage (), curr_item.amount ()
-			- take), update);
+		curr_item = item;
+		curr_item.set_amount (am);
+		this->update_slot (index, curr_item, update);
 		return take;
 	}
 	
@@ -315,7 +335,7 @@ namespace hCraft {
 	 * Returns the number of items removed.
 	 */
 	int
-	inventory::remove (slot_item item, bool update)
+	inventory::remove (const slot_item& item, bool update)
 	{
 		int i, removed, taken;
 		int left = item.amount ();
@@ -323,10 +343,9 @@ namespace hCraft {
 		removed = 0;
 		for (i = 9; i <= 44 && left > 0; ++i)
 			{
-				taken    = this->try_remove (i, item, update);
+				taken    = this->try_remove (i, item, left, update);
 				left    -= taken;
 				removed += taken;
-				item.set_amount (left);
 			}
 		
 		return removed;
