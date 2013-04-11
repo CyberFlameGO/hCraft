@@ -46,7 +46,7 @@ namespace hCraft {
 			// to the command reader.
 			reader.add_option ("help", "h", true);
 			reader.add_option ("summary", "s");
-			if (!reader.parse_args (this, pl, false))
+			if (!reader.parse (this, pl, false))
 				return;
 			
 			if (reader.opt ("summary")->found () && reader.no_args ())
@@ -54,11 +54,12 @@ namespace hCraft {
 			else if (reader.opt ("help")->found ())
 				{
 					auto& opt = *reader.opt ("help");
-					if (opt.got_arg ())
+					if (opt.got_args ())
 						{
-							if (!opt.is_int ())
-								{ pl->message ("§c * §7Invalid page number§: §c" + opt.as_string ()); return; }
-							int page = opt.as_int ();
+							auto& arg = opt.arg (0);
+							if (!arg.is_int ())
+								{ pl->message ("§c * §7Invalid page number§: §c" + arg.as_str ()); return; }
+							int page = arg.as_int ();
 							this->show_help (pl, page, 12);
 						}
 					else

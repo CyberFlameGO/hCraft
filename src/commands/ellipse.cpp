@@ -84,7 +84,7 @@ namespace hCraft {
 					return;
 		
 			reader.add_option ("fill", "f");
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 4)
 				{ this->show_summary (pl); return; }
@@ -125,7 +125,7 @@ namespace hCraft {
 			int a = -1, b = -1;
 			if (reader.has_next ())
 				{
-					cmd_arg a_arg = reader.next ();
+					command_reader::argument a_arg = reader.next ();
 					if (!a_arg.is_int ())
 						{
 							pl->message ("§c * §7Usage§c: §e/ellipe §cblock §8[§cplane§8] §8[§cradx radz§8].");
@@ -137,7 +137,7 @@ namespace hCraft {
 						b = a;
 					else
 						{
-							cmd_arg b_arg = reader.next ();
+							command_reader::argument b_arg = reader.next ();
 							if (!b_arg.is_int ())
 								{
 									pl->message ("§c * §7Usage§c: §e/ellipe §cblock §8[§cplane§8] §8[§cradx radz§8].");

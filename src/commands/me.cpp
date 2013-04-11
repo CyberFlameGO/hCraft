@@ -41,7 +41,7 @@ namespace hCraft {
 			if (!pl->perm ("command.chat.me"))
 				return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }

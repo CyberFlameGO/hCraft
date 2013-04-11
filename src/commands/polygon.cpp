@@ -26,6 +26,8 @@
 #include <vector>
 #include <cmath>
 
+#include <queue>
+
 
 namespace hCraft {
 	namespace commands {
@@ -37,15 +39,80 @@ namespace hCraft {
 				blocki bl;
 				bool fill;
 				
-				polygon_data (world *wr, blocki bl, bool fill)
+				int reg_sides;
+				double radius;
+				
+				polygon_data (world *wr, blocki bl, bool fill, int sides, double rad)
 					: es (wr)
 				{
 					this->bl = bl;
 					this->fill = fill;
+					this->reg_sides = sides;
+					this->radius = rad;
 				}
 			};
 		}
 		
+		
+		static void
+		fill_polygon (edit_stage& es, block_pos pt, blocki material)
+		{
+			std::queue<block_pos> q;
+			q.push (pt);
+			while (!q.empty ())
+				{
+					block_pos n = q.front ();
+					q.pop ();
+					
+					if (es.get (n.x, n.y, n.z) != material)
+						{
+							es.set (n.x, n.y, n.z, material.id, material.meta);
+							q.emplace (n.x - 1, n.y, n.z);
+							q.emplace (n.x + 1, n.y, n.z);
+							q.emplace (n.x, n.y, n.z - 1);
+							q.emplace (n.x, n.y, n.z + 1);
+						}
+				}
+		}
+		
+		static void
+		regular_polygon (player *pl, vector3 pt, int sides, double radius, blocki material, bool fill)
+		{
+			double curr = -0.785398163; 
+			double cang = 6.283185307 / sides;
+			
+			dense_edit_stage es (pl->get_world ());
+			draw_ops draw (es);
+			
+			double sx, sz, lx, lz;
+			for (int i = 0; i < sides; ++i)
+				{
+					double x = std::cos (curr) * radius + pt.x;
+					double z = std::sin (curr) * radius + pt.z;
+					
+					if (i > 0)
+						{
+							draw.draw_line ({lx, pt.y, lz}, {x, pt.y, z}, material);
+						}
+					else
+						{
+							sx = x;
+							sz = z;
+						}
+					
+					lx = x;
+					lz = z;
+					curr += cang;
+				}
+			draw.draw_line ({lx, pt.y, lz}, {sx, pt.y, sz}, material);
+			
+			if (radius >= 2.0 && fill)
+				{
+					fill_polygon (es, {(int)pt.x, (int)pt.y, (int)pt.z}, material);
+				}
+			
+			es.commit ();
+		}
 		
 		static bool
 		on_blocks_marked (player *pl, block_pos marked[], int markedc)
@@ -57,6 +124,20 @@ namespace hCraft {
 				{
 					pl->message ("§4 * §cWorlds changed§4.");
 					pl->delete_data ("polygon");
+					return true;
+				}
+			
+			if (data->reg_sides >= 3)
+				{
+					// handle stuff differently in this case
+					double radius = data->radius;
+					if (markedc == 2)
+						radius = (vector3 (marked[1]) - vector3 (marked[0])).magnitude ();
+						
+					regular_polygon (pl, marked[0], data->reg_sides, radius, data->bl, data->fill);
+					
+					pl->delete_data ("polygon");
+					pl->message ("§3Polygon complete");
 					return true;
 				}
 			
@@ -134,12 +215,33 @@ namespace hCraft {
 					return;
 		
 			reader.add_option ("fill", "f");
-			if (!reader.parse_args (this, pl))
+			reader.add_option ("regular", "r", true, true);
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 3)
 				{ this->show_summary (pl); return; }
 			
+			// parse options
 			bool do_fill = reader.opt ("fill")->found ();
+			int reg_sides = -1;
+			if (reader.opt ("regular")->found ())
+				{
+					auto opt = reader.opt ("regular");
+					auto arg = opt->arg (0);
+					
+					if (!arg.is_int ())
+						{
+							pl->message ("§c * §7Usage§f: §e/polygon \\r §4number §cblock §cradius");
+							return;
+						}
+					reg_sides = arg.as_int ();
+					if (reg_sides < 3 || reg_sides > 100)
+						{
+							pl->message ("§c * §7Too many points!");
+							return;
+						}
+				}
+			
 			
 			std::string& str = reader.next ().as_str ();
 			if (sutils::iequals (str, "stop"))
@@ -161,17 +263,52 @@ namespace hCraft {
 					return;
 				}
 			
-			polygon_data *data = new polygon_data (pl->get_world (), bl, do_fill);
+			
+			double radius = -1.0;
+			if (reg_sides >= 3 && reader.has_next ())
+				{
+					auto arg = reader.next ();
+					if (!arg.is_float ())
+						{
+							pl->message ("§c * §7Usage§f: §e/polygon \\r §4number §cblock §cradius");
+							return;
+						}
+					
+					radius = arg.as_float ();
+					if (radius < 1)
+						{
+							pl->message ("§c * §7Invalid radius");
+							return;
+						}
+				}
+				
+			
+			int pt_count = (reg_sides < 3) ? -1 : ((radius < 1) ? 2 : 1);
+			polygon_data *data = new polygon_data (pl->get_world (), bl, do_fill, reg_sides, radius);
 			pl->create_data ("polygon", data,
 				[] (void *ptr) { delete static_cast<polygon_data *> (ptr); });
-			pl->get_nth_marking_callback (1) += on_blocks_marked;
+			pl->get_nth_marking_callback (pt_count) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Polygon §7(§8Block§7: §b" << str << "§7):";
+			ss << "§8Polygon §7(§8Block§7: §b" << str;
+			if (reg_sides >= 3)
+				ss << "§7, §8Sides§7: §b" << reg_sides;
+			if (radius >= 1.0) 
+				ss << "§7, §8Radius§7: §b" << radius;
+			ss << "§7):";
 			pl->message (ss.str ());
 			
-			pl->message ("§8 * §7Please mark the required points§8.");
-			pl->message ("§8 * §7Type §c/polygon stop §7to stop§8.");
+			if (reg_sides < 3)
+				{
+					pl->message ("§8 * §7Please mark the required points§8.");
+					pl->message ("§8 * §7Type §c/polygon stop §7to stop§8.");
+				}
+			else
+				{
+					ss.str (std::string ()); ss.clear ();
+					ss << "§8 * §7Please mark §b" << pt_count << " §7blocks.";
+					pl->message (ss.str ());
+				}
 		}
 	}
 }

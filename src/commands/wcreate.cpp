@@ -51,7 +51,7 @@ namespace hCraft {
 			reader.add_option ("provider", "p", true, true);
 			reader.add_option ("generator", "g", true, true);
 			reader.add_option ("seed", "s", true, true);
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			if (reader.no_args () || reader.arg_count () > 1)
@@ -77,12 +77,13 @@ namespace hCraft {
 			auto opt_width = reader.opt ("width");
 			if (opt_width->found ())
 				{
-					if (!opt_width->is_int ())
+					auto& arg = opt_width->arg (0);
+					if (!arg.is_int ())
 						{
 							pl->message ("§c * §eArgument to flag §c--width §emust be an integer§f.");
 							return;
 						}
-					world_width = opt_width->as_int ();
+					world_width = arg.as_int ();
 					if (world_width < 0)
 						world_width = 0;
 				}
@@ -92,12 +93,13 @@ namespace hCraft {
 			auto opt_depth = reader.opt ("depth");
 			if (opt_depth->found ())
 				{
-					if (!opt_depth->is_int ())
+					auto& arg = opt_depth->arg (0);
+					if (!arg.is_int ())
 						{
 							pl->message ("§c * §eArgument to flag §c--depth §emust be an integer§f.");
 							return;
 						}
-					world_depth = opt_depth->as_int ();
+					world_depth = arg.as_int ();
 					if (world_depth < 0)
 						world_depth = 0;
 				}
@@ -107,7 +109,8 @@ namespace hCraft {
 			auto opt_prov = reader.opt ("provider");
 			if (opt_prov->found ())
 				{
-					provider_name.assign (opt_prov->as_string ());
+					auto& arg = opt_prov->arg (0);
+					provider_name.assign (arg.as_str ());
 				}
 			
 			// world generator
@@ -115,7 +118,8 @@ namespace hCraft {
 			auto opt_gen = reader.opt ("generator");
 			if (opt_gen->found ())
 				{
-					gen_name.assign (opt_gen->as_string ());
+					auto& arg = opt_gen->arg (0);
+					gen_name.assign (arg.as_str ());
 				}
 			
 			// generator seed
@@ -125,10 +129,11 @@ namespace hCraft {
 			auto opt_seed = reader.opt ("seed");
 			if (opt_seed->found ())
 				{
-					if (opt_seed->is_int ())
-						gen_seed = opt_seed->as_int ();
+					auto& arg = opt_seed->arg (0);
+					if (arg.is_int ())
+						gen_seed = arg.as_int ();
 					else
-						gen_seed = std::hash<std::string> () (opt_seed->as_string ()) & 0x7FFFFFFF;
+						gen_seed = std::hash<std::string> () (arg.as_str ()) & 0x7FFFFFFF;
 				}
 			
 			// load world

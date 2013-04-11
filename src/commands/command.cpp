@@ -36,6 +36,7 @@
 #include <cstring>
 #include <iomanip>
 #include <cctype>
+#include <list>
 
 
 namespace hCraft {
@@ -128,39 +129,6 @@ namespace hCraft {
 	
 //----
 	
-	bool
-	command_reader::option::is_int () const 
-	{
-		if (!this->found_arg)
-			return false;
-		return sutils::is_int (this->as_string ());
-	}
-	
-	int
-	command_reader::option::as_int () const 
-	{
-		return sutils::to_int (this->as_string ());
-	}
-	
-	
-	bool
-	command_reader::option::is_float () const
-	{
-		if (!this->found_arg)
-			return false;
-		return sutils::is_float (this->as_string ());
-	}
-	
-	double
-	command_reader::option::as_float () const
-	{
-		return sutils::to_float (this->as_string ());
-	}
-
-	
-	
-//----
-	
 	/* 
 	 * Constructs a new command reader from the given string (should be in the
 	 * form of: /<cmd> <arg1> <arg2> ... <argN>
@@ -207,6 +175,7 @@ namespace hCraft {
 			opt_required);
 	}
 	
+	
 	/* 
 	 * Finds and returns the option with the given long name.
 	 */
@@ -219,53 +188,444 @@ namespace hCraft {
 		return nullptr;
 	}
 	
-	
-	
-	static bool
-	_read_string (std::istringstream& ss, std::string& iarg, std::string& out,
-		player *err)
+	/* 
+	 * Short name equivalent.
+	 */
+	command_reader::option*
+	command_reader::short_opt (char name)
 	{
-		std::ostringstream oss;
-		size_t i;
-		bool found_end = false;
-		
-		for (i = 1; i < iarg.size (); ++i)
-			{
-				if (iarg[i] == '\\')
-					{
-						// character escape
-						if (iarg.size () > (i + 1) && iarg[i + 1] == '"')
-							{ oss << '"'; ++i; }
-						else
-							oss << '\\';
-					}
-				else if (iarg[i] == '"')
-					{ found_end = true; break; }
-				else
-					oss << iarg[i];
-			}
-		
-		char c;
-		//ss >> std::noskipws;
-		while (!found_end && !ss.fail () && !ss.eof ())
-			{
-				ss >> c;
-				if (c == '"')
-					{ found_end = true; break; }
-				else
-					oss << c;
-			}
-		//s >> std::skipws;
-		
-		if (!found_end)
-			{
-				err->message ("§c * §7Incomplete string§f.");
-				return false;
-			}
-		
-		out = oss.str ();
-		return true;
+		for (option& opt : this->options)
+			if (opt.sname && (opt.sname[0] == name))
+				return &opt;
+		return nullptr;
 	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	/* 
+	 * Command parsing:
+	 */
+	
+	/* 
+	 * Converts a stream of characters into a more managable list of tokens.
+	 */
+	class command_parser
+	{
+		command_reader& reader;
+		std::istringstream ss;
+		
+	private:
+		int
+		skip_whitespace ()
+		{
+			int c, r = 0;
+			while (!ss.eof ())
+				{
+					c = ss.peek ();
+					if (c == ' ')
+						{
+							ss.get ();
+							++ r;
+						}
+					else
+						break;
+				}
+			
+			return r;
+		}
+		
+		
+		// expects no whitespace at the beginning.
+		// first character must be "
+		int
+		parse_string (player *err, std::string& out)
+		{
+			ss.get (); // consume "
+			
+			int c;
+			for (;;)
+				{
+					c = ss.get ();
+					if (c == std::istringstream::traits_type::eof ())
+						{
+							err->message ("§c * §7Unexpected end of string§c.");
+							return -1;
+						}
+					
+					if (c == '"')
+						break;
+					
+					if (c == '\\')
+						{
+							// handle escape characters
+							if (ss.eof ())
+								{
+									err->message ("§c * §7Expected escape character in string§c.");
+									return -1;
+								}
+							
+							c = ss.get ();
+							switch (c)
+								{
+									case 'n': out.push_back ('\n'); break;
+									case '\\': out.push_back ('\\'); break;
+									case '"': out.push_back ('"'); break;
+									
+									default:
+										err->message ("§c * §7Invalid escape character§f: §c\\" + std::string (1, c));
+										return -1;
+								}
+						}
+					else
+						out.push_back (c);
+				}
+			
+			return 0;
+		}
+		
+		// expects no whitespace at the beginning
+		int
+		parse_arg (player *err, std::string& out, bool opt_args = false)
+		{
+			int c = ss.peek ();
+			if (c == '"')
+				{
+					if (parse_string (err, out) == -1) 
+						return -1;
+				}
+			else
+				{
+					// extracts characters until whitespace is encountered
+					for (;;)
+						{
+							c = ss.peek ();
+							if (c == ' ' || c == std::istringstream::traits_type::eof ())
+								break;
+							if (opt_args && (c == ',' || c == ';'))
+								{
+									// don't consume the comma\semicolon
+									break;
+								}
+							out.push_back (c);
+							ss.get ();
+						}
+				}
+			
+			return 0;
+		}
+		
+		
+		int
+		parse_opt_args (player *err, std::vector<command_reader::option *>& opts)
+		{
+			if (opts.empty ()) 
+				return 0;
+			
+			// all options must expect the same minimal amount of arguments
+			int min_args = opts[0]->min_args_expected ();
+			for (int i = 1; i < (int)opts.size (); ++i)
+				if (opts[i]->min_args_expected () != min_args)
+					{
+						err->message ("§c * §7All grouped short options must expect the same amount of arguments§c.");
+						return -1;
+					}
+			
+			// no args required
+			if (min_args == 0)
+				return 0;
+			
+			int args_extracted = 0;
+			int c;
+			for (;;)
+				{
+					this->skip_whitespace ();
+					if (ss.eof ())
+						{
+							if (args_extracted < min_args)
+								{
+									std::ostringstream ess;
+									if (opts.size () == 1)
+										ess << "§c * §7Option §4\\\\§c" << opts[0]->long_name ()
+												<< " §7expects at least §c" << opts[0]->min_args_expected ()
+												<< " §7argument(s)§c.";
+									else
+										ess << "§c * §7Option group expects at least §c" << min_args << " §7argument(s)§c.";
+									err->message (ess.str ());
+									return -1;
+								}
+							break;
+						}
+					
+					std::string argstr;
+					if (parse_arg (err, argstr, true) == -1)
+						return -1;
+					if (!argstr.empty ())
+						{
+							for (auto opt : opts)
+								opt->args.emplace_back (argstr);
+							++ args_extracted;
+						}
+					
+					// NOTE: whitespace may NOT follow a semicolon, otherwise it would
+					//       be considered a regular argument.
+					c = ss.peek ();
+					if (c == ';' && !argstr.empty ())
+						{
+							// end of arguments
+							ss.get ();
+							break;
+						}
+					
+					this->skip_whitespace (); 
+					if (ss.eof ())
+						{
+							if (args_extracted < min_args)
+								{
+									std::ostringstream ess;
+									if (opts.size () == 1)
+										ess << "§c * §7Option §4\\\\§c" << opts[0]->long_name ()
+												<< " §7expects at least §c" << opts[0]->min_args_expected ()
+												<< " §7argument(s)§c.";
+									else
+										ess << "§c * §7Option group expects at least §c" << min_args << " §7argument(s)§c.";
+									err->message (ess.str ());
+									return -1;
+								}
+							break;
+						}
+					c = ss.peek ();
+					if (c == ',')
+						{
+							// continue reading arguments
+							ss.get ();
+							continue;
+						}
+					
+					// end of arguments
+					break;
+				}
+			
+			return 0;
+		}
+		
+		
+		
+		int
+		parse_short_opt (player *err)
+		{
+			int c;
+			bool read_args = true;
+			
+			std::string optstr;
+			for (;;)
+				{
+					c = ss.peek ();
+					if (c == ';')
+						{
+							ss.get ();
+							read_args = false;
+							break;
+						}
+					if (c == ' ' || c == std::istringstream::traits_type::eof ())
+						break;
+					
+					optstr.push_back (ss.get ());
+				}
+			
+			if (optstr.empty ())
+				{
+					err->message ("§c * §7Expected option characters§c.");
+					return -1;
+				}
+			
+			// compile option list
+			std::vector<command_reader::option *> opts;
+			for (char c : optstr)
+				{
+					command_reader::option *opt = this->reader.short_opt (c);
+					if (!opt)
+						{
+							err->message ("§c * §7No such command option§f: §4\\§c" + std::string (1, c));
+							return -1;
+						}
+					
+					opts.push_back (opt);
+					opt->was_found = true;
+				}
+			
+			// parse read arguments, if any
+			int min_args = opts[0]->min_args_expected ();
+			if (min_args > 0)
+				{
+					if (read_args)
+						{
+							if (this->parse_opt_args (err, opts) == -1)
+								return -1;
+						}
+					else
+						{
+							std::ostringstream ess;
+							ess << "§c * §7Option group expects at least §c" << min_args << " §7argument(s)§c.";
+							err->message (ess.str ());
+							return -1;
+						}
+				}
+			
+			return 0;
+		}
+		
+		int
+		parse_long_opt (player *err, bool& parsing_options)
+		{
+			int c = -1;
+			bool read_args = true;
+			
+			if (ss.eof () || ((c = ss.peek ()) == ' '))
+				{
+					// stop parsing options
+					parsing_options = false;
+					return 0;
+				}
+			
+			// read option name
+			std::string name;
+			for (;;)
+				{
+					c = ss.peek ();
+					if (c == std::istringstream::traits_type::eof ())
+						{
+							err->message ("§c * §7Expected option name§c.");
+							return -1;
+						}
+					
+					if (c == ' ')
+						break; // we're done
+					if (c == ';')
+						{
+							ss.get ();
+							read_args = false;
+							break;
+						}
+					
+					if (!(std::isalnum (c) || (c == '-' || c == '_' || c == '.')))
+						{
+							err->message ("§c * §7Invalid option name§f: §c" + name);
+							return -1;
+						}
+					
+					ss.get ();
+					name.push_back (c);
+				}
+			
+			if (name.empty ())
+				{
+					err->message ("§c * §7Expected option name§c.");
+					return -1;
+				}
+			
+			// make sure the option exists
+			command_reader::option *opt = reader.opt (name.c_str ());
+			if (!opt)
+				{
+					err->message ("§c * §7No such command option§f: §4\\\\§c" + name);
+					return -1;
+				}
+			
+			opt->was_found = true;
+			
+			// parse arguments, if any
+			this->skip_whitespace ();
+			if (!ss.eof () && read_args)
+				{
+					std::vector<command_reader::option *> opts (1, opt);
+					if (this->parse_opt_args (err, opts) == -1)
+						return -1;
+				}
+			else
+				{
+					if (opt->min_args > 0)
+						{
+							std::ostringstream ess;
+							ess << "§c * §7Option §4\\\\§c" << opt->long_name ()
+									<< " §7expects at least §c" << opt->min_args_expected ()
+									<< " §7argument(s)§c.";
+							err->message (ess.str ());
+							return -1;
+						}
+				}
+			
+			return 0;
+		}
+		
+	public:
+		command_parser (command_reader& reader, const std::string& str)
+			: reader (reader), ss (str)
+			{ }
+		
+		
+		bool
+		parse (player *err)
+		{
+			bool parsing_options = true;
+			int c;
+			
+			this->skip_whitespace ();
+			for (;;)
+				{
+					// options
+					c = ss.peek ();
+					if (c == std::istringstream::traits_type::eof ())
+						break;
+					
+					if (c == '\\')
+						{
+							ss.get ();
+							
+							c = ss.peek ();
+							if (c == '\\')
+								{
+									ss.get ();
+									
+									if (parse_long_opt (err, parsing_options) == -1)
+										return false;
+								}
+							else
+								{
+									if (parse_short_opt (err) == -1)
+										return false;
+								}
+							
+							this->skip_whitespace ();
+						}
+					else
+						{
+							// regular arguments
+							int start = (int)ss.tellg ();
+							std::string argstr;
+							if (parse_arg (err, argstr) == -1)
+								return -1;
+							int end = (int)ss.tellg ();
+							
+							command_reader::argument arg (argstr);
+							arg.start = start;
+							arg.end = end;
+							arg.ws = this->skip_whitespace ();
+							this->reader.non_opts.push_back (arg);
+							
+							/*
+							// update argument-only string
+							int curr = (int)ss.tellg ();
+							ss.seekg (start, std::ios_base::beg);
+							for (int i = start; i < curr; ++i)
+								this->reader.args_only_str.push_back (ss.get ());
+							*/
+						}
+				}
+			
+			return true;
+		}
+	};
 	
 	/* 
 	 * Parses the argument list.
@@ -273,281 +633,37 @@ namespace hCraft {
 	 * to player @{err}.
 	 */
 	bool
-	command_reader::parse_args (command *cmd, player *err, bool handle_help)
+	command_reader::parse (command *cmd, player *err, bool handle_help)
 	{
-		if (handle_help)
-			{
-				this->add_option ("help", "h", true);
-				this->add_option ("summary", "s");
-			}
-		
-		std::istringstream ss {this->args};
-		std::string str;
-		std::string opt_name;
-		std::string opt_arg;
-		bool has_str = false;
-		bool found_nonopts = false;
-		
-		int strm_pos;
-		
-		ss >> std::noskipws;
-		
-		// read options
-		while (!ss.fail () && !ss.eof ())
-			{
-				strm_pos = ss.tellg ();
-				if (!has_str)
-					{
-						while (!ss.fail () && !ss.eof ())
-							{
-								if (ss.get () != ' ')
-									{ ss.unget (); break; }
-							}
-						
-						strm_pos = ss.tellg ();
-						str.clear ();
-						ss >> str;
-					}
-				has_str = false;
-				
-				if (str.empty ())
-					break;
-				
-				if (str[0] == '\\')
-					{
-						if (str.size () > 1 && str[1] == '\\')
-							{
-								if (str.size () == 2)
-									break; // end of option list.
-								
-								if (found_nonopts)
-									{
-										err->message ("§c * §7Options should be specified before the arguments");
-										return false;
-									}
-									
-								/* long option */
-								std::string::size_type eq = str.find_first_of ('=');
-								bool has_arg = (eq != std::string::npos);
-								opt_name = str.substr (2, (eq == std::string::npos)
-									? (str.size () - 2) : (eq - 2));
-								
-								auto itr = std::find_if (this->options.begin (), this->options.end (),
-									[&opt_name] (const option& opt) -> bool
-										{
-											return std::strcmp (opt.long_name (), opt_name.c_str ()) == 0;
-										});
-								if (itr == this->options.end ())
-									{
-										err->message ("§c * §7Unrecognized option§f: §c\\\\" + opt_name);
-										return false;
-									}
-								
-								option& opt = *itr;
-								opt.was_found = true;
-								if (opt.has_arg)
-									{
-										if (has_arg)
-											{
-												opt_arg = str.substr (eq + 1, str.size () - (eq + 1));
-												if (opt_arg.size () > 0 && opt_arg[0] == '"')
-													{
-														if (!_read_string (ss, opt_arg, opt_arg, err))
-															return false;
-													}
-												
-												opt.arg = std::move (opt_arg);
-												opt.found_arg = true;
-											}
-										else if (opt.arg_req)
-											{
-												err->message ("§c * §7Argument required for option§f: §c\\\\" + opt_name);
-												return false;
-											}
-									}
-							}
-						else
-							{
-								if (str.size () == 1)
-									{
-										this->non_opts.push_back (str);
-										continue;
-									}
-								
-								if (found_nonopts)
-									{
-										err->message ("§c * §7Options should be specified before the arguments");
-										return false;
-									}
-									
-								/* short option(s) */
-								for (size_t i = 1; i < str.size (); ++i)
-									{
-										char optc = str[i];
-										auto itr = std::find_if (this->options.begin (), this->options.end (),
-											[optc] (const option& opt) -> bool
-												{
-													return (opt.short_name () && opt.short_name ()[0] == optc);
-												});
-										if (itr == this->options.end ())
-											{
-												err->message ("§c * §7Unrecognized option§f: §c\\" + std::string (1, optc));
-												return false;
-											}
-										
-										option& opt = *itr;
-										opt.was_found = true;
-										
-										if (opt.has_arg)
-											{
-												if (opt.arg_req && i != (str.size () - 1))
-													{
-														err->message ("§c * §7Argument required for option§f: §c\\" + std::string (opt.sname));
-														return false;
-													}
-												
-												if (i == (str.size () - 1))
-													{
-														if (opt.arg_req && (ss.eof () || ss.fail ()))
-															{
-																err->message ("§c * §7Argument required for option§f: §c\\" + std::string (opt.sname));
-																return false;
-															}
-															
-														{
-															while (!ss.fail () && !ss.eof ())
-																{
-																	if (ss.get () != ' ')
-																		{ ss.unget (); break; }
-																}
-															
-															str.clear ();
-															ss >> str;
-														}
-														
-														if (!str.empty ())
-															{
-																if (str[0] == '\\')
-																	{
-																		has_str = true;
-																	}
-																else if (str[0] != ' ')
-																	{
-																		opt.found_arg = true;
-																		if (str[0] == '"')
-																			{
-																				if (!_read_string (ss, str, str, err))
-																					return false;
-																			}
-																
-																		opt.arg = std::move (str);
-																	}
-															}
-													}
-											}
-									}
-							}
-					}
-				
-				// non-option arguments:
-				else
-					{
-						if (str[0] == '"')
-							{
-								if (!_read_string (ss, str, str, err))
-									return false;
-							}
-						
-						int pos_start = strm_pos;
-						int pos_end   = ss.tellg ();
-						
-						this->non_opts.push_back (str);
-						this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
-						found_nonopts = true;
-					}
-			}
-		
-		// read non-option arguments
-		while (!ss.fail () && !ss.eof ())
-			{
-				while (!ss.fail () && !ss.eof ())
-					{
-						if (ss.get () != ' ')
-							{ ss.unget (); break; }
-					}
-				
-				strm_pos = ss.tellg ();
-				str.clear ();
-				ss >> str;
-				if (str.empty ()) break;
-				
-				if (str[0] == '"')
-					{
-						if (!_read_string (ss, str, str, err))
-							return false;
-					}
-				
-				int pos_start = strm_pos;
-				int pos_end   = ss.tellg ();
-				
-				this->non_opts.push_back (str);
-				this->non_opts_info.push_back (std::make_pair (pos_start, pos_end));
-				found_nonopts = true;
-			}
-		
-		for (option& opt : this->options)
-			{
-				if (opt.required && !opt.was_found)
-					{
-						err->message ("§c * §7Required argument not found§f: §c\\\\" + std::string (opt.lname));
-						return false;
-					}
-			}
-		
-		if (handle_help)
-			{
-				if (this->opt ("summary")->found ())
-					{ cmd->show_summary (err); return false; }
-				else if (this->opt ("help")->found ())
-					{
-						option& opt = *this->opt ("help");
-						if (opt.got_arg ())
-							{
-								if (!opt.is_int ())
-									{ err->message ("§c * §7Invalid page number§: §c" + opt.as_string ()); return false; }
-								int page = opt.as_int ();
-								cmd->show_help (err, page, 12);
-							}
-						else
-							cmd->show_help (err, 1, 12);
-						return false;
-					}
-			}
-					
+		command_parser parser (*this, this->args);
+		if (!parser.parse (err))
+			return false;
 		return true;
 	}
 	
 	
 	
+//------------------------------------------------------------------------------
+	
 	/* 
 	 * Returns the next argument from the argument string.
 	 */
-	cmd_arg
+	command_reader::argument
 	command_reader::next ()
 	{
 		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return cmd_arg (str_empty);
-		return cmd_arg (this->non_opts [this->arg_offset++]);
+			return argument (str_empty);
+		return argument (this->non_opts [this->arg_offset++]);
 	}
 	
-	cmd_arg
+	command_reader::argument
 	command_reader::peek_next ()
 	{
 		static std::string str_empty;
 		if (this->arg_offset >= this->arg_count ())
-			return cmd_arg (str_empty);
-		return cmd_arg (this->non_opts [this->arg_offset]);
+			return argument (str_empty);
+		return argument (this->non_opts [this->arg_offset]);
 	}
 	
 	bool
@@ -556,6 +672,8 @@ namespace hCraft {
 		return (this->arg_offset < (int)this->non_opts.size ());
 	}
 	
+	
+	
 	/* 
 	 * Returns everything that has not been read yet from the argument string.
 	 */
@@ -563,6 +681,36 @@ namespace hCraft {
 	command_reader::rest ()
 	{
 		return all_from (this->arg_offset);
+	}
+	
+	std::string
+	command_reader::all_from (int n)
+	{
+		std::ostringstream ss;
+		for (int i = n; i < (int)this->non_opts.size (); ++i)
+			{
+				argument& arg = this->non_opts[i];
+				ss << this->args.substr (arg.start, arg.end - arg.start);
+				for (int j = 0; j < arg.ws; ++j)
+					ss << ' ';
+			}
+		
+		return ss.str ();
+	}
+	
+	std::string
+	command_reader::all_after (int n)
+	{
+		std::ostringstream ss;
+		for (int i = n + 1; i < (int)this->non_opts.size (); ++i)
+			{
+				argument& arg = this->non_opts[i];
+				ss << this->args.substr (arg.start, arg.end - arg.start);
+				for (int j = 0; j < arg.ws; ++j)
+					ss << ' ';
+			}
+		
+		return ss.str ();
 	}
 	
 	
@@ -605,7 +753,7 @@ namespace hCraft {
 		if (manual.size () <= 1)
 			{ pl->message ("§aThis command has no help written for it yet."); return; }
 		if (page < 1 || page > page_count)
-			{ pl->message ("§c* §eNo such page§f."); return; }
+			{ pl->message ("§c* §7No such page§f."); return; }
 		
 		-- page;
 		if (page < 0) page = 0;
@@ -638,30 +786,32 @@ namespace hCraft {
 	
 //------------
 	
-	cmd_arg::cmd_arg (std::string& str)
+	command_reader::argument::argument (std::string str)
 		: str (str)
-		{ }
+	{
+		this->ws = 0;
+	}
 	
-	static std::string empty_str;
-	cmd_arg::cmd_arg ()
-		: cmd_arg (empty_str)
-		{ }
+	command_reader::argument::argument ()
+	{
+		this->ws = 0;
+	}
 	
 	
 	bool
-	cmd_arg::is_int ()
+	command_reader::argument::is_int ()
 	{
 		return sutils::is_int (this->str);
 	}
 	
 	bool
-	cmd_arg::is_float ()
+	command_reader::argument::is_float ()
 	{
 		return sutils::is_float (this->str);
 	}
 
 	bool
-	cmd_arg::is_block ()
+	command_reader::argument::is_block ()
 	{
 		return sutils::is_block (this->str);
 	}
@@ -669,19 +819,19 @@ namespace hCraft {
 	
 	
 	int
-	cmd_arg::as_int ()
+	command_reader::argument::as_int ()
 	{
 		return sutils::to_int (this->str);
 	}
 	
 	double
-	cmd_arg::as_float ()
+	command_reader::argument::as_float ()
 	{
 		return sutils::to_float (this->str);
 	}
 	
 	blocki
-	cmd_arg::as_block ()
+	command_reader::argument::as_block ()
 	{
 		return sutils::to_block (this->str);
 	}

@@ -41,7 +41,7 @@ namespace hCraft {
 			if (!pl->perm ("command.misc.ping"))
 				return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			if (reader.arg_count () > 1)

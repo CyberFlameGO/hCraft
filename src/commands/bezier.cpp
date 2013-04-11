@@ -107,7 +107,7 @@ namespace hCraft {
 			if (!pl->perm ("command.draw.bezier"))
 					return;
 		
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
@@ -129,7 +129,7 @@ namespace hCraft {
 			int order = 2;
 			if (reader.has_next ())
 				{
-					cmd_arg arg = reader.next ();
+					command_reader::argument arg = reader.next ();
 					if (!arg.is_int ())
 						{
 							pl->message ("§c * §7Usage§f: §e/bezier §cblock §8[§corder§8]");

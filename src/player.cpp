@@ -1663,6 +1663,33 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	static bool
+	is_valid_username (const char *str)
+	{
+		int i;
+		for (i = 0; i < 16; ++i)
+			{
+				char c = str[i];
+				if (c == '\0')
+					{
+						if (i == 0)
+							return false;
+						return true;
+					}
+				if (!((c >= 'A' && c <= 'Z') ||
+							(c >= 'a' && c <= 'z') ||
+							(c >= '0' && c <= '9') ||
+							(c == '_')))
+					return false;
+			}
+		 
+		 if (str[i] != '\0')
+		 	return false;
+		
+		return true;
+	}
+	
 	int
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
@@ -1676,10 +1703,10 @@ namespace hCraft {
 				return 0;
 			}
 		
-		char username[17];
+		char username[64];
 		///*
-		int username_len = reader.read_string (username, 16);
-		if (username_len < 2)
+		int ulen = reader.read_string (username, 16);
+		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;

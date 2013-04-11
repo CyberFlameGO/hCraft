@@ -42,7 +42,7 @@ namespace hCraft {
 			if (!pl->perm ("command.world.world"))
 				return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			if (reader.no_args ())
@@ -72,7 +72,7 @@ namespace hCraft {
 			
 			std::ostringstream leave_ss;
 			leave_ss << "§c << §" << pl->get_rank ().main_group->get_color () <<
-				pl->get_username () << " §7has departed to §9" << prev_world->get_name ();
+				pl->get_username () << " §7has departed to §9" << wr->get_name ();
 			std::string leave_msg = leave_ss.str ();
 			prev_world->get_players ().all (
 				[&leave_msg] (player *pl)

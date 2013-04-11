@@ -43,7 +43,7 @@ namespace hCraft {
 			if (!pl->perm ("command.world.tp"))
 				return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			entity_pos curr_pos = pl->pos;

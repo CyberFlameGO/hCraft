@@ -360,7 +360,7 @@ namespace hCraft {
 			
 			while (reader.has_next ())
 				{
-					cmd_arg arg = reader.next ();
+					command_reader::argument arg = reader.next ();
 					if (!arg.is_block ())
 						{
 							std::ostringstream ss;
@@ -732,7 +732,7 @@ namespace hCraft {
 			
 			if (reader.has_next ())
 				{
-					cmd_arg narg = reader.next ();
+					command_reader::argument narg = reader.next ();
 					if (sutils::iequals (narg.as_str (), "all"))
 						check_all = true;
 					else
@@ -775,7 +775,7 @@ namespace hCraft {
 			if (!pl->perm ("command.draw.select"))
 					return;
 		
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }

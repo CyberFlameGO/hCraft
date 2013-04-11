@@ -33,63 +33,79 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Represents an argument retreived from a command reader.
-	 */
-	class cmd_arg
-	{
-		std::string& str;
-		
-	public:
-		cmd_arg ();
-		cmd_arg (std::string& str);
-		
-		bool is_int ();
-		bool is_float ();
-		bool is_block ();
-		
-		std::string& as_str () { return this->str; }
-		const char* as_cstr () { return this->str.c_str (); }
-		int as_int ();
-		double as_float ();
-		blocki as_block ();
-		
-		operator std::string&() { return this->str; }
-		operator int() { return this->as_int (); }
-		operator blocki() { return this->as_block (); }
-	};
-	
-	
-	/* 
 	 * Command argument parser.
 	 */
 	class command_reader
 	{
+		friend class command_parser;
+		
 	public:
+		
+		/* 
+		 * Represents a command argument.
+		 */
+		class argument
+		{
+			friend class command_reader;
+			friend class command_parser;
+			
+			std::string str;
+			int start, end;
+			int ws; // whitespace right after the argument
+		
+		public:
+			argument ();
+			argument (std::string str);
+		
+			bool is_int ();
+			bool is_float ();
+			bool is_block ();
+		
+			std::string& as_str () { return this->str; }
+			const char* as_cstr () { return this->str.c_str (); }
+			int as_int ();
+			double as_float ();
+			blocki as_block ();
+		
+			operator std::string&() { return this->str; }
+			operator int() { return this->as_int (); }
+			operator blocki() { return this->as_block (); }
+		};
+		
+		
+		/* 
+		 * Represents a command option of the form:
+		 *   \<opts> [args;]       : short form
+		 *   \\<opt> [args;]       : long form
+		 * 
+		 * When more than
+		 * \r 55, 10;
+		 */
 		class option
 		{
 			friend class command_reader;
+			friend class command_parser;
 			
 			const char *lname;
 			const char *sname;
-			bool has_arg;
-			bool arg_req;
 			bool required;
 			bool was_found;
 			
-			std::string arg;
-			bool found_arg;
+			// min\max amount of arguments this option takes.
+			int min_args; // if 0, no arguments are expected
+			int max_args; // if 0, no limit on argument count
+			std::vector<argument> args;
 			
 		public:
-			option (const char *lname, const char *sname, bool has_arg, bool arg_req,
-				bool opt_req)
+			option (const char *lname, const char *sname, int min_args = 0, int max_args = 1,
+				bool opt_req = false)
 			{
 				this->lname = lname;
 				this->sname = sname;
-				this->has_arg = has_arg;
-				this->arg_req = arg_req;
+				this->min_args = min_args;
+				this->max_args = max_args;
 				this->required = opt_req;
 				this->was_found = false;
-				this->found_arg = false;
 			}
 			
 		public:
@@ -98,32 +114,31 @@ namespace hCraft {
 			
 			inline bool found () const { return this->was_found; }
 			inline bool is_required () const { return this->required; }
-			inline bool is_arg_required () const { return this->arg_req; }
-			inline bool is_arg_passable () const { return this->has_arg; }
-			inline bool got_arg () const { return this->found_arg; }
 			
-			inline bool is_string () const { return true; }
-			inline const std::string& as_string () const { return this->arg; }
-			
-		//---
-			bool is_int () const;
-			int as_int () const;
-			
-			bool is_float () const;
-			double as_float () const;
+			inline bool args_required () const { return this->min_args > 0; }
+			inline bool expects_args () const { return (this->min_args > 0) || (this->max_args > 0); }
+			inline bool got_args () const { return !this->args.empty (); }
+			inline int arg_count () const { return this->args.size (); }
+			inline argument& arg (int n) { return this->args.at (n); }
+			inline std::vector<argument>& get_args () { return this->args; }
+			inline int min_args_expected () { return this->min_args; }
+			inline int max_args_expected () { return this->max_args; }
 		};
 		
 	private:
 		std::string name;
 		std::string args;
 		std::vector<option> options;
-		std::vector<std::string> non_opts;
-		std::vector<std::pair<int, int>> non_opts_info;
+		std::vector<argument> non_opts;
 		int arg_offset;
 		
 	public:
-		inline std::vector<option>& get_flags () { return this->options; }
-		inline std::vector<std::string>& get_args () { return this->non_opts; }
+		inline std::vector<option>& get_opts () { return this->options; }
+		inline std::vector<argument>& get_args () { return this->non_opts; }
+		
+		inline bool no_opts () { return this->options.size () == 0; }
+		inline bool has_opts () { return this->options.size () > 0; }
+		inline int  opt_count () { return this->options.size (); }
 		
 		inline bool no_args () { return this->non_opts.size () == 0; }
 		inline bool has_args () { return this->non_opts.size () > 0; }
@@ -131,38 +146,8 @@ namespace hCraft {
 		inline std::string& arg (int n) { return this->non_opts[n]; }
 		inline const std::string& get_arg_string () { return this->args; }
 		
-		inline int arg_start (int n) {
-			if (n < 0 || n >= arg_count ()) return -1;
-			return this->non_opts_info[n].first;
-		}
-		inline int arg_end (int n) {
-			if (n < 0 || n >= arg_count ()) return -1;
-			return this->non_opts_info[n].second;
-		}
-		
 		inline int seek (int n = 0) { int off = this->arg_offset; this->arg_offset = n; return off; }
 		inline int offset () { return this->arg_offset; }
-		
-		std::string all_from (int n)
-			{ if (n < 0 || n >= arg_count ()) return std::string ();
-				return this->args.substr (
-					this->non_opts_info[n].first,
-					this->args.size () - this->non_opts_info[n].first); }
-		std::string all_after (int n)
-			{ if (n < 0 || n >= arg_count ()) return std::string ();
-				return this->args.substr (
-					this->non_opts_info[n].second,
-					this->args.size () - this->non_opts_info[n].second); }
-		
-		inline bool no_flags () { return this->options.size () == 0; }
-		inline bool has_flags () { return this->options.size () > 0; }
-		inline int  flag_count () { return this->options.size (); }
-		
-		inline std::vector<std::string>::iterator
-		begin () { return this->non_opts.begin (); }
-		
-		inline std::vector<std::string>::iterator
-		end () { return this->non_opts.end (); }
 		
 	public:
 		/* 
@@ -186,31 +171,42 @@ namespace hCraft {
 		void add_option (const char *long_name, const char *short_name = "",
 			bool has_arg = false, bool arg_required = false, bool opt_required = false);
 		
+		
 		/* 
 		 * Finds and returns the option with the given long name.
 		 */
 		option* opt (const char *long_name);
 		
 		/* 
-		 * Parses the argument list.
+		 * Short name equivalent.
+		 */
+		option* short_opt (char name);
+		
+		
+		
+		/* 
+		 * Parses the argument\option list.
 		 * In case of an error, false is returned and an appropriate message is sent
 		 * to player @{err}.
 		 */
-		bool parse_args (command *cmd, player *err, bool handle_help = true);
+		bool parse (command *cmd, player *err, bool handle_help = true);
 		
 	//----
 		
 		/* 
 		 * Returns the next argument from the argument string.
 		 */
-		cmd_arg next ();
-		cmd_arg peek_next ();
+		argument next ();
+		argument peek_next ();
 		bool has_next ();
 		
 		/* 
 		 * Returns everything that has not been read yet from the argument string.
 		 */
 		std::string rest ();
+		
+		std::string all_from (int n);
+		std::string all_after (int n);
 	};
 	
 	

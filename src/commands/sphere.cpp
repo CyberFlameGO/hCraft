@@ -84,7 +84,7 @@ namespace hCraft {
 					return;
 		
 			reader.add_option ("fill", "f");
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 3)
 				{ this->show_summary (pl); return; }
@@ -108,7 +108,7 @@ namespace hCraft {
 			int radius = -1;
 			if (reader.has_next ())
 				{
-					cmd_arg arg = reader.next ();
+					command_reader::argument arg = reader.next ();
 					if (!arg.is_int ())
 						{
 							pl->message ("§c * §7Usage§f: §e/sphere §cblock §8[§cradius§8]");

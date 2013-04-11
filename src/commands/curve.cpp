@@ -132,7 +132,7 @@ namespace hCraft {
 			if (!pl->perm (this->get_exec_permission ()))
 					return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 1)
 				{ this->show_summary (pl); return; }

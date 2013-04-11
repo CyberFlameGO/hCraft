@@ -180,6 +180,9 @@ namespace hCraft {
 		void remove_block (world *w, int x, int y, int z);
 		
 	public:
+		~block_physics_manager ();
+		
+		
 		/* 
 		 * Changes the number of worker threads to utilize.
 		 */

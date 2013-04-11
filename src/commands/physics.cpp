@@ -81,7 +81,7 @@ namespace hCraft {
 					return;
 				}
 		
-			cmd_arg narg = reader.next ();
+			command_reader::argument narg = reader.next ();
 			if (!narg.is_int ())
 				{
 					pl->message ("§c * §7Syntax§f: §e/physics threads §c<count>");
@@ -116,7 +116,7 @@ namespace hCraft {
 			if (!pl->perm ("command.world.physics"))
 				return;
 			
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			if (reader.no_args () || reader.no_args ())

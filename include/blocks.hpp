@@ -210,6 +210,10 @@ namespace hCraft {
 			return (this->id == other.id) && ((other.meta == 0xA || this->meta == 0xA) ||
 				(this->meta == other.meta));
 		}
+		
+		bool
+		operator!= (const blocki other) const
+			{ return !(this->operator== (other)); }
 	};
 	
 	

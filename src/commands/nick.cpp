@@ -39,7 +39,7 @@ namespace hCraft {
 		void
 		c_nick::execute (player *pl, command_reader& reader)
 		{
-			if (!pl->perm ("command.chat.nick") || !reader.parse_args (this, pl))
+			if (!pl->perm ("command.chat.nick") || !reader.parse (this, pl))
 				return;
 			
 			if (reader.no_args ())

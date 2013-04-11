@@ -49,7 +49,7 @@ namespace hCraft {
 			reader.add_option ("no-physics", "p");
 			reader.add_option ("hollow", "o");
 			reader.add_option ("random", "r", true, true);
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }
@@ -62,9 +62,10 @@ namespace hCraft {
 			std::uniform_real_distribution<> dis (0, 100);
 			double rprec = 100.0;
 			auto rand_opt = reader.opt ("random");
-			if (rand_opt->found () && rand_opt->got_arg ())
+			if (rand_opt->found () && rand_opt->got_args ())
 				{
-					rprec = rand_opt->as_float ();
+					auto& arg = rand_opt->arg (0);
+					rprec = arg.as_float ();
 					if (rprec < 0.0) rprec = 0.0;
 					else if (rprec > 100.0) rprec = 100.0;
 				}

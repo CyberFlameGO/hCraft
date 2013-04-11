@@ -62,7 +62,7 @@ namespace hCraft {
 				return;
 			
 			reader.add_option ("autoload", "a");
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 				return;
 			
 			if (reader.no_args () || reader.arg_count () > 1)

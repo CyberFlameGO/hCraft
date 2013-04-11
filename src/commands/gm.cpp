@@ -41,7 +41,7 @@ namespace hCraft {
 			if (!pl->perm ("command.admin.gm"))
 					return;
 		
-			if (!reader.parse_args (this, pl))
+			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
 				{ this->show_summary (pl); return; }

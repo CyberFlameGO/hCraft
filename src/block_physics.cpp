@@ -64,6 +64,13 @@ namespace hCraft {
 	}
 	
 	
+	block_physics_manager::~block_physics_manager ()
+	{
+		this->updates.clear ();
+		this->workers.clear ();
+	}
+	
+	
 	
 	static bool
 	handle_param_dissipate (physics_update& u, physics_action& act, std::minstd_rand& rnd)
