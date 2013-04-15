@@ -59,7 +59,7 @@ namespace hCraft {
 			return "§4 * §cYou are not allowed to do that§7.";
 		
 		std::ostringstream ss;
-		const char *grp_name = lgrp->get_name ();
+		const char *grp_name = lgrp->name.c_str ();
 		bool insert_n =
 			((grp_name[0] == 'a') || (grp_name[0] == 'i') ||
 			 (grp_name[0] == 'e') || (grp_name[0] == 'o'));
@@ -76,8 +76,7 @@ namespace hCraft {
 			}
 				
 		if (insert_n) ss << 'n';
-		ss << " §" << lgrp->get_color () << grp_name
-			 << " §cto do that§7.";
+		ss << " §" << lgrp->color << grp_name << " §cto do that§7.";
 		return ss.str ();
 	}
 }

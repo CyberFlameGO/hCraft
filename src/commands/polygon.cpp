@@ -28,6 +28,8 @@
 
 #include <queue>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	namespace commands {

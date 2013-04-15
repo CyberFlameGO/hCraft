@@ -123,6 +123,7 @@ namespace hCraft {
 		double last_ground_height;
 		bool fall_flag;
 		
+		bool op;
 		char username[17];
 		char colored_username[24];
 		char nick[37]; // 36 chars max
@@ -294,12 +295,15 @@ namespace hCraft {
 	public:
 		inline server& get_server () { return this->srv; }
 		inline logger& get_logger () { return this->log; }
+		
 		inline const char* get_ip () { return this->ip; }
 		inline const char* get_username () { return this->username; }
 		inline const char* get_colored_username () { return this->colored_username; }
 		inline const char* get_nickname () { return this->nick; }
 		inline const char* get_colored_nickname () { return this->colored_nick; }
+		
 		inline const rank& get_rank () { return this->rnk; }
+		inline bool is_op () { return this->op; }
 		
 		inline int get_hearts () { return this->hearts; }
 		inline int get_hunger () { return this->hunger; }
@@ -471,6 +475,12 @@ namespace hCraft {
 		 * Modifies the player's nickname.
 		 */
 		void set_nickname (const char *nick, bool modify_sql = true);
+		
+		/* 
+		 * Modifies the player's rank.
+		 * NOTE: This does NOT update the database.
+		 */
+		void set_rank (const rank& rnk);
 		
 	//----
 		

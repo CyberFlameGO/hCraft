@@ -377,6 +377,17 @@ namespace hCraft {
 	
 	
 	
+	void
+	world::get_information (world_information& inf)
+	{
+		inf.width = this->width;
+		inf.depth = this->depth;
+		inf.spawn_pos = this->spawn_pos;
+		inf.generator = this->gen ? this->gen->name () : "";
+		inf.seed = this->gen ? this->gen->seed () : 0;
+		inf.chunk_count = 0;
+	}
+	
 	/* 
 	 * Saves all modified chunks to disk.
 	 */
@@ -395,6 +406,12 @@ namespace hCraft {
 			}
 		
 		this->prov->open (*this);
+		
+		// meta
+		world_information inf = this->prov->info ();
+		this->get_information (inf);
+		this->prov->save_info (*this, inf);
+		
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
 				chunk *ch = itr->second;
@@ -406,6 +423,27 @@ namespace hCraft {
 						ch->modified = false;
 					}
 			}
+		this->prov->close ();
+	}
+	
+	/* 
+	 * Saves metadata to disk (width, depth, spawn pos, etc...).
+	 */
+	void
+	world::save_meta ()
+	{
+		if (this->prov == nullptr)
+			return;
+		
+		// we're not modifying any chunks, but we'll still take ahold of this lock...
+		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		
+		this->prov->open (*this);
+		
+		world_information inf = this->prov->info ();
+		this->get_information (inf);
+		this->prov->save_info (*this, inf);
+		
 		this->prov->close ();
 	}
 	

@@ -837,28 +837,6 @@ namespace hCraft {
 	
 	
 	
-	static void 
-	rewrite_header (world &wr, std::ostream& strm)
-	{
-		/* 
-		 * We only update the world dimensions and spawn point, in case it changed.
-		 */
-		
-		binary_writer writer (strm);
-		
-		writer.seek (4);
-		writer.write_int (wr.get_width ());
-		writer.write_int (wr.get_depth ());
-		
-		// spawn pos
-		auto spawn_pos = wr.get_spawn ();
-		writer.write_double (spawn_pos.x);
-		writer.write_double (spawn_pos.y);
-		writer.write_double (spawn_pos.z);
-		writer.write_float (spawn_pos.r);
-		writer.write_float (spawn_pos.l);
-	}
-	
 	/* 
 	 * Saves only the specified chunk.
 	 */
@@ -876,12 +854,44 @@ namespace hCraft {
 		
 		binary_writer writer {this->strm};
 		save_chunk (ch, x, z, this->sblocks, this->inf, writer);
-		rewrite_header (wr, strm);
+		//rewrite_header (wr, strm);
 		
 		if (close_when_done)
 			{
 				this->close ();
 			}
+	}
+	
+	/* 
+	 * Updates world information for a given world. 
+	 */
+	void
+	hw_provider::save_info (world &w, const world_information &info)
+	{
+		binary_writer writer (strm);
+		writer.seek (4);
+		
+		// world dimensions
+		writer.write_int (info.width);
+		writer.write_int (info.depth);
+		
+		// spawn pos
+		auto spawn_pos = info.spawn_pos;
+		writer.write_double (spawn_pos.x);
+		writer.write_double (spawn_pos.y);
+		writer.write_double (spawn_pos.z);
+		writer.write_float (spawn_pos.r);
+		writer.write_float (spawn_pos.l);
+		
+		writer.write_int (info.chunk_count);
+		
+		// the name of the generator used by the world.
+		writer.write_string (info.generator.c_str ());
+		
+		writer.write_int (info.seed);
+		
+		writer.flush ();
+		this->inf = info;
 	}
 	
 	
@@ -911,11 +921,15 @@ namespace hCraft {
 		
 		// the name of the generator used by the world.
 		if (wr.get_generator ())
-			writer.write_string (wr.get_generator ()->name ());
+			{
+				writer.write_string (wr.get_generator ()->name ());
+				writer.write_int (wr.get_generator ()->seed ());
+			}
 		else
-			writer.write_string ("");
-		
-		writer.write_int (wr.get_generator ()->seed ());
+			{
+				writer.write_string ("");
+				writer.write_int (0);
+			}
 		
 		writer.pad_to (512);
 		

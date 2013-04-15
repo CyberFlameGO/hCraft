@@ -71,7 +71,7 @@ namespace hCraft {
 	 */
 	server::server (logger &log)
 		: log (log), 
-			spool (sql_pool_size, "database.sqlite"),
+			spool (sql_pool_size, "data/database.sqlite"),
 			perms (),
 			groups (perms)
 	{
@@ -491,11 +491,11 @@ namespace hCraft {
 		
 		try
 			{
-				cfg.writeFile ("config.cfg");
+				cfg.writeFile ("data/config.cfg");
 			}
 		catch (const libconfig::FileIOException& ex)
 			{
-				log (LT_ERROR) << "Failed to save configuration file to \"config.cfg\"" << std::endl;
+				log (LT_ERROR) << "Failed to save configuration file to \"data/config.cfg\"" << std::endl;
 			}
 	}
 	
@@ -654,16 +654,16 @@ namespace hCraft {
 	{
 		default_config (this->cfg);
 		
-		log () << "Loading configuration from \"config.cfg\"" << std::endl;
+		log () << "Loading configuration from \"data/config.cfg\"" << std::endl;
 		libconfig::Config cfg;
 		
 		// check if the file exists
 		{
-			std::ifstream strm ("config.cfg");
+			std::ifstream strm ("data/config.cfg");
 			if (strm.is_open ())
 				{
 					strm.close ();
-					cfg.readFile ("config.cfg");
+					cfg.readFile ("data/config.cfg");
 					read_config (this->log, cfg, this->cfg);
 					return;
 				}
@@ -691,10 +691,16 @@ namespace hCraft {
 		
 		sql::connection& conn = this->sql ().pop ();
 		conn.execute (
-			"CREATE TABLE IF NOT EXISTS `players` (`id` INTEGER PRIMARY KEY "
-			"AUTOINCREMENT, `name` TEXT, `groups` TEXT, `nick` TEXT);"
+			
+			"CREATE TABLE IF NOT EXISTS `players` ("
+				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+				"`name` TEXT COLLATE NOCASE, "
+				"`op` INTEGER, "
+				"`groups` TEXT, "
+				"`nick` TEXT);"
 			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
+		
 		
 		this->sql ().push (conn); 
 	}
@@ -718,6 +724,11 @@ namespace hCraft {
 	{
 		if (evthread_use_pthreads ())
 			throw server_error ("libevent cannot be set up for use in a multithreaded environment");
+		
+		// create directories
+		mkdir ("data", 0744);
+		mkdir ("data/worlds", 0744);
+		mkdir ("data/perms", 0744);
 		
 		this->sched.start ();
 		
@@ -755,11 +766,6 @@ namespace hCraft {
 		if (cmd)
 			{
 				dest->add (cmd);
-				/*
-				// register permissions
-				const char **perms = cmd->get_permissions ();
-				while (*perms != nullptr)
-					perm_man.add (*perms++);*/
 			}
 	}
 	
@@ -790,6 +796,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "sphere");
 		_add_command (this->perms, this->commands, "polygon");
 		_add_command (this->perms, this->commands, "curve");
+		_add_command (this->perms, this->commands, "rank");
 	}
 	
 	void
@@ -811,16 +818,16 @@ namespace hCraft {
 	create_default_ranks (group_manager& groups)
 	{
 		group* grp_guest = groups.add (1, "guest");
-		grp_guest->set_color ('7');
+		grp_guest->color = '7';
 		grp_guest->add ("command.info.help");
 		
 		group* grp_member = groups.add (2, "member");
-		grp_member->set_color ('a');
+		grp_member->color = 'a';
 		grp_member->inherit (grp_guest);
 		grp_member->add ("command.chat.me");
 		
 		group* grp_builder = groups.add (3, "builder");
-		grp_builder->set_color ('2');
+		grp_builder->color = '2';
 		grp_builder->inherit (grp_member);
 		grp_builder->add ("command.world.world");
 		grp_builder->add ("command.world.tp");
@@ -828,48 +835,49 @@ namespace hCraft {
 		grp_builder->add ("command.draw.aid");
 		
 		group* grp_designer = groups.add (4, "designer");
-		grp_designer->set_color ('b');
+		grp_designer->color = 'b';
 		grp_designer->inherit (grp_builder);
-		grp_builder->add ("command.draw.select");
-		grp_builder->add ("command.draw.fill");
-		grp_builder->add ("command.draw.sphere");
+		grp_designer->add ("command.draw.select");
+		grp_designer->add ("command.draw.fill");
+		grp_designer->add ("command.draw.sphere");
 		
 		group* grp_architect = groups.add (5, "architect");
-		grp_architect->set_color ('3');
+		grp_architect->color = '3';
 		grp_architect->inherit (grp_designer);
-		grp_builder->add ("command.draw.circle");
-		grp_builder->add ("command.draw.line");
-		grp_builder->add ("command.draw.bezier");
-		grp_builder->add ("command.draw.ellipse");
-		grp_builder->add ("command.draw.polygon");
-		grp_builder->add ("command.draw.curve");
+		grp_architect->add ("command.draw.circle");
+		grp_architect->add ("command.draw.line");
+		grp_architect->add ("command.draw.bezier");
+		grp_architect->add ("command.draw.ellipse");
+		grp_architect->add ("command.draw.polygon");
+		grp_architect->add ("command.draw.curve");
 		
 		group* grp_moderator = groups.add (6, "moderator");
-		grp_moderator->set_color ('c');
+		grp_moderator->color = 'c';
 		grp_moderator->inherit (grp_designer);
 		grp_moderator->add ("command.misc.ping");
 		
 		group* grp_admin = groups.add (7, "admin");
-		grp_admin->set_color ('4');
+		grp_admin->color = '4';
 		grp_admin->inherit (grp_architect);
 		grp_admin->inherit (grp_moderator);
 		grp_admin->add ("command.world.tp.others");
 		grp_admin->add ("command.admin.gm");
-		grp_admin->set_text_color ('c');
+		grp_admin->add ("command.admin.rank");
+		grp_admin->text_color = 'c';
 		
 		group* grp_executive = groups.add (8, "executive");
-		grp_executive->set_color ('e');
+		grp_executive->color = 'e';
 		grp_executive->inherit (grp_admin);
 		grp_executive->add ("command.world.wcreate");
 		grp_executive->add ("command.world.wload");
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.chat.nick");
-		grp_executive->set_text_color ('c');
+		grp_executive->text_color = '7';
 		
 		group* grp_owner = groups.add (9, "owner");
-		grp_owner->set_color ('6');
-		grp_owner->set_text_color ('7');
+		grp_owner->color = '6';
+		grp_owner->text_color = '7';
 		grp_owner->add ("*");
 		
 		groups.default_rank.set ("@guest", groups);
@@ -877,87 +885,141 @@ namespace hCraft {
 	
 	
 	static void
-	write_ranks (logger& log, libconfig::Config& cfg, group_manager& groups)
+	write_ranks (logger& log, group_manager& groups)
 	{
-		std::vector<group *> sorted_groups;
+		std::ofstream strm ("data/ranks.cfg");
+		
+		strm <<
+			"// The rank that is automatically assigned to new players.\n"
+			"default-rank = \"@guest[normal]\";\n"
+			"\n"
+			"// The group ladders are used to determine which groups come after others.\n"
+			"// For example, a player who has the \"builder\" rank in the [normal]\n"
+			"// ladder will be set to \"designer\" on promotion, since \"designer\"\n"
+			"// comes right after the \"builder\" rank in the [normal] group ladder.\n"
+			"ladders :\n"
+			"{\n"
+			"  normal = [ \"guest\", \"member\", \"builder\", \"designer\", \"architect\" ];\n"
+			"  staff  = [ \"moderator\", \"admin\", \"executive\", \"owner\" ];\n"
+			"}\n"
+			"\n"
+			"// The list of all defined groups:\n"
+			"groups :\n"
+			"{\n"
+			
+			"  guest :\n"
+			"  {\n"
+			"    power = 1;\n"
+			"    color = \"7\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/guest.txt\"\n"
+			"  };\n"
+			
+			"  member :\n"
+			"  {\n"
+			"    inheritance = [ \"guest\" ];\n"
+			"    power = 2;\n"
+			"    color = \"a\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/member.txt\"\n"
+			"  };\n"
+			
+			"  builder :\n"
+			"  {\n"
+			"    inheritance = [ \"member\" ];\n"
+			"    power = 3;\n"
+			"    color = \"2\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/builder.txt\"\n"
+			"  };\n"
+			
+			"  designer :\n"
+			"  {\n"
+			"    inheritance = [ \"builder\" ];\n"
+			"    power = 4;\n"
+			"    color = \"b\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/designer.txt\"\n"
+			"  };\n"
+			
+			"  architect :\n"
+			"  {\n"
+			"    inheritance = [ \"designer\" ];\n"
+			"    power = 5;\n"
+			"    color = \"3\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/architect.txt\"\n"
+			"  };\n"
+			
+			"  moderator :\n"
+			"  {\n"
+			"    inheritance = [ \"designer\" ];\n"
+			"    power = 6;\n"
+			"    color = \"c\";\n"
+			"    text-color = \"f\";\n"
+			"    @include \"perms/moderator.txt\"\n"
+			"  };\n"
+			
+			"  admin :\n"
+			"  {\n"
+			"    inheritance = [ \"moderator\" ];\n"
+			"    power = 7;\n"
+			"    color = \"4\";\n"
+			"    text-color = \"c\";\n"
+			"    @include \"perms/admin.txt\"\n"
+			"  };\n"
+			
+			"  executive :\n"
+			"  {\n"
+			"    inheritance = [ \"admin\" ];\n"
+			"    power = 8;\n"
+			"    color = \"e\";\n"
+			"    text-color = \"7\";\n"
+			"    @include \"perms/executive.txt\"\n"
+			"  };\n"
+			
+			"  owner :\n"
+			"  {\n"
+			"    power = 9;\n"
+			"    color = \"6\";\n"
+			"    text-color = \"7\";\n"
+			"    @include \"perms/owner.txt\"\n"
+			"  };\n"
+			
+			"};\n\n";
+		
+		strm.flush ();
+		strm.close ();
+		
+		/* 
+		 * Create permission files
+		 */
+		
+		auto& perm_man = groups.get_permission_manager ();
 		for (auto itr = groups.begin (); itr != groups.end (); ++itr)
-			sorted_groups.push_back (itr->second);
-		std::sort (sorted_groups.begin (), sorted_groups.end (),
-			[] (const group* a, const group* b) -> bool
-				{ return (*a) < (*b); });
-		
-		libconfig::Setting& root = cfg.getRoot ();
-		
-		{
-			std::string def_rank;
-			groups.default_rank.get_string (def_rank);
-			root.add ("default-rank", libconfig::Setting::TypeString)
-				= def_rank;
-		}
-		
-		libconfig::Setting& grp_groups = root.add ("groups",
-			libconfig::Setting::TypeGroup);
-		
-		for (group *grp : sorted_groups)
 			{
-				libconfig::Setting& grp_set = grp_groups.add (grp->get_name (),
-					libconfig::Setting::TypeGroup);
+				group *grp = itr->second;
+				strm.open ("data/perms/" + itr->first + ".txt");
 				
-				// inheritance
-				if (grp->get_parents ().size () > 0)
+				// sort permission list
+				std::vector<permission> perms (grp->perms.begin (), grp->perms.end ());
+				std::sort (perms.begin (), perms.end (),
+					[&perm_man] (const permission& a, const permission& b) -> bool
+						{ return (std::strcmp (perm_man.to_string (a).c_str (),
+								perm_man.to_string (b).c_str ()) < 0); });
+				
+				strm << "permissions = [\n";
+				for (size_t i = 0; i < perms.size (); ++i)
 					{
-						libconfig::Setting& arr_inh = grp_set.add ("inheritance",
-							libconfig::Setting::TypeArray);
-						for (group *parent : grp->get_parents ())
-							{
-								arr_inh.add (libconfig::Setting::TypeString) = parent->get_name ();
-							}
+						strm << "  \"" << perm_man.to_string (perms[i]) << "\"";
+						if (i != (perms.size () - 1))
+							strm << ",";
+						strm << "\n";
 					}
+				strm << "];\n\n";
 				
-				grp_set.add ("power", libconfig::Setting::TypeInt)
-					= grp->get_power ();
-				
-				std::string str;
-				str.push_back (grp->get_color ());
-				grp_set.add ("color", libconfig::Setting::TypeString)
-					= str;
-				
-				str.clear ();
-				str.push_back (grp->get_text_color ());
-				grp_set.add ("text-color", libconfig::Setting::TypeString)
-					= str;
-				
-				grp_set.add ("prefix", libconfig::Setting::TypeString)
-					= grp->get_prefix ();
-				grp_set.add ("suffix", libconfig::Setting::TypeString)
-					= grp->get_suffix ();
-				grp_set.add ("mprefix", libconfig::Setting::TypeString)
-					= grp->get_mprefix ();
-				grp_set.add ("msuffix", libconfig::Setting::TypeString)
-					= grp->get_msuffix ();
-				grp_set.add ("can-chat", libconfig::Setting::TypeBoolean)
-					= grp->can_chat ();
-				grp_set.add ("can-build", libconfig::Setting::TypeBoolean)
-					= grp->can_build ();
-				grp_set.add ("can-move", libconfig::Setting::TypeBoolean)
-				= grp->can_move ();
-				
-				libconfig::Setting& arr_perms = grp_set.add ("permissions",
-					libconfig::Setting::TypeArray);
-				for (permission perm : grp->get_perms ())
-					{
-						arr_perms.add (libconfig::Setting::TypeString)
-							= groups.get_permission_manager ().to_string (perm);
-					}
-			}
-		
-		try
-			{
-				cfg.writeFile ("ranks.cfg");
-			}
-		catch (const std::exception& ex)
-			{
-				log (LT_ERROR) << "Failed to save ranks to \"ranks.cfg\"" << std::endl;
+				strm.flush ();
+				strm.close ();
 			}
 	}
 	
@@ -1010,7 +1072,7 @@ namespace hCraft {
 		try
 			{ grp_power = grp_set["power"]; }
 		catch (const std::exception&)
-			{ throw server_error ("in \"ranks.yaml\": group \"power\" field not found."); }
+			{ throw server_error ("in \"data/ranks.cfg\": group \"power\" field not found."); }
 		
 		// color
 		try
@@ -1095,15 +1157,15 @@ namespace hCraft {
 		
 		// create the group and add it to the list.
 		group *grp = groups.add (grp_power, group_name.c_str ());
-		grp->set_color (grp_color);
-		grp->set_text_color (grp_text_color);
-		grp->set_prefix (grp_prefix.c_str ());
-		grp->set_mprefix (grp_mprefix.c_str ());
-		grp->set_suffix (grp_suffix.c_str ());
-		grp->set_msuffix (grp_msuffix.c_str ());
-		grp->can_build (grp_can_build);
-		grp->can_move (grp_can_move);
-		grp->can_chat (grp_can_chat);
+		grp->color = grp_color;
+		grp->text_color =  grp_text_color;
+		grp->prefix = grp_prefix;
+		grp->mprefix = grp_mprefix;
+		grp->suffix = grp_suffix;
+		grp->msuffix = grp_msuffix;
+		grp->can_build = grp_can_build;
+		grp->can_move = grp_can_move;
+		grp->can_chat = grp_can_chat;
 		for (auto& perm : perms)
 			grp->add (perm.c_str ());
 	}
@@ -1139,16 +1201,48 @@ namespace hCraft {
 	}
 	
 	static void
+	_ranks_read_ladders_grp (logger &log, libconfig::Setting& grp_ladders,
+		group_manager &groups)
+	{
+		for (int i = 0; i < grp_ladders.getLength (); ++i)
+			{
+				libconfig::Setting& arr_ladder = grp_ladders[i];
+				if (!arr_ladder.isArray ())
+					throw server_error ("in \"data/ranks.cfg\": invalid group ladders");
+				
+				group_ladder *ladder = groups.add_ladder (arr_ladder.getName ());
+				for (int j = 0; j < arr_ladder.getLength (); ++j)
+					{
+						libconfig::Setting& lad_grp = arr_ladder[j];
+						if (lad_grp.getType () != libconfig::Setting::TypeString)
+							throw server_error ("in \"data/ranks.cfg\": invalid group in ladder");
+						
+						group *grp = groups.find (lad_grp);
+						if (!grp)
+							throw server_error ("in \"data/ranks.cfg\": unknown group in ladder");
+						ladder->insert (grp);
+					}
+			}
+	}
+	
+	static void
 	read_ranks (logger& log, libconfig::Config& cfg, group_manager& groups)
 	{
 		libconfig::Setting& root = cfg.getRoot ();
 		
 		std::string def_rank;
 		if (!root.lookupValue ("default-rank", def_rank))
-			throw server_error ("in \"ranks.cfg\": \"default-rank\" not found or invalid");
+			throw server_error ("in \"data/ranks.cfg\": \"default-rank\" not found or invalid");
 		
 		libconfig::Setting& grp_groups = root["groups"];
 		_ranks_read_groups_grp (log, grp_groups, groups);
+		
+		// ladders
+		if (root.exists ("ladders"))
+			{
+				libconfig::Setting& grp_ladders = root["ladders"];
+				_ranks_read_ladders_grp (log, grp_ladders, groups);
+			}
 		
 		groups.default_rank.set (def_rank.c_str (), groups);
 	}
@@ -1157,22 +1251,24 @@ namespace hCraft {
 	void
 	server::init_ranks ()
 	{
-		libconfig::Config cfg;
-		
-		std::ifstream istrm ("ranks.cfg");
+		std::ifstream istrm ("data/ranks.cfg");
 		if (istrm)
 			{
+				libconfig::Config cfg;
+				
 				istrm.close ();
-				log () << "Loading ranks from \"ranks.cfg\"" << std::endl;
-				cfg.readFile ("ranks.cfg");
+				
+				log () << "Loading ranks from \"data/ranks.cfg\"" << std::endl;
+				cfg.setIncludeDir ("data");
+				cfg.readFile ("data/ranks.cfg");
 				read_ranks (this->log, cfg, this->groups);
 				log (LT_INFO) << " - Loaded " << this->groups.size () << " groups." << std::endl;
 				return;
 			}
 		
 		create_default_ranks (this->groups);
-		log () << "\"ranks.cfg\" does not exist... Saving defaults." << std::endl;
-		write_ranks (this->log, cfg, this->groups);
+		log () << "\"data/ranks.cfg\" does not exist, creating..." << std::endl;
+		write_ranks (this->log, this->groups);
 	}
 	
 	void
@@ -1192,7 +1288,6 @@ namespace hCraft {
 	void
 	server::init_worlds ()
 	{
-		mkdir ("worlds", 0744);
 		std::vector<std::string> to_load;
 		
 		world *main_world;
@@ -1202,23 +1297,23 @@ namespace hCraft {
 		log () << "Loading worlds:" << std::endl;
 		
 		// load main world
-		prov_name = world_provider::determine ("worlds",
-			this->get_config ().main_world);
+		prov_name = world_provider::determine ("data/worlds", this->get_config ().main_world);
 		if (prov_name.empty ())
 			{
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
 				main_world = new world (*this, this->get_config ().main_world, this->log, 
 					world_generator::create ("plains"),
-					world_provider::create ("hw", "worlds", this->get_config ().main_world));
+					world_provider::create ("hw", "data/worlds", this->get_config ().main_world));
 				main_world->set_size (64, 64);
 				main_world->prepare_spawn (10, true);
+				main_world->save_all ();
 			}
 		else
 			{
 				log () << " - Loading \"" << this->get_config ().main_world << "\"" << std::endl;
 				world_provider *prov = world_provider::create (prov_name.c_str (),
-					"worlds", this->get_config ().main_world);
+					"data/worlds", this->get_config ().main_world);
 				if (!prov)
 					throw server_error ("failed to load main world (invalid provider)");
 				
@@ -1252,7 +1347,7 @@ namespace hCraft {
 		}
 		for (std::string& wname : to_load)
 			{
-				std::string prov_name = world_provider::determine ("worlds", wname.c_str ());
+				std::string prov_name = world_provider::determine ("data/worlds", wname.c_str ());
 				if (prov_name.empty ())
 					{
 						log (LT_WARNING) << " - World \"" << wname << "\" does not exist." << std::endl;
@@ -1260,7 +1355,7 @@ namespace hCraft {
 					}
 				
 				world_provider *prov = world_provider::create (prov_name.c_str (),
-					"worlds", wname.c_str ());
+					"data/worlds", wname.c_str ());
 				if (!prov)
 					{
 						log (LT_ERROR) << " - Failed to load world \"" << wname

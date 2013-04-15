@@ -66,6 +66,7 @@ namespace hCraft {
 		this->fail = false;
 		this->kicked = false;
 		this->handshake = false;
+		this->op = false;
 		
 		this->disconnecting = false;
 		this->reading = false;
@@ -367,7 +368,7 @@ namespace hCraft {
 				if (this->handshake && !silent)
 					{
 						std::ostringstream ss;
-						ss << "§e[§c-§e] §" << this->get_rank ().main_group->get_color () << this->get_username ()
+						ss << "§e[§c-§e] §" << this->get_colored_nickname ()
 							<< " §ehas left the server";
 						this->get_server ().get_players ().message (ss.str ());
 					}
@@ -971,11 +972,10 @@ namespace hCraft {
 		
 		std::string col_name;
 		col_name.append ("§");
-		col_name.push_back (this->get_rank ().main_group->get_color ());
-		col_name.append (this->get_username ());
+		col_name.append (this->get_colored_username ());
 		
 		char ping_name[24];
-		get_ping_name (this->get_rank ().main_group->get_color (), this->get_username (),
+		get_ping_name (this->get_rank ().main_group->color, this->get_username (),
 			ping_name);
 		
 		entity_pos me_pos = this->pos;
@@ -1079,6 +1079,10 @@ namespace hCraft {
 	bool
 	player::has (const char *perm)
 	{
+		// operators can do anything
+		if (this->is_op ())
+			return true;
+		
 		return this->get_rank ().has (perm);
 	}
 	
@@ -1109,37 +1113,60 @@ namespace hCraft {
 	player::load_data ()
 	{
 		{
+			sql::row row;
 			auto& conn = this->get_server ().sql ().pop ();
+			
+			{
+				auto count_stmt = conn.query ("SELECT Count(*) FROM `players`");
+				if (count_stmt.step (row))
+					{
+						int pl_count = row.at (0).as_int ();
+						if (pl_count == 0)
+							{
+								this->message ("§4Congratulations§c!");
+								this->message ("§cYou are the first player to log in§7, §cand thus you have been");
+								this->message ("§cgiven the highest rank and §4operator §cstatus§7.");
+								
+								this->op = true;
+								this->rnk.set (("@" + this->get_server ().get_groups ().highest ()->name).c_str (),
+									this->get_server ().get_groups ());
+							}
+					}
+			}
+			
 			auto stmt = conn.query ("SELECT * FROM `players` WHERE `name`=?");
 			stmt.bind (1, this->get_username ());
 			
-			sql::row row;
 			if (stmt.step (row))
 				{
+					this->op = (row.at (2).as_int () == 1);
 					try
 						{
-							this->rnk.set (row.at (2).as_cstr (), this->get_server ().get_groups ());
+							this->rnk.set (row.at (3).as_cstr (), this->get_server ().get_groups ());
 						}
 					catch (const std::exception& str)
 						{
 							this->rnk.set (this->get_server ().get_groups ().default_rank);
 							this->log (LT_WARNING) << "Player \"" << this->get_username () << "\" has an invalid rank." << std::endl;
 						}
-					std::strcpy (this->nick, row.at (3).as_cstr ());
+					std::strcpy (this->nick, row.at (4).as_cstr ());
 				}
 			else
 				{
-					this->rnk.set (this->get_server ().get_groups ().default_rank);
+					if (!this->op)
+						this->rnk.set (this->get_server ().get_groups ().default_rank);
+					
 					std::string grp_str;
 					this->rnk.get_string (grp_str);
 					
 					std::strcpy (this->nick, this->username);
 					
 					auto stmt = conn.query (
-						"INSERT INTO `players` (`name`, `groups`, `nick`) VALUES (?, ?, ?)");
+						"INSERT INTO `players` (`name`, `op`, `groups`, `nick`) VALUES (?, ?, ?, ?)");
 					stmt.bind (1, this->get_username ());
-					stmt.bind (2, grp_str.c_str (), sql::pass_transient);
-					stmt.bind (3, this->get_nickname ());
+					stmt.bind (2, this->op ? 1 : 0);
+					stmt.bind (3, grp_str.c_str (), sql::pass_transient);
+					stmt.bind (4, this->get_nickname ());
 					stmt.execute ();
 				}
 			
@@ -1148,7 +1175,7 @@ namespace hCraft {
 		
 		std::string str;
 		str.append ("§");
-		str.push_back (this->rnk.main ()->get_color ());
+		str.push_back (this->rnk.main_group->color);
 		str.append (this->nick);
 		std::strcpy (this->colored_nick, str.c_str ());
 	}
@@ -1168,7 +1195,7 @@ namespace hCraft {
 		
 		std::string str;
 		str.append ("§");
-		str.push_back (this->rnk.main ()->get_color ());
+		str.push_back (this->rnk.main ()->color);
 		str.append (this->nick);
 		std::strcpy (this->colored_nick, str.c_str ());
 		
@@ -1180,6 +1207,30 @@ namespace hCraft {
 				 << this->get_username () << "'";
 				this->get_server ().execute_sql (ss.str ());
 			}
+	}
+	
+	/* 
+	 * Modifies the player's rank.
+	 * NOTE: This does NOT update the database.
+	 */
+	void
+	player::set_rank (const rank& rnk)
+	{
+		this->rnk = rnk;
+		
+		// update colored names
+		
+		std::string str;
+		str.append ("§");
+		str.push_back (this->rnk.main ()->color);
+		str.append (this->nick);
+		std::strcpy (this->colored_nick, str.c_str ());
+		
+		str.clear ();
+		str.append ("§");
+		str.push_back (this->rnk.main ()->color);
+		str.append (this->username);
+		std::strcpy (this->colored_username, str.c_str ());
 	}
 	
 	
@@ -1645,7 +1696,7 @@ namespace hCraft {
 		
 		// update self
 		char ping_name[24];
-		get_ping_name (pl->get_rank ().main_group->get_color (), pl->get_username (),
+		get_ping_name (pl->get_rank ().main_group->color, pl->get_username (),
 			ping_name);
 		//pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
 		
@@ -1655,7 +1706,7 @@ namespace hCraft {
 			[me] (player *pl)
 				{
 					char ping_name[24];
-					get_ping_name (me->get_rank ().main_group->get_color (), me->get_username (),
+					get_ping_name (me->get_rank ().main_group->color, me->get_username (),
 						ping_name);
 					//pl->send (packet::make_player_list_item (ping_name, true, me->ping_time_ms));
 				});
@@ -1735,7 +1786,7 @@ namespace hCraft {
 		{
 			std::string str;
 			str.append ("§");
-			str.push_back (pl->rnk.main ()->get_color ());
+			str.push_back (pl->rnk.main ()->color);
 			str.append (pl->username);
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
@@ -1751,7 +1802,7 @@ namespace hCraft {
 		// insert self into player list ping
 		{
 			char ping_name[128];
-			get_ping_name (pl->get_rank ().main_group->get_color (), pl->get_username (),
+			get_ping_name (pl->get_rank ().main_group->color, pl->get_username (),
 				ping_name);
 			//pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
 		}
@@ -1864,14 +1915,14 @@ namespace hCraft {
 			ss << "§c# ";
 		
 		group *mgrp = pl->get_rank ().main ();
-		ss << mgrp->get_mprefix ();
-		for (group *grp : pl->get_rank ().get_groups ())
-			ss << grp->get_prefix ();
+		ss << mgrp->mprefix;
+		for (rgroup grp : pl->get_rank ().groups)
+			ss << grp.grp->prefix;
 		ss << pl->get_colored_nickname ();
-		ss << mgrp->get_msuffix ();
-		for (group *grp : pl->get_rank ().get_groups ())
-			ss << grp->get_suffix ();
-		ss << "§f: " << "§" << mgrp->get_text_color () << msg;
+		ss << mgrp->msuffix;
+		for (rgroup grp : pl->get_rank ().groups)
+			ss << grp.grp->suffix;
+		ss << "§f: " << "§" << mgrp->text_color << msg;
 		
 		std::string out = ss.str ();
 		

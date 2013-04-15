@@ -148,7 +148,7 @@ namespace hCraft {
 				}
 			
 			world_provider *prov = world_provider::create (provider_name.c_str (),
-				"worlds", world_name.c_str ());
+				"data/worlds", world_name.c_str ());
 			if (!prov)
 				{
 					pl->message ("§c * §eInvalid world provider§f: §c" + provider_name);

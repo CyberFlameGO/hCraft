@@ -195,6 +195,11 @@ namespace hCraft {
 		 */
 		virtual void save_empty (world &wr);
 		
+		/* 
+		 * Updates world information for a given world. 
+		 */
+		virtual void save_info (world &w, const world_information &info);
+		
 		
 		
 		/* 

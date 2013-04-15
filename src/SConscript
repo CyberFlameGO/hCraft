@@ -33,6 +33,7 @@ hCraft_sources = Split("""
 		crafting.cpp
 		editstage.cpp
 		drawops.cpp
+		sqlops.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -61,6 +62,7 @@ hCraft_sources = Split("""
 		commands/sphere.cpp
 		commands/polygon.cpp
 		commands/curve.cpp
+		commands/rank.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

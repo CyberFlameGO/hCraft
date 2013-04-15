@@ -163,6 +163,8 @@ namespace hCraft {
 		std::unordered_set<entity *>::iterator
 		despawn_entity_nolock (std::unordered_set<entity *>::iterator itr);
 		
+		void get_information (world_information& inf);
+		
 	public:
 		/* 
 		 * Constructs a new empty world.
@@ -200,6 +202,11 @@ namespace hCraft {
 		 * Saves all modified chunks to disk.
 		 */
 		void save_all ();
+		
+		/* 
+		 * Saves metadata to disk (width, depth, spawn pos, etc...).
+		 */
+		void save_meta ();
 		
 		
 		

@@ -74,6 +74,7 @@ namespace hCraft {
 	
 	// admin commands
 	static command* create_c_gm () { return new commands::c_gm (); }
+	static command* create_c_rank () { return new commands::c_rank (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -104,6 +105,7 @@ namespace hCraft {
 			{ "sphere", create_c_sphere },
 			{ "polygon", create_c_polygon },
 			{ "curve", create_c_curve },
+			{ "rank", create_c_rank },
 			};
 		
 		auto itr = creators.find (name);
@@ -612,14 +614,6 @@ namespace hCraft {
 							arg.end = end;
 							arg.ws = this->skip_whitespace ();
 							this->reader.non_opts.push_back (arg);
-							
-							/*
-							// update argument-only string
-							int curr = (int)ss.tellg ();
-							ss.seekg (start, std::ios_base::beg);
-							for (int i = start; i < curr; ++i)
-								this->reader.args_only_str.push_back (ss.get ());
-							*/
 						}
 				}
 			

@@ -26,35 +26,41 @@
 
 
 namespace hCraft {
-	
-#define PERM_FLAG_ALL		0x00000001U
-#define PERM_FLAG_NONE	0x00000002U
+
+#define PERM_INVALID    0xFFFFU	
+#define PERM_WILD_ALL		1
 #define PERM_ID_START		3
+
+
+#define PERM_NODE_COUNT 6
 
 	/* 
 	 * Represents a permission node (<comp1>.<comp2>. ... .<compN>) in a compact
 	 * form.
 	 */
-	class permission
+	struct permission
 	{
-	public:	
-		int nodes[5];
+		unsigned short nodes[PERM_NODE_COUNT]; // 6 nodes max
+		bool  neg;
 		
-	public:
-		permission ()
+	//----
+		permission (bool negated = false)
 		{
-			nodes[0] = nodes[1] = nodes[2] = nodes[3] = nodes[4] = -1;
+			for (int i = 0; i < PERM_NODE_COUNT; ++i)
+				this->nodes[i] = -1;
+			this->neg = negated;
 		}
 		
 		inline bool valid () { return this->nodes[0] != -1; }
 		
 		inline bool
 		operator== (const permission& other) const
-			{ return (this->nodes[0] == other.nodes[0]) &&
-							 (this->nodes[1] == other.nodes[1]) &&
-							 (this->nodes[2] == other.nodes[2]) &&
-							 (this->nodes[3] == other.nodes[3]) &&
-							 (this->nodes[4] == other.nodes[4]); }
+		{
+			for (int i = 0; i < PERM_NODE_COUNT; ++i)
+				if (this->nodes[i] != other.nodes[i])
+					return false;
+			return true;
+		}
 	};
 	
 	
@@ -63,8 +69,8 @@ namespace hCraft {
 	 */
 	class permission_manager
 	{
-		std::unordered_map<std::string, int> id_maps[5];
-		std::vector<std::string> name_maps[5];
+		std::unordered_map<std::string, int> id_maps[PERM_NODE_COUNT];
+		std::vector<std::string> name_maps[PERM_NODE_COUNT];
 		
 	public:
 		/* 
@@ -106,12 +112,10 @@ namespace std {
 		size_t
 		operator() (const hCraft::permission& perm) const
 		{
-			return int_hash (
-				int_hash (perm.nodes[0]) +
-				int_hash (perm.nodes[1]) +
-				int_hash (perm.nodes[2]) +
-				int_hash (perm.nodes[3]) +
-				int_hash (perm.nodes[4]));
+			int s;
+			for (int i = 0; i < PERM_NODE_COUNT; ++i)
+				s += int_hash (perm.nodes[i] * (128 * (i + 1)));
+			return int_hash (s);
 		}
 	};
 }

@@ -117,6 +117,11 @@ namespace hCraft {
 		 */
 		virtual void save_empty (world &wr) = 0; 
 		
+		/* 
+		 * Updates world information for a given world. 
+		 */
+		virtual void save_info (world &w, const world_information &info) = 0;
+		
 		
 		
 		/* 
@@ -133,7 +138,7 @@ namespace hCraft {
 		virtual bool load (world &wr, chunk *ch, int x, int z) = 0;
 		
 		/* 
-		 * Returns a structure that contains essential informatino about the
+		 * Returns a structure that contains essential information about the
 		 * underlying world.
 		 */
 		virtual const world_information& info () = 0;

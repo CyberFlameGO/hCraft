@@ -172,6 +172,9 @@ namespace hCraft {
 		entity_pos pos;
 		std::chrono::steady_clock::time_point spawn_time;
 		
+		// in terms of blocks per second
+		vector3 velocity;
+		
 	public:
 		inline int get_eid () { return this->eid; }
 		
@@ -225,8 +228,7 @@ namespace hCraft {
 		 * Called by the world that's holding the entity every tick (50ms).
 		 * A return value of true will cause the world to destroy the entity.
 		 */
-		virtual bool tick (world &w)
-			{ return false; }
+		virtual bool tick (world &w);
 	};
 }
 

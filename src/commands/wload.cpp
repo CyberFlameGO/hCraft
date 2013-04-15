@@ -84,7 +84,7 @@ namespace hCraft {
 					return;
 				}
 			
-			std::string prov_name = world_provider::determine ("worlds", world_name.c_str ());
+			std::string prov_name = world_provider::determine ("data/worlds", world_name.c_str ());
 			if (prov_name.empty ())
 				{
 					pl->message ("§c * §7World §b" + world_name + " §7does not exist§f.");
@@ -92,7 +92,7 @@ namespace hCraft {
 				}
 			
 			world_provider *prov = world_provider::create (prov_name.c_str (),
-				"worlds", world_name.c_str ());
+				"data/worlds", world_name.c_str ());
 			if (!prov)
 				{
 					pl->message ("§c * ERROR§f: §eInvalid provider§f.");

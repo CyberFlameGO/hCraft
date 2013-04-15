@@ -21,11 +21,14 @@
 #include <iostream>
 #include <cstring>
 #include <exception>
+#include <sys/stat.h>
 
 
 int
 main (int argc, char *argv[])
 {
+	mkdir ("data", 0744);
+	
 	hCraft::logger log;
 	hCraft::server srv (log);
 	

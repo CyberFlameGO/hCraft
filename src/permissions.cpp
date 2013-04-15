@@ -36,8 +36,7 @@ namespace hCraft {
 	{
 		switch (*str)
 			{
-				case '*': return PERM_FLAG_ALL;
-				case '-': return PERM_FLAG_NONE;
+				case '*': return PERM_WILD_ALL;
 			}
 		return -1;
 	}
@@ -54,8 +53,14 @@ namespace hCraft {
 		
 		permission result {};
 		
+		if (*ptr == '-')
+			{
+				result.neg = true;
+				++ ptr;
+			}
+		
 		int depth = 0;
-		for ( ; *ptr != '\0' && depth < 5; ++ depth)
+		for ( ; *ptr != '\0' && depth < PERM_NODE_COUNT; ++ depth)
 			{
 				std::unordered_map<std::string, int>& id_map = this->id_maps[depth];
 				std::vector<std::string>& name_map = this->name_maps[depth];
@@ -102,7 +107,7 @@ namespace hCraft {
 				result.nodes[depth] = id;
 			}
 		
-		for (; depth < 5; ++depth)
+		for (; depth < PERM_NODE_COUNT; ++depth)
 			result.nodes[depth] = 0;
 		
 		return result;
@@ -122,7 +127,7 @@ namespace hCraft {
 		permission result {};
 		
 		int depth = 0;
-		for ( ; *ptr != '\0' && depth < 5; ++ depth)
+		for ( ; *ptr != '\0' && depth < PERM_NODE_COUNT; ++ depth)
 			{
 				const std::unordered_map<std::string, int>& id_map = this->id_maps[depth];
 				
@@ -164,7 +169,7 @@ namespace hCraft {
 				result.nodes[depth] = itr->second;
 			}
 		
-		for (; depth < 5; ++depth)
+		for (; depth < PERM_NODE_COUNT; ++depth)
 			result.nodes[depth] = 0;
 		
 		return result;
@@ -179,7 +184,10 @@ namespace hCraft {
 	permission_manager::to_string (permission perm) const
 	{
 		std::string str;
-		for (int i = 0; i < 5; ++i)
+		if (perm.neg)
+			str.push_back ('-');
+		
+		for (int i = 0; i < PERM_NODE_COUNT; ++i)
 			{
 				int node = perm.nodes[i];
 				if (node == 0)
@@ -188,10 +196,8 @@ namespace hCraft {
 				if (i > 0)
 					str.push_back ('.');
 				
-				if (node == PERM_FLAG_ALL)
+				if (node == PERM_WILD_ALL)
 					str.push_back ('*');
-				else if (node == PERM_FLAG_NONE)
-					str.push_back ('-');
 				else
 					{
 						str.append (this->name_maps[i][node - PERM_ID_START]);

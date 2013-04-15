@@ -31,37 +31,31 @@ namespace hCraft {
 	/* 
 	 * 
 	 */
-	class group
+	struct group
 	{
 		int  id;         // unique id
 		int  power;      // groups are sorted using this field (higher power = higher-ranked group).
-		char name[25];   // 24 chars max
-		char col;        // name color.
-		char txtcol;     // text color.
+		std::string name;
+		char color;      // name color.
+		char text_color;
 		
 		// 32 chars max
-		char prefix[33];
-		char suffix[33];
-		char mprefix[33]; // used only if the group is the main group.
-		char msuffix[33]; // used only if the group is the main group.
+		std::string prefix, suffix;
+		std::string mprefix, msuffix; // used only if the group is the main group.
 		
-		bool chat;       // if players of this group can send chat messages.
-		bool build;      // whether players of this group can modify blocks.
-		bool move;       // whether the players can move.
+		bool can_chat;       // if players of this group can send chat messages.
+		bool can_build;      // whether players of this group can modify blocks.
+		bool can_move;       // whether the players can move.
+		
+		bool all_perms; // true if this group has the '*' perm.
+		bool no_perms;  // opposite
 		
 		permission_manager& perm_man;
 		std::unordered_set<permission> perms;
+		std::unordered_set<permission> neg_perms; // negated perms are stored separately
 		std::vector<group *> parents;
 		
-	public:
-		inline const permission_manager& get_perm_man () const
-			{ return this->perm_man; }
-		inline std::unordered_set<permission>& get_perms ()
-			{ return this->perms; }
-		inline const std::vector<group *>& get_parents () const
-			{ return this->parents; }
-		
-	public:
+	//----
 		/* 
 		 * Class constructor.
 		 */
@@ -94,36 +88,6 @@ namespace hCraft {
 		void inherit (group *grp);
 		
 		
-		/* 
-		 * Getter\Setters:
-		 */
-		
-		inline int get_power () const { return this->power; }
-		inline const char* get_name () { return this->name; }
-		
-		inline char get_color () const { return this->col; }
-		inline void set_color (char col) { this->col = col ; }
-		
-		inline char get_text_color () const { return this->txtcol; }
-		inline void set_text_color (char col) { this->txtcol = col ; }
-		
-		inline const char* get_prefix () const { return this->prefix; }
-		void set_prefix (const char *val);
-		inline const char* get_mprefix () const { return this->mprefix; }
-		void set_mprefix (const char *val);
-		
-		inline const char* get_suffix () const { return this->suffix; }
-		void set_suffix (const char *val);
-		inline const char* get_msuffix () const { return this->msuffix; }
-		void set_msuffix (const char *val);
-		
-		inline bool can_chat () const { return this->chat; }
-		inline void can_chat (bool val) { this->chat = val; }
-		inline bool can_build () const { return this->build; }
-		inline void can_build (bool val) { this->build = val; }
-		inline bool can_move () const { return this->move; }
-		inline void can_move (bool val) { this->move = val; }
-		
 	//----
 		
 		inline bool
@@ -132,6 +96,14 @@ namespace hCraft {
 		
 		inline bool
 		operator> (const group& other) const
+			{ return this->power > other.power; }
+		
+		inline bool
+		operator<= (const group& other) const
+			{ return this->power <= other.power; }
+		
+		inline bool
+		operator>= (const group& other) const
 			{ return this->power > other.power; }
 		
 		inline bool
@@ -145,21 +117,95 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * A sorted sequence of groups that define a ranking ladder.
+	 */
+	struct group_ladder
+	{
+		std::string name;
+		std::vector<group *> groups;
+		
+	//----
+		group_ladder () { }
+		
+		
+		
+		/* 
+		 * Returns the group that comes right after the specified one in the ladder.
+		 * If the given group does not have a successor in the ladder, null will be
+		 * returned.
+		 */
+		group* successor (group *grp);
+		
+		/* 
+		 * Returns the group that comes right before the specified one in the ladder.
+		 * If the given group does not have a predecessor in the ladder, null will be
+		 * returned.
+		 */
+		group* predecessor (group *grp);
+		
+		
+		
+		/* 
+		 * Inserts group @{grp} right after group @{pos}, making group @{grp} the
+		 * successor of group @{pos}.
+		 */
+		void insert_after (group *pos, group *grp);
+		
+		/* 
+		 * Inserts group @{grp} right before group @{pos}, making grou @{grp} the
+		 * predecessor of group @{pos}.
+		 */
+		void insert_before (group *pos, group *grp);
+		
+		/* 
+		 * Inserts the specified group to the end of the ladder.
+		 */
+		void insert (group *grp);
+		
+		void clear ()
+			{ this->groups.clear (); }
+		
+		
+		
+		/* 
+		 * Returns the group with the highest power value in the ladder.
+		 */
+		group* highest ();
+		
+		/* 
+		 * Returns the group with the lowest power value in the ladder.
+		 */
+		group* lowest ();
+		
+		/* 
+		 * Checks whether the ladder contain the specified group.
+		 */
+		bool has_group (group *grp);
+	};
+	
+	
+	
 	class group_manager; // forward def
+	
+	// a group as it's stored in a rank.
+	struct rgroup
+	{
+		group *grp;
+		group_ladder *ladder;
+		
+	//---
+		bool operator== (rgroup other) const
+			{ return *this->grp == *other.grp; }
+	};
 	
 	/* 
 	 * 
 	 */
-	class rank
+	struct rank
 	{
-		std::vector<group *> groups;
-		
-	public:
+		std::vector<rgroup> groups;
 		group *main_group;
-		
-	public:
-		inline const std::vector<group *>& get_groups () const
-			{ return this->groups; }
 		
 	public:
 		/* 
@@ -224,6 +270,8 @@ namespace hCraft {
 		bool operator!= (const rank& other) const;
 		bool operator< (const rank& other) const;
 		bool operator> (const rank& other) const;
+		bool operator<= (const rank& other) const;
+		bool operator>= (const rank& other) const;
 	};
 	
 	
@@ -233,9 +281,12 @@ namespace hCraft {
 	 */
 	class group_manager
 	{
-		std::unordered_map<std::string, group *> groups;
 		permission_manager& perm_man;
+		
+		std::unordered_map<std::string, group *> groups;
 		int id_counter;
+		
+		std::unordered_map<std::string, group_ladder> ladders;
 		
 	public:
 		rank default_rank;
@@ -270,20 +321,43 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Creates and inserts a new group into the given
+		 * Creates and return a new group.
 		 */
 		group* add (int power, const char *name);
+		
+		/* 
+		 * Removes all groups from this manager.
+		 */
+		void clear ();
+		
+		
 		
 		/* 
 		 * Searches for the group that has the specified name (case-sensitive).
 		 */
 		group* find (const char *name);
 		
+		/* 
+		 * Returns the group with the highest power number.
+		 */
+		group* highest ();
+		
+		
 		
 		/* 
-		 * Removes all groups from this manager.
+		 * Attempts to find a suitable ladder for the given group.
 		 */
-		void clear ();
+		group_ladder* default_ladder (group *grp);
+		
+		/* 
+		 * Finds a group ladder by its name.
+		 */
+		group_ladder* find_ladder (const char *name);
+		
+		/* 
+		 * Creates and return a new group ladder.
+		 */
+		group_ladder* add_ladder (const char *name);
 	};
 }
 

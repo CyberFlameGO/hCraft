@@ -170,5 +170,22 @@ namespace hCraft {
 		pl->send (packet::make_destroy_entity (this->eid));
 		return true;
 	}
+	
+	
+	
+	/* 
+	 * Called by the world that's holding the entity every tick (50ms).
+	 * A return value of true will cause the world to destroy the entity.
+	 */
+	bool
+	entity::tick (world &w)
+	{
+	/*
+		this->pos.x += this->velocity.x * 0.05;
+		this->pos.y += this->velocity.y * 0.05;
+		this->pos.z += this->velocity.z * 0.05;
+	*/
+		return false;
+	}
 }
 
