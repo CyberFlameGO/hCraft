@@ -28,6 +28,8 @@
 
 namespace hCraft {
 	
+	struct group_ladder;
+	
 	/* 
 	 * 
 	 */
@@ -38,6 +40,7 @@ namespace hCraft {
 		std::string name;
 		char color;      // name color.
 		char text_color;
+		group_ladder *ladder;
 		
 		// 32 chars max
 		std::string prefix, suffix;
@@ -144,6 +147,11 @@ namespace hCraft {
 		 */
 		group* predecessor (group *grp);
 		
+		/* 
+		 * Checks whether the ladder has the given group.
+		 */
+		bool has (group *grp);
+		
 		
 		
 		/* 
@@ -188,23 +196,12 @@ namespace hCraft {
 	
 	class group_manager; // forward def
 	
-	// a group as it's stored in a rank.
-	struct rgroup
-	{
-		group *grp;
-		group_ladder *ladder;
-		
-	//---
-		bool operator== (rgroup other) const
-			{ return *this->grp == *other.grp; }
-	};
-	
 	/* 
 	 * 
 	 */
 	struct rank
 	{
-		std::vector<rgroup> groups;
+		std::vector<group *> groups;
 		group *main_group;
 		
 	public:
@@ -241,6 +238,11 @@ namespace hCraft {
 		
 		void set (const rank& other);
 		void operator= (const rank& other);
+		
+		/* 
+		 * Finds and replaces group @{orig} with @{grp}.
+		 */
+		void replace (group *orig, group *grp);
 		
 		
 		/* 

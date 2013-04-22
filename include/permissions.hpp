@@ -40,14 +40,14 @@ namespace hCraft {
 	 */
 	struct permission
 	{
-		unsigned short nodes[PERM_NODE_COUNT]; // 6 nodes max
-		bool  neg;
+		unsigned short nodes[PERM_NODE_COUNT];
+		bool neg;
 		
 	//----
 		permission (bool negated = false)
 		{
 			for (int i = 0; i < PERM_NODE_COUNT; ++i)
-				this->nodes[i] = -1;
+				this->nodes[i] = PERM_INVALID;
 			this->neg = negated;
 		}
 		
@@ -112,7 +112,7 @@ namespace std {
 		size_t
 		operator() (const hCraft::permission& perm) const
 		{
-			int s;
+			int s = 0;
 			for (int i = 0; i < PERM_NODE_COUNT; ++i)
 				s += int_hash (perm.nodes[i] * (128 * (i + 1)));
 			return int_hash (s);

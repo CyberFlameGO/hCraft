@@ -58,6 +58,8 @@ namespace hCraft {
 				result.neg = true;
 				++ ptr;
 			}
+		else
+			result.neg = false;
 		
 		int depth = 0;
 		for ( ; *ptr != '\0' && depth < PERM_NODE_COUNT; ++ depth)
@@ -183,6 +185,9 @@ namespace hCraft {
 	std::string
 	permission_manager::to_string (permission perm) const
 	{
+		if (perm.nodes[0] == PERM_INVALID)
+			return "unknown";
+		
 		std::string str;
 		if (perm.neg)
 			str.push_back ('-');
@@ -192,6 +197,8 @@ namespace hCraft {
 				int node = perm.nodes[i];
 				if (node == 0)
 					break;
+				else if (node == PERM_INVALID)
+					return "unknown";
 				
 				if (i > 0)
 					str.push_back ('.');

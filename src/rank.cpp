@@ -40,6 +40,7 @@ namespace hCraft {
 		this->can_move = true;
 		this->all_perms = false;
 		this->no_perms = false;
+		this->ladder = nullptr;
 	}
 	
 	
@@ -53,14 +54,20 @@ namespace hCraft {
 		// TODO: do not insert duplicates.
 		if (perm.neg)
 			{
-				if (perm.nodes[0] == PERM_WILD_ALL && perm.nodes[1] == -1)
-					this->no_perms = true;
+				if (perm.nodes[0] == PERM_WILD_ALL && perm.nodes[1] == 0)
+					{
+						this->all_perms = false;
+						this->no_perms = true;
+					}
 				this->neg_perms.insert (perm);
 			}
 		else
 			{
-				if (perm.nodes[0] == PERM_WILD_ALL && perm.nodes[1] == -1)
-					this->no_perms = false;
+				if (perm.nodes[0] == PERM_WILD_ALL && perm.nodes[1] == 0)
+					{
+						this->all_perms = true;
+						this->no_perms = false;
+					}
 				this->perms.insert (perm);
 			}
 	}
@@ -293,7 +300,9 @@ namespace hCraft {
 	group_ladder*
 	group_manager::add_ladder (const char *name)
 	{
-		return &this->ladders[name];
+		group_ladder &ladder = this->ladders[name];
+		ladder.name.assign (name);
+		return &ladder;
 	}
 	
 	
@@ -333,11 +342,8 @@ namespace hCraft {
 	rank::get_string (std::string& out)
 	{
 		out.clear ();
-		for (auto& p : this->groups)
+		for (group *grp : this->groups)
 			{
-				group *grp = p.grp;
-				group_ladder *ladder = p.ladder;
-				
 				if (!out.empty ())
 					out.push_back (';');
 				
@@ -346,10 +352,10 @@ namespace hCraft {
 				out.append (grp->name);
 				
 				// ladder
-				if (ladder)
+				if (grp->ladder)
 					{
 						out.push_back ('[');
-						out.append (ladder->name);
+						out.append (grp->ladder->name);
 						out.push_back (']');
 					}
 			}
@@ -392,6 +398,10 @@ namespace hCraft {
 							ladder_name.push_back (*ptr++);
 					}
 				
+				group *grp = groups.find (grp_name.c_str ());
+				if (!grp)
+					throw std::runtime_error ("group \"" + grp_name + "\" does not exist");
+				
 				group_ladder *ladder = nullptr;
 				if (!ladder_name.empty ())
 					{
@@ -399,17 +409,17 @@ namespace hCraft {
 				 		if (!ladder)
 				 			throw std::runtime_error ("ladder \"" + ladder_name + "\" does not exist");
 					}
+				else
+					ladder = groups.default_ladder (grp);
+				grp->ladder = ladder;
 				
-				group *grp = groups.find (grp_name.c_str ());
-				if (!grp)
-					throw std::runtime_error ("group \"" + grp_name + "\" does not exist");
-				this->groups.push_back ({grp, ladder});
+				this->groups.push_back (grp);
 				if (is_main)
 					this->main_group = grp;
 			}
 		
 		if (!this->main_group && !this->groups.empty ())
-			this->main_group = this->groups[0].grp;
+			this->main_group = this->groups[0];
 	}
 	
 	void
@@ -426,6 +436,22 @@ namespace hCraft {
 	rank::operator= (const rank& other)
 	{
 		this->set (other);
+	}
+	
+	
+	/* 
+	 * Finds and replaces group @{orig} with @{grp}.
+	 */
+	void
+	rank::replace (group *orig, group *grp)
+	{
+		if (!orig || !grp) return;
+		
+		for (size_t i = 0; i < this->groups.size (); ++i)
+			if (this->groups[i] == orig)
+				this->groups[i] = grp;
+		if (this->main_group == orig)
+			this->main_group = grp;
 	}
 	
 	
@@ -449,10 +475,10 @@ namespace hCraft {
 		if (this->groups.size () == 0)
 			return nullptr;
 		
-		group *max = this->groups[0].grp;
+		group *max = this->groups[0];
 		for (auto itr = this->groups.begin () + 1; itr != this->groups.end (); ++itr)
 			{
-				group *grp = (*itr).grp;
+				group *grp = *itr;
 				if (grp->power > max->power)
 					max = grp;
 			}
@@ -471,14 +497,20 @@ namespace hCraft {
 		if (this->groups.empty ())
 			return false;
 		
-		const permission_manager& perm_man = this->groups[0].grp->perm_man;
+		const permission_manager& perm_man = this->groups[0]->perm_man;
 		permission perm_struct = perm_man.get (perm);
 		if (!perm_struct.valid ())
-			return false;
-		
-		for (rgroup g : this->groups)
 			{
-				if (g.grp->has (perm_struct))
+				for (group *grp : this->groups)
+					if (grp->all_perms)
+						return true;
+				
+				return false;
+			}
+		
+		for (group *grp : this->groups)
+			{
+				if (grp->has (perm_struct))
 					return true;
 			}
 		
@@ -569,6 +601,18 @@ namespace hCraft {
 				}
 		
 		return nullptr;
+	}
+	
+	/* 
+	 * Checks whether the ladder has the given group.
+	 */
+	bool
+	group_ladder::has (group *grp)
+	{
+		for (size_t i = 0; i < this->groups.size (); ++i)
+			if (this->groups[i] == grp)
+				return true;
+		return false; 
 	}
 	
 	

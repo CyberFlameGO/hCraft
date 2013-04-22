@@ -1167,7 +1167,9 @@ namespace hCraft {
 		grp->can_move = grp_can_move;
 		grp->can_chat = grp_can_chat;
 		for (auto& perm : perms)
-			grp->add (perm.c_str ());
+			{ 
+				grp->add (perm.c_str ());
+			}
 	}
 	
 	static void

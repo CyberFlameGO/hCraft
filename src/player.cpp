@@ -123,7 +123,6 @@ namespace hCraft {
 	 */
 	player::~player ()
 	{
-		//std::cout << "destruct: start""\n";
 		this->disconnect ();
 		
 		while (this->is_disconnecting ())
@@ -138,7 +137,6 @@ namespace hCraft {
 					this->out_queue.pop ();
 				}
 		}
-		//std::cout << "destruct: end""\n";
 	}
 	
 	
@@ -342,7 +340,6 @@ namespace hCraft {
 	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
-		//std::cout << "disconnect: start""\n";
 		this->fail_time = std::chrono::system_clock::now ();
 		this->fail = true;
 		this->disconnecting = true;
@@ -404,7 +401,6 @@ namespace hCraft {
 		//if (this->logged_in)
 		this->get_server ().schedule_destruction (this);
 		this->disconnecting = false;
-		//std::cout << "disconnect: end""\n";
 	}
 	
 	
@@ -1125,7 +1121,7 @@ namespace hCraft {
 							{
 								this->message ("§4Congratulations§c!");
 								this->message ("§cYou are the first player to log in§7, §cand thus you have been");
-								this->message ("§cgiven the highest rank and §4operator §cstatus§7.");
+								this->message ("§cgiven the highest rank and have been granted §4operator §cstatus§7.");
 								
 								this->op = true;
 								this->rnk.set (("@" + this->get_server ().get_groups ().highest ()->name).c_str (),
@@ -1916,12 +1912,12 @@ namespace hCraft {
 		
 		group *mgrp = pl->get_rank ().main ();
 		ss << mgrp->mprefix;
-		for (rgroup grp : pl->get_rank ().groups)
-			ss << grp.grp->prefix;
+		for (group *grp : pl->get_rank ().groups)
+			ss << grp->prefix;
 		ss << pl->get_colored_nickname ();
 		ss << mgrp->msuffix;
-		for (rgroup grp : pl->get_rank ().groups)
-			ss << grp.grp->suffix;
+		for (group *grp : pl->get_rank ().groups)
+			ss << grp->suffix;
 		ss << "§f: " << "§" << mgrp->text_color << msg;
 		
 		std::string out = ss.str ();
