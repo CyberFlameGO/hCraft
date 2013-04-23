@@ -472,6 +472,9 @@ namespace hCraft {
 	void
 	player::join_world_at (world *w, entity_pos destpos)
 	{
+		if (this->bad ())
+			return;
+		
 		std::lock_guard<std::mutex> guard {this->join_lock};
 		bool had_prev_world = (this->curr_world != nullptr);
 		
@@ -963,7 +966,7 @@ namespace hCraft {
 	void
 	player::spawn_to (player *pl)
 	{
-		if (pl == this)
+		if (pl == this || (this->bad () || pl->bad ()))
 			return;
 		
 		std::string col_name;
@@ -988,6 +991,10 @@ namespace hCraft {
 			std::lock_guard<std::mutex> guard {pl->visible_player_lock};
 			pl->visible_players.insert (this);
 		}
+		{
+			std::lock_guard<std::mutex> guard {this->visible_player_lock};
+			this->visible_players.insert (pl);
+		}
 	}
 	
 	/* 
@@ -996,6 +1003,9 @@ namespace hCraft {
 	bool
 	player::despawn_from (player *pl)
 	{
+		if (pl->bad ())
+			return false;
+		
 		if (!entity::despawn_from (pl))
 			return false;
 		

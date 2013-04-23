@@ -38,7 +38,7 @@ namespace hCraft {
 			{
 				case '*': return PERM_WILD_ALL;
 			}
-		return -1;
+		return PERM_INVALID;
 	}
 	
 	/* 
@@ -89,7 +89,7 @@ namespace hCraft {
 				
 				// test for wildcards
 				int wc = get_wildcard (tmp);
-				if (wc != -1)
+				if (wc != PERM_INVALID)
 					{
 						result.nodes[depth] = wc;
 						continue;
@@ -155,7 +155,7 @@ namespace hCraft {
 				
 				// test for wildcards
 				int wc = get_wildcard (tmp);
-				if (wc != -1)
+				if (wc != PERM_INVALID)
 					{
 						result.nodes[depth] = wc;
 						continue;
@@ -164,7 +164,7 @@ namespace hCraft {
 				auto itr = id_map.find (tmp);
 				if (itr == id_map.end ())
 					{
-						result.nodes[0] = -1;
+						result.nodes[0] = PERM_INVALID;
 						return result;
 					}
 				

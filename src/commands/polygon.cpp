@@ -283,9 +283,9 @@ namespace hCraft {
 							return;
 						}
 				}
-				
+				 
 			
-			int pt_count = (reg_sides < 3) ? -1 : ((radius < 1) ? 2 : 1);
+			int pt_count = (reg_sides < 3) ? 1 : ((radius < 1) ? 2 : 1);
 			polygon_data *data = new polygon_data (pl->get_world (), bl, do_fill, reg_sides, radius);
 			pl->create_data ("polygon", data,
 				[] (void *ptr) { delete static_cast<polygon_data *> (ptr); });

@@ -736,7 +736,7 @@ namespace hCraft {
 		this->id_counter = 0;
 		
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
-			.run_forever (30000);
+			.run_forever (10000);
 		
 		// create pooled threads
 		this->tpool.start (6);

@@ -171,9 +171,9 @@ namespace hCraft {
 	 */
 	void
 	command_reader::add_option (const char *long_name, const char *short_name,
-		bool has_arg, bool arg_required, bool opt_required)
+		int min_args, int max_args, bool opt_required)
 	{
-		this->options.emplace_back (long_name, short_name, has_arg, arg_required,
+		this->options.emplace_back (long_name, short_name, min_args, max_args,
 			opt_required);
 	}
 	
@@ -334,7 +334,7 @@ namespace hCraft {
 					}
 			
 			// no args required
-			if (min_args == 0)
+			if (!opts[0]->expects_args ())
 				return 0;
 			
 			int args_extracted = 0;
@@ -457,8 +457,7 @@ namespace hCraft {
 				}
 			
 			// parse read arguments, if any
-			int min_args = opts[0]->min_args_expected ();
-			if (min_args > 0)
+			if (opts[0]->expects_args ())
 				{
 					if (read_args)
 						{
@@ -468,7 +467,7 @@ namespace hCraft {
 					else
 						{
 							std::ostringstream ess;
-							ess << "§c * §7Option group expects at least §c" << min_args << " §7argument(s)§c.";
+							ess << "§c * §7Option group expects at least §c" << opts[0]->min_args_expected () << " §7argument(s)§c.";
 							err->message (ess.str ());
 							return -1;
 						}
@@ -629,9 +628,40 @@ namespace hCraft {
 	bool
 	command_reader::parse (command *cmd, player *err, bool handle_help)
 	{
+		if (handle_help)
+			{
+				this->add_option ("help", "h", 0, 1);
+				this->add_option ("summary", "s");
+			}
+		
 		command_parser parser (*this, this->args);
 		if (!parser.parse (err))
 			return false;
+		
+		if (handle_help)
+			{
+				if (this->opt ("summary")->found ())
+					{ cmd->show_summary (err); return false; }
+				else if (this->opt ("help")->found ())
+					{
+						option& opt = *this->opt ("help");
+						if (opt.got_args ())
+							{
+								auto& a = opt.arg (0);
+								if (!a.is_int ())
+									{
+										err->message ("§c * §7Invalid page number§: §c" + a.as_str ());
+										return false;
+									}
+								int page = a.as_int ();
+								cmd->show_help (err, page, 12);
+							}
+						else
+							cmd->show_help (err, 1, 12);
+						return false;
+					}
+			}
+		
 		return true;
 	}
 	

@@ -97,13 +97,13 @@ namespace hCraft {
 			std::vector<argument> args;
 			
 		public:
-			option (const char *lname, const char *sname, int min_args = 0, int max_args = 1,
+			option (const char *lname, const char *sname, int min_args = 0, int max_args = 0,
 				bool opt_req = false)
 			{
 				this->lname = lname;
 				this->sname = sname;
 				this->min_args = min_args;
-				this->max_args = max_args;
+				this->max_args = (max_args == 0) ? ((min_args == 0) ? 0 : min_args) : max_args;
 				this->required = opt_req;
 				this->was_found = false;
 			}
@@ -169,7 +169,7 @@ namespace hCraft {
 		 * These will be parsed in a call to parse_args ().
 		 */
 		void add_option (const char *long_name, const char *short_name = "",
-			bool has_arg = false, bool arg_required = false, bool opt_required = false);
+			int min_args = 0, int max_args = 0, bool opt_required = false);
 		
 		
 		/* 
