@@ -23,8 +23,6 @@
 #include <cstring>
 #include <mutex>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -38,17 +36,24 @@ namespace hCraft {
 	
 	
 	void
-	edit_stage::preview_to (player *pl)
+	edit_stage::preview_to (player *pl, bool update_sbs)
 	{
 		std::vector<player *> vec (1, pl);
-		this->preview (vec);
+		this->preview (vec, update_sbs);
 	}
 	
 	void
-	edit_stage::restore_to (player *pl)
+	edit_stage::preview_chunk_to (player *pl, int cx, int cz, bool update_sbs)
 	{
 		std::vector<player *> vec (1, pl);
-		this->restore (vec);
+		this->preview_chunk (vec, cx, cz, update_sbs);
+	}
+		
+	void
+	edit_stage::restore_to (player *pl, bool update_sbs)
+	{
+		std::vector<player *> vec (1, pl);
+		this->restore (vec, update_sbs);
 	}
 	
 	
@@ -186,90 +191,76 @@ namespace hCraft {
 	
 	
 	void
-	dense_edit_stage::send_to_players (std::vector<player *>& _players, bool restore)
+	dense_edit_stage::send_to_players (std::vector<player *>& _players,
+	  int cx, int cz, des_chunk& ch, bool restore, bool update_sbs)
 	{
 		std::vector<player *> players (_players);
 		if (_players.empty ())
-			goto done_sending;
+			return;
 		
 		// don't send to players that are too far away
 		for (auto itr = players.begin (); itr != players.end (); )
 			{
-				bool found_common_chunk = false;
 				player *pl = *itr;
-				
-				for (auto chitr = this->chunks.begin (); chitr != this->chunks.end (); ++chitr)
-					if (pl->can_see_chunk (chitr->first.x, chitr->first.z))
-						{ found_common_chunk = true; break; }
-				
-				if (found_common_chunk)
+				if (pl->can_see_chunk (cx, cz))
 					++ itr;
 				else
 					itr = players.erase (itr);
 			}
 		
-		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+		block_data bd;
+		unsigned short id;
+		unsigned char meta;
+		
+		int bx, by, bz;
+		
+		std::vector<block_change_record> records;
+		for (int sy = 0; sy < 16; ++sy)
 			{
-				chunk_pos cp = itr->first;
-				des_chunk& ch = itr->second;
+				des_subchunk *sub = ch.subs[sy];
+				if (!sub) continue;
 				
-				block_data bd;
-				unsigned short id;
-				unsigned char meta;
-				
-				int bx, by, bz;
-				
-				std::vector<block_change_record> records;
-				for (int sy = 0; sy < 16; ++sy)
+				for (int mi = 0; mi < 8; ++mi)
 					{
-						des_subchunk *sub = ch.subs[sy];
-						if (!sub) continue;
+						des_microchunk *micro = sub->micro[mi];
+						if (!micro) continue;
 						
-						for (int mi = 0; mi < 8; ++mi)
+						for (int bi = 0; bi < 512; ++bi)
 							{
-								des_microchunk *micro = sub->micro[mi];
-								if (!micro) continue;
-								
-								for (int bi = 0; bi < 512; ++bi)
+								id = micro->data[bi] >> 4;
+								if (id != 0xFFF)
 									{
-										id = micro->data[bi] >> 4;
-										if (id != 0xFFF)
+										bx = ((mi & 1) << 3) | (bi & 0x7);
+										by = (sy << 4) | (((mi >> 2) & 1) << 3) | ((bi >> 6) & 0x7);
+										bz = (((mi >> 1) & 1) << 3) | ((bi >> 3) & 0x7);
+										
+										if (restore)
 											{
-												bx = ((mi & 1) << 3) | (bi & 0x7);
-												by = (sy << 4) | (((mi >> 2) & 1) << 3) | ((bi >> 6) & 0x7);
-												bz = (((mi >> 1) & 1) << 3) | ((bi >> 3) & 0x7);
-												
-												if (restore)
-													{
-														bd = this->w->get_block ((itr->first.x << 4) | bx, by, (itr->first.z << 4) | bz);
-														id = bd.id;
-														meta = bd.meta;
-													}
-												else
-													meta = micro->data[bi] & 0xF;
-												
-												records.push_back ({(unsigned char)bx, (unsigned char)by, (unsigned char)bz, id, meta});
+												bd = this->w->get_block ((cx << 4) | bx, by, (cz << 4) | bz);
+												id = bd.id;
+												meta = bd.meta;
 											}
+										else
+											meta = micro->data[bi] & 0xF;
+										
+										records.push_back ({(unsigned char)bx, (unsigned char)by, (unsigned char)bz, id, meta});
 									}
 							}
 					}
-				
-				if (players.size () == 1)
-					{
-						players[0]->send
-							(packet::make_multi_block_change (cp.x, cp.z, records));
-					}
-				else
-					{
-						packet *pack = packet::make_multi_block_change (cp.x, cp.z, records);
-						for (player *pl : players)
-							pl->send (new packet (*pack));
-						delete pack;
-					}
 			}
 		
-	done_sending:
-		;
+		if (players.size () == 1)
+			{
+				players[0]->send
+					(packet::make_multi_block_change (cx, cz, records));
+			}
+		else
+			{
+				packet *pack = packet::make_multi_block_change (cx, cz, records);
+				for (player *pl : players)
+					pl->send (new packet (*pack));
+				delete pack;
+			}
 	}
 	
 	
@@ -278,20 +269,36 @@ namespace hCraft {
 	 * Sends all modified blocks to the specified player(s).
 	 */
 	void
-	dense_edit_stage::preview (std::vector<player *>& players)
+	dense_edit_stage::preview (std::vector<player *>& players, bool update_sbs)
 	{
-		this->send_to_players (players, false);
+		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+			this->send_to_players (players, itr->first.x, itr->first.z, itr->second,
+				false, update_sbs);
 	}
 	
+	
+	/* 
+	 * Same as preview (), but only sends a single chunk.
+	 */
+	void
+	dense_edit_stage::preview_chunk (std::vector<player *>& players, int cx, int cz,
+		bool update_sbs)
+	{
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr != this->chunks.end ())
+			this->send_to_players (players, cx, cz, itr->second, false, update_sbs);
+	}
 	
 	
 	/* 
 	 * Restores back all block modifications sent by preview().
 	 */
 	void
-	dense_edit_stage::restore (std::vector<player *>& players)
+	dense_edit_stage::restore (std::vector<player *>& players, bool update_sbs)
 	{
-		this->send_to_players (players, true);
+		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+			this->send_to_players (players, itr->first.x, itr->first.z, itr->second,
+				true, update_sbs);
 	}
 	
 	
@@ -582,7 +589,8 @@ namespace hCraft {
 	}
 	
 	void
-	sparse_edit_stage::send_to_players (std::vector<player *>& _players, bool restore)
+	sparse_edit_stage::send_to_players (std::vector<player *>& _players,
+		int cx, int cz, ses_chunk& ch, bool restore, bool update_sbs)
 	{
 		std::vector<player *> players (_players);
 		if (_players.empty ())
@@ -591,59 +599,48 @@ namespace hCraft {
 		// don't send to players that are too far away
 		for (auto itr = players.begin (); itr != players.end (); )
 			{
-				bool found_common_chunk = false;
 				player *pl = *itr;
-				
-				for (auto chitr = this->chunks.begin (); chitr != this->chunks.end (); ++chitr)
-					if (pl->can_see_chunk (chitr->first.x, chitr->first.z))
-						{ found_common_chunk = true; break; }
-				
-				if (found_common_chunk)
+				if (pl->can_see_chunk (cx, cz))
 					++ itr;
 				else
 					itr = players.erase (itr);
 			}
 		
 		std::vector<sb_correction> corrections;
-		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+		std::vector<block_change_record> records;
+		for (auto bitr = ch.changes.begin (); bitr != ch.changes.end (); ++bitr)
 			{
-				chunk_pos cp = itr->first;
-				ses_chunk& ch = itr->second;
+				unsigned char x = bitr->first.x;
+				unsigned char y = bitr->first.y;
+				unsigned char z = bitr->first.z;
 				
-				std::vector<block_change_record> records;
-				for (auto bitr = ch.changes.begin (); bitr != ch.changes.end (); ++bitr)
-					{
-						unsigned char x = bitr->first.x;
-						unsigned char y = bitr->first.y;
-						unsigned char z = bitr->first.z;
-						
-						// selection blocks
-						for (player *pl : players)
-							if (pl->sb_exists ((cp.x << 4) | x, y, (cp.z << 4) | z))
-								corrections.emplace_back (pl, (cp.x << 4) | x, y, (cp.z << 4) | z);
-						
-						if (restore)
-							{
-								block_data bd = this->w->get_block (x, y, z);
-								records.push_back ({x, y, z, bd.id, bd.meta});
-							}
-						else
-							records.push_back ({x, y, z,
-								(unsigned short)((bitr->second) >> 4), (unsigned char)((bitr->second) & 0xF)});
-					}
+				// selection blocks
+				if (update_sbs)
+					for (player *pl : players)
+						if (pl->sb_exists ((cx << 4) | x, y, (cz << 4) | z))
+							corrections.emplace_back (pl, (cx << 4) | x, y, (cz << 4) | z);
 				
-				if (players.size () == 1)
+				if (restore)
 					{
-						players[0]->send
-							(packet::make_multi_block_change (cp.x, cp.z, records));
+						block_data bd = this->w->get_block (x, y, z);
+						records.push_back ({x, y, z, bd.id, bd.meta});
 					}
 				else
-					{
-						packet *pack = packet::make_multi_block_change (cp.x, cp.z, records);
-						for (player *pl : players)
-							pl->send (new packet (*pack));
-						delete pack;
-					}
+					records.push_back ({x, y, z,
+						(unsigned short)((bitr->second) >> 4), (unsigned char)((bitr->second) & 0xF)});
+			}
+		
+		if (players.size () == 1)
+			{
+				players[0]->send
+					(packet::make_multi_block_change (cx, cz, records));
+			}
+		else
+			{
+				packet *pack = packet::make_multi_block_change (cx, cz, records);
+				for (player *pl : players)
+					pl->send (new packet (*pack));
+				delete pack;
 			}
 		
 		// resend modified selection blocks
@@ -657,20 +654,38 @@ namespace hCraft {
 	 * Sends all modified blocks to the specified player(s).
 	 */
 	void
-	sparse_edit_stage::preview (std::vector<player *>& players)
+	sparse_edit_stage::preview (std::vector<player *>& players, bool update_sbs)
 	{
-		this->send_to_players (players, false);
+		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+			this->send_to_players (players, itr->first.x, itr->first.z, itr->second,
+				false, update_sbs);
 	}
 	
+	
+	/* 
+	 * Same as preview (), but only sends a single chunk.
+	 */
+	void
+	sparse_edit_stage::preview_chunk (std::vector<player *>& players, int cx, int cz,
+		bool update_sbs)
+	{
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr != this->chunks.end ())
+		 	{
+				this->send_to_players (players, cx, cz, itr->second, false, update_sbs);
+			}
+	}
 	
 	
 	/* 
 	 * Restores back all block modifications sent by preview().
 	 */
 	void
-	sparse_edit_stage::restore (std::vector<player *>& players)
+	sparse_edit_stage::restore (std::vector<player *>& players, bool update_sbs)
 	{
-		this->send_to_players (players, true);
+		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+			this->send_to_players (players, itr->first.x, itr->first.z, itr->second,
+				true, update_sbs);
 	}
 	
 	

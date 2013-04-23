@@ -481,8 +481,9 @@ namespace hCraft {
 		// this will keep the player safe from fall damage right after spawning
 		this->fall_flag = true;
 		
+		// selection blocks
+		this->sb_updates.reset ();
 		this->sb_updates.set_world (w, true);
-		
 		if (had_prev_world && (this->curr_world != w))
 			{
 				// destroy selections
@@ -607,6 +608,9 @@ namespace hCraft {
 				chunk *ch = this->get_world ()->load_chunk (cpos.x, cpos.z);
 				this->send (packet::make_chunk (cpos.x, cpos.z, ch));
 				
+				// send any selection blocks from that chunk
+				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z, false);
+				
 				// spawn self to other players and vice-versa.
 				player *me = this;
 				ch->all_entities (
@@ -699,6 +703,9 @@ namespace hCraft {
 			{
 				chunk *ch = wr->load_chunk (cpos.x, cpos.z);
 				this->send (packet::make_chunk (cpos.x, cpos.z, ch));
+				
+				// send any selection blocks from that chunk
+				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z);
 			}
 		
 		this->send (packet::make_player_pos_and_look (
@@ -751,9 +758,16 @@ namespace hCraft {
 	bool
 	player::can_see_chunk (int x, int z)
 	{
+	/*
 		std::unique_lock<std::mutex> guard {this->world_lock};
 		auto itr = this->known_chunks.find (chunk_pos (x, z));
-		return (itr != this->known_chunks.end ());
+		return (itr != this->known_chunks.end ());*/
+		
+		chunk_pos me_pos = this->pos;
+		chunk_pos ch_pos = {x, z};
+		return (
+			(utils::iabs (me_pos.x - ch_pos.x) <= player::chunk_radius ()) &&
+			(utils::iabs (me_pos.z - ch_pos.z) <= player::chunk_radius ()));
 	}
 	
 	
@@ -1357,8 +1371,8 @@ namespace hCraft {
 	void
 	player::sb_commit ()
 	{
-		this->sb_updates.preview_to (this);
-		this->sb_updates.reset ();
+		this->sb_updates.preview_to (this, false);
+		//this->sb_updates.reset ();
 	}
 	
 	void
@@ -1566,17 +1580,14 @@ namespace hCraft {
 				std::uniform_real_distribution<> dis (0, 2);
 				
 				entity_pos pos = this->pos;
-				for (int j = 0; j < 5; ++j)
+				for (int i = 0; i <= 44; ++i)
 					{
-						for (int i = 0; i <= 44; ++i)
+						slot_item s = this->inv.get (i);
+						if (!s.empty ())
 							{
-								slot_item s = this->inv.get (i);
-								if (!s.empty ())
-									{
-										pickup_item *pick = new pickup_item (this->srv.next_entity_id (), s);
-										pick->pos.set_pos (pos.x + dis (rnd), pos.y + dis (rnd), pos.z + dis (rnd));
-										this->get_world ()->spawn_entity (pick);
-									}
+								pickup_item *pick = new pickup_item (this->srv.next_entity_id (), s);
+								pick->pos.set_pos (pos.x + dis (rnd), pos.y + dis (rnd), pos.z + dis (rnd));
+								this->get_world ()->spawn_entity (pick);
 							}
 					}
 			}
@@ -1657,16 +1668,6 @@ namespace hCraft {
 	
 	
 //----
-	
-	/*
-	static bool
-	ms_passed (std::chrono::time_point<std::chrono::system_clock> pt, int ms)
-	{
-		auto now = std::chrono::system_clock::now ();
-		return ((pt + std::chrono::milliseconds (ms)) <= now);
-	}*/
-	
-	
 	
 	/* 
 	 * Packet handlers:

@@ -72,14 +72,20 @@ namespace hCraft {
 		/* 
 		 * Sends all modified blocks to the specified player(s).
 		 */
-		void preview_to (player *pl);
-		virtual void preview (std::vector<player *>& players) { };
+		void preview_to (player *pl, bool update_sbs = true);
+		virtual void preview (std::vector<player *>& players, bool update_sbs = true) { }
+		
+		/* 
+		 * Same as preview (), but only sends a single chunk.
+		 */
+		void preview_chunk_to (player *pl, int cx, int cz, bool update_sbs = true);
+		virtual void preview_chunk (std::vector<player *>& players, int cx, int cz, bool update_sbs = true) { }
 		
 		/* 
 		 * Restores back all block modifications sent by preview().
 		 */
-		void restore_to (player *pl);
-		virtual void restore (std::vector<player *>& players) { };
+		void restore_to (player *pl, bool update_sbs = true);
+		virtual void restore (std::vector<player *>& players, bool update_sbs = true) { }
 		
 		
 		/* 
@@ -145,7 +151,8 @@ namespace hCraft {
 		std::unordered_map<chunk_pos, des_chunk, chunk_pos_hash> chunks;
 		
 	private:
-		void send_to_players (std::vector<player *>& players, bool restore);
+		void send_to_players (std::vector<player *>& players,
+			int cx, int cz, des_chunk& ch, bool restore, bool update_sbs);
 		
 	public:
 		dense_edit_stage (world *w = nullptr);
@@ -161,12 +168,17 @@ namespace hCraft {
 		/* 
 		 * Sends all modified blocks to the specified player(s).
 		 */
-		virtual void preview (std::vector<player *>& players) override;
+		virtual void preview (std::vector<player *>& players, bool update_sbs = true) override;
+		
+		/* 
+		 * Same as preview (), but only sends a single chunk.
+		 */
+		virtual void preview_chunk (std::vector<player *>& players, int cx, int cz, bool update_sbs = true) override;
 		
 		/* 
 		 * Restores back all block modifications sent by preview().
 		 */
-		virtual void restore (std::vector<player *>& players) override;
+		virtual void restore (std::vector<player *>& players, bool update_sbs = true) override;
 		
 		
 		/* 
@@ -202,7 +214,8 @@ namespace hCraft {
 		std::unordered_map<chunk_pos, ses_chunk, chunk_pos_hash> chunks;
 		
 	private:
-		void send_to_players (std::vector<player *>& players, bool restore);
+		void send_to_players (std::vector<player *>& players,
+			int cx, int cz, ses_chunk& ch, bool restore, bool update_sbs);
 		
 	public:
 		sparse_edit_stage (world *w = nullptr);
@@ -218,12 +231,17 @@ namespace hCraft {
 		/* 
 		 * Sends all modified blocks to the specified player(s).
 		 */
-		virtual void preview (std::vector<player *>& players) override;
+		virtual void preview (std::vector<player *>& players, bool update_sbs = true) override;
+		
+		/* 
+		 * Same as preview (), but only sends a single chunk.
+		 */
+		virtual void preview_chunk (std::vector<player *>& players, int cx, int cz, bool update_sbs = true) override;
 		
 		/* 
 		 * Restores back all block modifications sent by preview().
 		 */
-		virtual void restore (std::vector<player *>& players) override;
+		virtual void restore (std::vector<player *>& players, bool update_sbs = true) override;
 		
 		
 		/* 
@@ -267,42 +285,6 @@ namespace hCraft {
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
 		virtual blocki get (int x, int y, int z) override;
-		
-		
-		/* 
-		 * Sends all modified blocks to the specified player(s).
-		 * 
-		 * NOTE: The direct edit stage does NOT implement this.
-		 */
-		virtual void preview (std::vector<player *>& players) override
-			{ }
-		
-		/* 
-		 * Restores back all block modifications sent by preview().
-		 * 
-		 * NOTE: The direct edit stage does NOT implement this.
-		 */
-		virtual void restore (std::vector<player *>& players) override
-			{ }
-		
-		
-		/* 
-		 * Commits all block modifications to the underlying world.
-		 * The edit stage is then cleared.
-		 * 
-		 * NOTE: The direct edit stage does NOT implement this.
-		 */
-		virtual void commit (bool physics = true) override
-			{ }
-		
-		
-		/* 
-		 * Clears the edit stage.
-		 * 
-		 * NOTE: The direct edit stage does NOT implement this.
-		 */
-		virtual void reset () override
-			{ }
 	};
 }
 
