@@ -190,6 +190,11 @@ namespace hCraft {
 		struct sockaddr *addr, int len, void *ptr)
 	{
 		server &srv = *static_cast<server *> (ptr);
+		if (srv.is_shutting_down ())
+			{
+				evutil_closesocket (sock);
+				return;
+			}
 		
 		// get IP address
 		char ip[16];
@@ -1305,9 +1310,9 @@ namespace hCraft {
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
 				main_world = new world (*this, this->get_config ().main_world, this->log, 
-					world_generator::create ("plains"),
+					world_generator::create ("overhang"),
 					world_provider::create ("hw", "data/worlds", this->get_config ().main_world));
-				main_world->set_size (64, 64);
+				main_world->set_size (192, 192);
 				main_world->prepare_spawn (10, true);
 				main_world->save_all ();
 			}
@@ -1397,7 +1402,6 @@ namespace hCraft {
 	void
 	server::destroy_worlds ()
 	{
-		
 		// clear worlds
 		{
 			std::lock_guard<std::mutex> guard {this->world_lock};

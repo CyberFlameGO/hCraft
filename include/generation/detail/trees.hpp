@@ -16,49 +16,35 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__WORLDGENERATOR__PLAINS_H_
-#define _hCraft__WORLDGENERATOR__PLAINS_H_
+#ifndef _hCraft__WORLDGENERATOR__DETAIL__TREES_H_
+#define _hCraft__WORLDGENERATOR__DETAIL__TREES_H_
 
-#include "worldgenerator.hpp"
-#include <noise/noise.h>
-
-#include "generation/detail/trees.hpp"
+#include "generation/worldgenerator.hpp"
+#include "blocks.hpp"
+#include <random>
 
 
 namespace hCraft {
-	
-	/* 
-	 * A very simplistic 2D perlin noise backed generator.
-	 */
-	class plains_world_generator: public world_generator
-	{
-		long gen_seed;
-		
-		noise::module::Perlin pn;
-		dgen::trees gen_trees;
-		
-	public:
-		/* 
-		 * Constructs a new plains world generator.
-		 */
-		plains_world_generator (long seed);
-		
+	namespace dgen {
 		
 		/* 
-		 * Returns the name of this generator.
+		 * Tree generator.
 		 */
-		virtual const char* name ()
-			{ return "plains"; }
-		
-		virtual long seed ()
-			{ return this->gen_seed; }
-		
-		
-		/* 
-		 * Generates flatgrass terrain on the specified chunk.
-		 */
-		virtual void generate (world& wr, chunk *out, int cx, int cz);
-	};
+		class trees: public detail_generator
+		{
+			blocki bl_trunk;
+			blocki bl_leaves;
+			int min_height;
+			
+			std::minstd_rand rnd;
+			
+		public:
+			trees (int min_height = 4, blocki bl_trunk = {BT_TRUNK}, blocki bl_leaves = {BT_LEAVES});
+			
+			virtual void seed (long s);
+			virtual void generate (world &wr, int x, int y, int z);
+		};
+	}
 }
 
 #endif

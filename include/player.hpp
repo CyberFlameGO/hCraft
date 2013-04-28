@@ -182,6 +182,9 @@ namespace hCraft {
 		std::unordered_map<std::string, player_extra_data> extra_data;
 		std::mutex data_lock;
 		
+		// a list of all edit stages that should re-send their contents whenever
+		// the player crosses chunk boundaries.
+		std::unordered_set<edit_stage *> edstages;
 		sparse_edit_stage sb_updates; // selection block updates
 		
 	public:
@@ -503,6 +506,13 @@ namespace hCraft {
 		bool sb_exists (int x, int y, int z);
 		void sb_commit ();
 		void sb_send (int x, int y, int z);
+		
+		
+		/* 
+		 * 
+		 */
+		void es_add (edit_stage *es);
+		void es_remove (edit_stage *es);
 		
 		
 		/* 

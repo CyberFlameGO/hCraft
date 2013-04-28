@@ -17,6 +17,7 @@
  */
 
 #include "chunk.hpp"
+#include "world.hpp"
 #include <cstring>
 
 #include <iostream> // DEBUG
@@ -272,7 +273,7 @@ namespace hCraft {
 	 * Constructs a new empty chunk, with all blocks set to air.
 	 */
 	chunk::chunk ()
-	{
+	{ 
 		for (int i = 0; i < 16; ++i)
 			{
 				this->subs[i] = nullptr;
@@ -283,6 +284,7 @@ namespace hCraft {
 		
 		std::memset (this->biomes, BI_PLAINS, 256);
 		this->modified = true;
+		this->generated = false;
 		
 		this->north = this->south = this->east = this->west = nullptr;
 	}
@@ -556,6 +558,109 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->entity_lock};
 		for (entity* e : this->entities)
 			f (e);
+	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	chunk_link_map::chunk_link_map (world &wr, chunk *center, int cx, int cz)
+		: wr (wr)
+	{
+		this->last = this->center = {cx, cz, center};
+	}
+	
+	
+	
+	chunk*
+	chunk_link_map::follow (int cx, int cz)
+	{
+		if (!this->wr.chunk_in_bounds (cx, cz))
+			return nullptr;
+		
+		int lx = this->last.x, lz = this->last.z;
+		chunk *ch = this->last.ch;
+		if (cx != lx || cz != lz)
+			{
+				// follow through chunk links
+				while (lx != cx || lz != cz)
+					{
+						if (lx < cx) {
+							++ lx;
+							ch = ch->east;
+						} else if (lx > cx) {
+							-- lx;
+							ch = ch->west;
+						}
+						if (!ch) break;
+						 
+						if (lz < cz) {
+							++ lz;
+							ch = ch->south;
+						} else if (lz > cz) {
+							-- lz;
+							ch = ch->north;
+						}
+						if (!ch) break;
+					}
+				
+				if (!ch)
+					{
+						ch = this->wr.get_chunk (cx, cz);
+						if (!ch)
+							{
+								// place empty chunk
+								ch = new chunk ();
+								this->wr.put_chunk (cx, cz, ch);
+							}
+					}
+
+				this->last.ch = ch;
+				this->last.x = cx;
+				this->last.z = cz;
+			}
+		
+		if (ch == this->wr.get_edge_chunk ())
+			return nullptr; // shouldn't happen...
+		return ch;
+	}
+	
+	void
+	chunk_link_map::set (int x, int y, int z, unsigned char id, unsigned char meta)
+	{
+		chunk *ch = this->follow (x >> 4, z >> 4);
+		if (ch)
+			ch->set_id_and_meta (x & 0xF, y, z & 0xF, id, meta);
+	}
+	 
+	unsigned short
+	chunk_link_map::get_id (int x, int y, int z)
+	{
+		chunk *ch = this->follow (x >> 4, z >> 4);
+		if (ch)
+			return ch->get_id (x & 0xF, y, z & 0xF);
+		return 0;
+	}
+	
+	unsigned char
+	chunk_link_map::get_meta (int x, int y, int z)
+	{
+		chunk *ch = this->follow (x >> 4, z >> 4);
+		if (ch)
+			return ch->get_meta (x & 0xF, y, z & 0xF);
+		return 0;
+	}
+	
+	blocki
+	chunk_link_map::get (int x, int y, int z)
+	{
+		chunk *ch = this->follow (x >> 4, z >> 4);
+		if (ch)
+			{
+				block_data bd = ch->get_block (x & 0xF, y, z & 0xF);
+				return {bd.id, bd.meta};
+			}
+		return {};
 	}
 }
 

@@ -38,6 +38,8 @@ hCraft_sources = Split("""
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
 		generation/plains.cpp
+		generation/overhang.cpp
+		generation/detail/trees.cpp
 		
 		commands/command.cpp
 		commands/help.cpp

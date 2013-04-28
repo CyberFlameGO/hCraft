@@ -30,16 +30,19 @@ namespace hCraft {
 		
 		namespace {
 			struct line_data {
+				player *pl;
 				sparse_edit_stage es;
 				std::vector<vector3> points;
 				blocki bl;
 				bool cont;
 				
-				line_data (world *wr, blocki bl, bool cont)
+				line_data (player *pl, world *wr, blocki bl, bool cont)
 					: es (wr)
 				{
 					this->bl = bl;
 					this->cont = cont;
+					
+					pl->es_add (&this->es);
 				}
 			};
 		}
@@ -52,6 +55,13 @@ namespace hCraft {
 			if (!data) return true; // shouldn't happen
 			
 			sparse_edit_stage& es = data->es;
+			if (es.get_world () != pl->get_world ())
+				{
+					pl->es_remove (&data->es);
+					pl->delete_data ("line");
+					pl->message ("§c * §7Worlds changed, drawing cancelled§c.");
+					return true;
+				}
 			
 			if (data->cont)
 				{
@@ -60,7 +70,7 @@ namespace hCraft {
 					if (points.size () > 1)
 						{
 							es.restore_to (pl);
-							es.reset ();
+							es.clear ();
 						}
 					
 					if (points.size () == 1)
@@ -80,6 +90,7 @@ namespace hCraft {
 			draw.draw_line (marked[0], marked[1], data->bl);
 			es.commit ();
 			
+			pl->es_remove (&data->es);
 			pl->delete_data ("line");
 			pl->message ("§3Line complete");
 			return true;
@@ -96,9 +107,18 @@ namespace hCraft {
 					return;
 				}
 			
+			if (data->es.get_world () != pl->get_world ())
+				{
+					pl->es_remove (&data->es);
+					pl->delete_data ("line");
+					pl->message ("§c * §7Worlds changed, drawing cancelled§c.");
+					return;
+				}
+			
 			if (!data->cont)
 				{
 					pl->stop_marking ();
+					pl->es_remove (&data->es);
 					pl->delete_data ("line");
 					return;
 				}
@@ -108,12 +128,13 @@ namespace hCraft {
 			if (points.empty ())
 				{
 					pl->stop_marking ();
+					pl->es_remove (&data->es);
 					pl->delete_data ("line");
 					return;
 				}
 			
 			es.restore_to (pl);
-			es.reset ();
+			es.clear ();
 			
 			draw_ops draw (es);
 			for (int i = 0; i < ((int)points.size () - 1); ++i)
@@ -121,6 +142,7 @@ namespace hCraft {
 			es.commit ();
 			
 			pl->stop_marking ();
+			pl->es_remove (&data->es);
 			pl->delete_data ("line");
 			pl->message ("§3Line complete");
 			return;
@@ -170,7 +192,7 @@ namespace hCraft {
 					return;
 				}
 			
-			line_data *data = new line_data (pl->get_world (), bl, do_cont);
+			line_data *data = new line_data (pl, pl->get_world (), bl, do_cont);
 			pl->create_data ("line", data,
 				[] (void *ptr) { delete static_cast<line_data *> (ptr); });
 			pl->get_nth_marking_callback (do_cont ? 1 : 2) += on_blocks_marked;

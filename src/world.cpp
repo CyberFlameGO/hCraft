@@ -28,6 +28,8 @@
 #include <cctype>
 #include <algorithm>
 
+#include <iostream> // DEBUG
+
 // physics:
 #include "physics/sand.hpp"
 #include "physics/langtons_ant.hpp"
@@ -63,6 +65,7 @@ namespace hCraft {
 		
 		this->prov = provider;
 		this->edge_chunk = nullptr;
+		this->last_chunk = {0, 0, nullptr};
 		
 		this->players = new playerlist ();
 		this->th_running = false;
@@ -178,7 +181,7 @@ namespace hCraft {
 		const static int light_update_cap = 10000; // per tick
 		
 		int update_count;
-		sparse_edit_stage pl_tr;
+		dense_edit_stage pl_tr;
 		
 		this->ticks = 0;
 		while (this->th_running)
@@ -291,7 +294,7 @@ namespace hCraft {
 							
 							// send updates to players
 							pl_tr.preview (pl_vc);
-							pl_tr.reset ();
+							pl_tr.clear ();
 						}
 						
 				} // release of update lock
@@ -354,6 +357,7 @@ namespace hCraft {
 			{
 				this->edge_chunk = new chunk ();
 				this->gen->generate_edge (*this, this->edge_chunk);
+				this->edge_chunk->generated = true;
 				this->edge_chunk->recalc_heightmap ();
 				this->edge_chunk->relight ();
 			}
@@ -370,6 +374,7 @@ namespace hCraft {
 			{
 				this->edge_chunk = new chunk ();
 				this->gen->generate_edge (*this, this->edge_chunk);
+				this->edge_chunk->generated = true;
 				this->edge_chunk->recalc_heightmap ();
 				this->edge_chunk->relight ();
 			}
@@ -522,7 +527,7 @@ namespace hCraft {
 		// set links
 		{
 			// north (-z)
-			chunk *n = get_chunk_nolock (x, z - 1);
+			chunk *n = chunk_in_bounds (x, z - 1) ? get_chunk_nolock (x, z - 1) : nullptr;
 			if (n)
 				{
 					ch->north = n;
@@ -532,7 +537,7 @@ namespace hCraft {
 				ch->north = nullptr;
 			
 			// south (+z)
-			chunk *s = get_chunk_nolock (x, z + 1);
+			chunk *s = chunk_in_bounds (x, z + 1) ? get_chunk_nolock (x, z + 1) : nullptr;
 			if (s)
 				{
 					ch->south = s;
@@ -542,7 +547,7 @@ namespace hCraft {
 				ch->south = nullptr;
 			
 			// west (-x)
-			chunk *w = get_chunk_nolock (x - 1, z);
+			chunk *w = chunk_in_bounds (x - 1, z) ? get_chunk_nolock (x - 1, z) : nullptr;
 			if (w)
 				{
 					ch->west = w;
@@ -552,7 +557,7 @@ namespace hCraft {
 				ch->west = nullptr;
 			
 			// east (+x)
-			chunk *e = get_chunk_nolock (x + 1, z);
+			chunk *e = chunk_in_bounds (x + 1, z) ? get_chunk_nolock (x + 1, z) : nullptr;
 			if (e)
 				{
 					ch->east = e;
@@ -569,8 +574,7 @@ namespace hCraft {
 	chunk*
 	world::get_chunk_nolock (int x, int z)
 	{
-		if (((this->width > 0) && (((x * 16) >= this->width) || (x < 0))) ||
-				((this->depth > 0) && (((z * 16) >= this->depth) || (z < 0))))
+		if (!this->chunk_in_bounds (x, z))
 			return this->edge_chunk;
 		
 		auto itr = this->chunks.find ((unsigned long long)chunk_key (x, z));
@@ -586,8 +590,7 @@ namespace hCraft {
 	chunk*
 	world::get_chunk (int x, int z)
 	{
-		if (((this->width > 0) && (((x << 4) >= this->width) || (x < 0))) ||
-				((this->depth > 0) && (((z << 4) >= this->depth) || (z < 0))))
+		if (!this->chunk_in_bounds (x, z))
 			return this->edge_chunk;
 		
 		unsigned long long key = chunk_key (x, z);
@@ -625,24 +628,29 @@ namespace hCraft {
 	world::load_chunk (int x, int z)
 	{
 		chunk *ch = this->get_chunk (x, z);
-		if (ch) return ch;
-		
-		ch = new chunk ();
-		
-		// try to load from disk
-		this->prov->open (*this);
-		if (this->prov->load (*this, ch, x, z))
+		if (ch && ch->generated) return ch;
+		else if (!ch)
 			{
+				ch = new chunk ();
+		
+				// try to load from disk
+				this->prov->open (*this);
+				if (this->prov->load (*this, ch, x, z))
+					{
+						this->prov->close ();
+						this->put_chunk (x, z, ch);
+						ch->recalc_heightmap ();
+						//ch->relight ();
+						return ch;
+					}
 				this->prov->close ();
+				
+				//
 				this->put_chunk (x, z, ch);
-				ch->recalc_heightmap ();
-				//ch->relight ();
-				return ch;
 			}
 		
-		this->prov->close ();
-		this->put_chunk (x, z, ch);
 		this->gen->generate (*this, ch, x, z);
+		ch->generated = true;
 		ch->recalc_heightmap ();
 		ch->relight ();
 		return ch;
@@ -652,13 +660,22 @@ namespace hCraft {
 	/* 
 	 * Checks whether a block exists at the given coordinates.
 	 */
+	
 	bool
-	world::is_out_of_bounds (int x, int y, int z)
+	world::in_bounds (int x, int y, int z)
 	{
-		return
-			(((this->width > 0) && ((x >= this->width) || (x < 0))) ||
-		 	 ((this->depth > 0) && ((z >= this->depth) || (z < 0))) ||
-		 	 ((y < 0) || (y > 255)));
+		return (((this->width > 0) ? ((x < this->width) && (x >= 0)) : true) 	// x
+				&& ((this->depth > 0) ? ((z < this->depth) && (z >= 0)) : true)  	// z
+				&& ((y >= 0) && (y <= 255)));     																// y 
+	}
+	
+	bool
+	world::chunk_in_bounds (int cx, int cz)
+	{
+		int cw = this->width >> 4;
+		int cd = this->depth >> 4;
+		return (((cw > 0) ? ((cx < cw) && (cx >= 0)) : true)	// x
+				&& ((cd > 0) ? ((cz < cd) && (cz >= 0)) : true));	// z
 	}
 	
 	
@@ -785,7 +802,35 @@ namespace hCraft {
 	void
 	world::set_id (int x, int y, int z, unsigned short id)
 	{
-		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		chunk *ch = nullptr;
+		if (this->last_chunk.ch)
+			{
+				int dx = this->last_chunk.x - (x >> 4);
+				int dz = this->last_chunk.z - (z >> 4);
+				if (dx == 0)
+					{
+						switch (dz)
+							{
+								case  0: ch = this->last_chunk.ch; break;
+								case  1: ch = ch->south; break;
+								case -1: ch = ch->north; break;
+							}
+					}
+				else if (dz == 0)
+					{
+						switch (dx)
+							{
+								case  0: ch = this->last_chunk.ch; break;
+								case  1: ch = ch->east; break;
+								case -1: ch = ch->west; break;
+							}
+					}
+				
+				if (!ch)
+					ch = this->load_chunk (x >> 4, z >> 4);
+			}
+		else
+			ch = this->load_chunk (x >> 4, z >> 4);
 		ch->set_id (x & 0xF, y, z & 0xF, id);
 	}
 	
@@ -916,7 +961,7 @@ namespace hCraft {
 	world::queue_update (int x, int y, int z, unsigned short id,
 		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
 	{
-		if (this->is_out_of_bounds (x, y, z)) return;
+		if (!this->in_bounds (x, y, z)) return;
 		std::lock_guard<std::mutex> guard {this->update_lock};
 		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
 		
@@ -935,7 +980,7 @@ namespace hCraft {
 	world::queue_physics (int x, int y, int z, int extra, void *ptr,
 		int tick_delay, physics_params *params)
 	{
-		if (this->is_out_of_bounds (x, y, z)) return;
+		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
 		if (this->physics.get_thread_count () == 0)
@@ -948,7 +993,7 @@ namespace hCraft {
 	world::queue_physics_once (int x, int y, int z, int extra, void *ptr,
 		int tick_delay, physics_params *params)
 	{
-		if (this->is_out_of_bounds (x, y, z)) return;
+		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
 		if (this->physics.get_thread_count () == 0)

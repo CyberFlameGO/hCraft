@@ -72,7 +72,7 @@ namespace hCraft {
 			if (points.size () != 2)
 				{
 					es.restore_to (pl);
-					es.reset ();
+					es.clear ();
 				}
 			
 			draw_ops draw (es);

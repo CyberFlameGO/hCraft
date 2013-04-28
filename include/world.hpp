@@ -112,6 +112,8 @@ namespace hCraft {
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::mutex chunk_lock;
 		
+		struct { int x, z; chunk *ch; } last_chunk;
+		
 		std::unordered_set<entity *> entities;
 		std::mutex entity_lock;
 		
@@ -250,7 +252,8 @@ namespace hCraft {
 		/* 
 		 * Checks whether a block exists at the given coordinates.
 		 */
-		bool is_out_of_bounds (int x, int y, int z);
+		bool in_bounds (int x, int y, int z);
+		bool chunk_in_bounds (int cx, int cz);
 		
 		
 		

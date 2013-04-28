@@ -55,7 +55,7 @@ namespace hCraft {
 			if (points.size () > 1)
 				{
 					es.restore_to (pl);
-					es.reset ();
+					es.clear ();
 				}
 			
 			vector3 first = points[0];
@@ -102,7 +102,7 @@ namespace hCraft {
 				}
 			
 			es.restore_to (pl);
-			es.reset ();
+			es.clear ();
 			
 			draw_ops draw (es);
 			draw.draw_curve (points, data->bl);

@@ -62,11 +62,12 @@ namespace hCraft {
 		world* get_world () { return this->w; }
 		
 		
-		/* 
+		/*   
 		 * Block modification \ retrieval:
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) = 0;
 		virtual blocki get (int x, int y, int z) = 0;
+		virtual void reset (int x, int y, int z) = 0;
 		
 		
 		/* 
@@ -98,7 +99,7 @@ namespace hCraft {
 		/* 
 		 * Clears the edit stage.
 		 */
-		virtual void reset () = 0;
+		virtual void clear () = 0;
 	};
 	
 	
@@ -163,6 +164,7 @@ namespace hCraft {
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
 		virtual blocki get (int x, int y, int z) override;
+		virtual void reset (int x, int y, int z) override;
 		
 		
 		/* 
@@ -191,7 +193,7 @@ namespace hCraft {
 		/* 
 		 * Clears the edit stage.
 		 */
-		virtual void reset () override;
+		virtual void clear () override;
 	};
 
 	
@@ -226,6 +228,7 @@ namespace hCraft {
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
 		virtual blocki get (int x, int y, int z) override;
+		virtual void reset (int x, int y, int z) override;
 		
 		
 		/* 
@@ -254,7 +257,7 @@ namespace hCraft {
 		/* 
 		 * Clears the edit stage.
 		 */
-		virtual void reset () override;
+		virtual void clear () override;
 	};
 	
 	
@@ -285,6 +288,7 @@ namespace hCraft {
 		 */
 		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
 		virtual blocki get (int x, int y, int z) override;
+		virtual void reset (int x, int y, int z) { }
 	};
 }
 

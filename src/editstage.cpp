@@ -31,7 +31,7 @@ namespace hCraft {
 	{
 		this->w = w;
 		if (reset)
-			this->reset ();
+			this->clear ();
 	}
 	
 	
@@ -186,6 +186,12 @@ namespace hCraft {
 			}
 		
 		return {(unsigned short)(val >> 4), (unsigned char)(val & 0xF)};
+	}
+	
+	void
+	dense_edit_stage::reset (int x, int y, int z)
+	{
+		this->set (x, y, z, 0xFFF, 0xF);
 	}
 	
 	
@@ -513,7 +519,7 @@ namespace hCraft {
 	 * Clears the edit stage.
 	 */
 	void
-	dense_edit_stage::reset ()
+	dense_edit_stage::clear ()
 	{
 		this->chunks.clear ();
 	}
@@ -569,6 +575,28 @@ namespace hCraft {
 			}
 		
 		return {(unsigned short)((bitr->second) >> 4), (unsigned char)((bitr->second) & 0xF)};
+	}
+	
+	
+	void
+	sparse_edit_stage::reset (int x, int y, int z)
+	{
+		int cx = x >> 4;
+		int cz = z >> 4;
+		
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr == this->chunks.end ())
+			return;
+		
+		unsigned char bx = x & 15;
+		unsigned char bz = z & 15;
+		
+		ses_chunk& ch = itr->second;
+		auto bitr = ch.changes.find ({bx, y, bz});
+		if (bitr == ch.changes.end ())
+			return;
+		
+		ch.changes.erase (bitr);
 	}
 	
 	
@@ -806,7 +834,7 @@ namespace hCraft {
 	 * Clears the edit stage.
 	 */
 	void
-	sparse_edit_stage::reset ()
+	sparse_edit_stage::clear ()
 	{
 		this->chunks.clear ();
 	}

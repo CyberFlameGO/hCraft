@@ -16,10 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__WORLDGENERATOR__PLAINS_H_
-#define _hCraft__WORLDGENERATOR__PLAINS_H_
+#ifndef _hCraft__WORLDGENERATOR__OVERHANG_H_
+#define _hCraft__WORLDGENERATOR__OVERHANG_H_
 
 #include "worldgenerator.hpp"
+#include <random>
 #include <noise/noise.h>
 
 #include "generation/detail/trees.hpp"
@@ -28,34 +29,58 @@
 namespace hCraft {
 	
 	/* 
-	 * A very simplistic 2D perlin noise backed generator.
+	 * A world generator that attempts to create various mountain overhangs by
+	 * using three-dimensional perlin noise.
 	 */
-	class plains_world_generator: public world_generator
+	class overhang_world_generator: public world_generator
 	{
+		std::minstd_rand rnd;
 		long gen_seed;
 		
-		noise::module::Perlin pn;
+		noise::module::Perlin pn1, pn2, pn3;
+		noise::module::ScalePoint sp1;
+		noise::module::Const co1;
+		noise::module::Multiply mu1;
+		noise::module::Select se1;
+		
+		noise::module::Perlin pn_sand;
 		dgen::trees gen_trees;
+		
+		/*
+		noise::module::Perlin pn1, pn2;
+		noise::module::Const co1, co2;
+		noise::module::Multiply mu1, mu2;
+		noise::module::ScalePoint sp1;
+		noise::module::Voronoi vo1;
+		noise::module::Blend bl1;
+		
+		noise::module::Perlin pn3;
+		noise::module::Voronoi vo2;
+		*/
+		
+	private:
+		void terrain (world& wr, chunk *out, int cx, int cz);
+		void decorate (world& wr, chunk *out, int cx, int cz);
 		
 	public:
 		/* 
-		 * Constructs a new plains world generator.
+		 * Constructs a new overhang world generator.
 		 */
-		plains_world_generator (long seed);
+		overhang_world_generator (long seed);
 		
 		
 		/* 
 		 * Returns the name of this generator.
 		 */
 		virtual const char* name ()
-			{ return "plains"; }
+			{ return "overhang"; }
 		
 		virtual long seed ()
 			{ return this->gen_seed; }
 		
-		
+		 
 		/* 
-		 * Generates flatgrass terrain on the specified chunk.
+		 * Generates on the specified chunk.
 		 */
 		virtual void generate (world& wr, chunk *out, int cx, int cz);
 	};

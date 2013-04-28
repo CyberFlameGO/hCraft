@@ -20,6 +20,8 @@
 #include "blocks.hpp"
 #include <random>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -28,7 +30,8 @@ namespace hCraft {
 	 */
 	plains_world_generator::plains_world_generator (long seed)
 	{
-		this->gen_seed = seed;
+		this->gen_seed = seed; 
+		this->gen_trees.seed (seed);
 		
 		this->pn.SetSeed (seed & 0x7FFFFFFF);
 		this->pn.SetNoiseQuality (noise::QUALITY_FAST);
@@ -43,11 +46,13 @@ namespace hCraft {
 	 * Generates flatgrass terrain on the specified chunk.
 	 */
 	void
-	plains_world_generator::generate (world& wr, chunk *out, int cx, int cz)
+	plains_world_generator::generate (world&  wr, chunk *out, int cx, int cz)
 	{
 		static const int water_cap = 59;
-		std::minstd_rand rnd (this->gen_seed);
+		std::minstd_rand rnd (this->gen_seed + cx * 1917 + cz * 3947);
 		std::uniform_int_distribution<> dis (0, 3);
+		
+		std::uniform_int_distribution<> tdis (0, 3000);
 		
 		int y;
 		for (int x = 0; x < 16; ++x)
@@ -71,7 +76,12 @@ namespace hCraft {
 							else
 								{
 									out->set_id (x, y++, z, BT_GRASS);
-									if (dis (rnd) == 1)
+									
+									if (tdis (rnd) == 0)
+										{
+											this->gen_trees.generate (wr, (cx << 4) | x, y, (cz << 4) | z);
+										}
+								 	else if (dis (rnd) == 1)
 										out->set_id_and_meta (x, y, z, BT_TALL_GRASS, 1);
 								}
 						}

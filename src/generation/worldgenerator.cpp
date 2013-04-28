@@ -24,6 +24,7 @@
 // generators:
 #include "generation/flatgrass.hpp"
 #include "generation/plains.hpp"
+#include "generation/overhang.hpp"
 
 
 namespace hCraft {
@@ -57,6 +58,10 @@ namespace hCraft {
 	create_plains (long seed)
 		{ return new plains_world_generator (seed); }
 	
+	static world_generator*
+	create_overhang (long seed)
+		{ return new overhang_world_generator (seed); }
+	
 	
 	/* 
 	 * Finds and instantiates a new world generator from the given name.
@@ -67,6 +72,7 @@ namespace hCraft {
 		static std::unordered_map<std::string, world_generator* (*) (long)> generators {
 				{ "flatgrass", create_flatgrass },
 				{ "plains", create_plains },
+				{ "overhang", create_overhang },
 			};
 		
 		auto itr = generators.find (name);

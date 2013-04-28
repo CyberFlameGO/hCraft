@@ -28,6 +28,7 @@
 namespace hCraft {
 	
 	class entity;
+	class world;
 	
 	
 	/* 
@@ -133,6 +134,7 @@ namespace hCraft {
 		
 	public:
 		bool modified;
+		bool generated;
 		
 		chunk *north; // -z
 		chunk *south; // +z
@@ -219,6 +221,36 @@ namespace hCraft {
 		 * Calls the specified function on every entity in the chunk's entity list.
 		 */
 		void all_entities (std::function<void (entity *)> f);
+	};
+	
+	
+	/* 
+	 * 
+	 */
+	class chunk_link_map
+	{
+		struct chunk_pair
+		{
+			int x, z;
+			chunk *ch;
+		};
+		
+		world &wr; 
+		chunk_pair center, last;
+		
+	private:
+		chunk* follow (int cx, int cz);
+		
+	public:
+		chunk_link_map (world &wr, chunk *center, int cx, int cz);
+		
+		void set (int x, int y, int z, unsigned char id, unsigned char meta = 0);
+		
+		// get methods might be unnecessary...
+		
+		unsigned short get_id (int x, int y, int z);
+		unsigned char get_meta (int x, int y, int z);
+		blocki get (int x, int y, int z);
 	};
 }
 

@@ -172,6 +172,9 @@ namespace hCraft {
 			vec.emplace_back (packets [i]);
 		delete[] packets;
 		
+		if (pl->srv.is_shutting_down ())
+			return;
+		
 		for (std::unique_ptr<unsigned char []>& data : vec)
 			{
 				try
@@ -198,7 +201,7 @@ namespace hCraft {
 	player::handle_read (struct bufferevent *bufev, void *ctx)
 	{
 		player *pl = static_cast<player *> (ctx);
-		if (pl->bad ())	return;
+		if (pl->bad () || pl->srv.is_shutting_down ())return;
 		pl->reading = true;
 		
 		struct evbuffer *buf = bufferevent_get_input (bufev);
@@ -359,28 +362,32 @@ namespace hCraft {
 			log () << this->get_username () << " has disconnected." << std::endl;
 		
 		this->get_server ().get_players ().remove (this);
-		if (this->curr_world && !this->get_server ().is_shutting_down ())
+		if (this->curr_world)
 			{
 				this->curr_world->get_players ().remove (this);
-				if (this->handshake && !silent)
-					{
-						std::ostringstream ss;
-						ss << "§e[§c-§e] §" << this->get_colored_nickname ()
-							<< " §ehas left the server";
-						this->get_server ().get_players ().message (ss.str ());
-					}
 				
-				chunk *curr_chunk = this->curr_world->get_chunk (
-					this->curr_chunk.x, this->curr_chunk.z);
-				if (curr_chunk)
-					curr_chunk->remove_entity (this);
-				this->known_chunks.clear ();
-				
-				// despawn from other players.
-				std::lock_guard<std::mutex> guard {this->visible_player_lock};
-				for (player *pl : this->visible_players)
+				if (!this->get_server ().is_shutting_down ())
 					{
-						this->despawn_from (pl);
+						if (this->handshake && !silent)
+							{
+								std::ostringstream ss;
+								ss << "§e[§c-§e] §" << this->get_colored_nickname ()
+									<< " §ehas left the server";
+								this->get_server ().get_players ().message (ss.str ());
+							}
+				
+						chunk *curr_chunk = this->curr_world->get_chunk (
+							this->curr_chunk.x, this->curr_chunk.z);
+						if (curr_chunk)
+							curr_chunk->remove_entity (this);
+						this->known_chunks.clear ();
+				
+						// despawn from other players.
+						std::lock_guard<std::mutex> guard {this->visible_player_lock};
+						for (player *pl : this->visible_players)
+							{
+								this->despawn_from (pl);
+							}
 					}
 			}
 		
@@ -482,7 +489,7 @@ namespace hCraft {
 		this->fall_flag = true;
 		
 		// selection blocks
-		this->sb_updates.reset ();
+		this->sb_updates.clear ();
 		this->sb_updates.set_world (w, true);
 		if (had_prev_world && (this->curr_world != w))
 			{
@@ -585,6 +592,7 @@ namespace hCraft {
 	void
 	player::stream_chunks (int radius)
 	{
+		world &wr = *this->get_world ();
 		std::lock_guard<std::mutex> wguard {this->world_lock};
 		std::multiset<chunk_pos, chunk_pos_less> to_load {chunk_pos_less (this->pos)};
 		auto prev_chunks = this->known_chunks;
@@ -604,12 +612,24 @@ namespace hCraft {
 		
 		for (auto cpos : to_load)
 			{
+				// make sure all 4 adjacent & 4 corner chunks are already loaded
+				// this is done to prevent incompletely-generated chunks to be sent
+				// to the player.
+				for (int x = cpos.x - 1; x <= cpos.x + 1; ++x)
+					for (int z = cpos.z - 1; z <= cpos.z + 1; ++z)
+						if (!(x == cpos.x && z == cpos.z)) 
+							wr.load_chunk (x, z);
+							
+					
 				this->known_chunks.insert (cpos);
-				chunk *ch = this->get_world ()->load_chunk (cpos.x, cpos.z);
+				chunk *ch = wr.load_chunk (cpos.x, cpos.z);
 				this->send (packet::make_chunk (cpos.x, cpos.z, ch));
 				
 				// send any selection blocks from that chunk
 				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z, false);
+				for (edit_stage *es : this->edstages)
+					if (es->get_world () == this->curr_world)
+						es->preview_chunk_to (this, cpos.x, cpos.z, true);
 				
 				// spawn self to other players and vice-versa.
 				player *me = this;
@@ -633,7 +653,7 @@ namespace hCraft {
 				this->send (packet::make_empty_chunk (cpos.x, cpos.z));
 				
 				// despawn self from other players and vice-versa.
-				chunk *ch = this->get_world ()->load_chunk (cpos.x, cpos.z);
+				chunk *ch = wr.load_chunk (cpos.x, cpos.z);
 				
 				player *me = this;
 				ch->all_entities (
@@ -650,11 +670,11 @@ namespace hCraft {
 			}
 		prev_chunks.clear ();
 		
-		chunk *prev_chunk = this->get_world ()->get_chunk (this->curr_chunk.x, this->curr_chunk.z);
+		chunk *prev_chunk = wr.get_chunk (this->curr_chunk.x, this->curr_chunk.z);
 		if (prev_chunk)
 			prev_chunk->remove_entity (this);
 		
-		chunk *new_chunk = this->get_world ()->load_chunk (center.x, center.z);
+		chunk *new_chunk = wr.load_chunk (center.x, center.z);
 		new_chunk->add_entity (this);
 		this->curr_chunk.set (center.x, center.z);
 	}
@@ -704,8 +724,10 @@ namespace hCraft {
 				chunk *ch = wr->load_chunk (cpos.x, cpos.z);
 				this->send (packet::make_chunk (cpos.x, cpos.z, ch));
 				
-				// send any selection blocks from that chunk
-				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z);
+				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z, false);
+				for (edit_stage *es : this->edstages)
+					if (es->get_world () == wr)
+						es->preview_chunk_to (this, cpos.x, cpos.z, true);
 			}
 		
 		this->send (packet::make_player_pos_and_look (
@@ -1372,7 +1394,6 @@ namespace hCraft {
 	player::sb_commit ()
 	{
 		this->sb_updates.preview_to (this, false);
-		//this->sb_updates.reset ();
 	}
 	
 	void
@@ -1381,6 +1402,26 @@ namespace hCraft {
 		if (y < 0 || y > 255) return;
 		this->send (packet::make_block_change (x, y, z, this->sb_block.id,
 			this->sb_block.meta));
+	}
+	
+	
+	
+	/* 
+	 * 
+	 */
+	
+	void
+	player::es_add (edit_stage *es)
+	{
+		std::lock_guard<std::mutex> wguard {this->world_lock};
+		this->edstages.insert (es);
+	}
+	
+	void
+	player::es_remove (edit_stage *es)
+	{
+		std::lock_guard<std::mutex> wguard {this->world_lock};
+		this->edstages.erase (es);
 	}
 	
 	
@@ -2235,6 +2276,12 @@ namespace hCraft {
 			{
 				// modifying a selection block
 				pl->sb_send (nx, ny, nz);
+				return 0;
+			}
+		
+		if (item.id () == BT_STONE)
+			{
+				pl->get_world ()->queue_update (nx, ny, nz, 68, 0);
 				return 0;
 			}
 		

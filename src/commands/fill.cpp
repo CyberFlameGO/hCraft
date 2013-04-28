@@ -127,7 +127,7 @@ namespace hCraft {
 							for (int x = min_p.x; x <= max_p.x; ++x)
 								for (int z = min_p.z; z <= max_p.z; ++z)
 									{
-										if (wr->is_out_of_bounds (x, y, z)) continue;
+										if (!wr->in_bounds (x, y, z)) continue;
 										if (!sel->contains (x, y, z)) continue;
 										if (do_hollow && sel_inner->contains (x, y, z)) continue;
 										

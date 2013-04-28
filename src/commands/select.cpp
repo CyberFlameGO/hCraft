@@ -435,7 +435,7 @@ namespace hCraft {
 									for (x = smin.x; x <= smax.x; ++x)
 										for (z = smin.z; z <= smax.z; ++z)
 											{
-												if (wr->is_out_of_bounds (x, y, z)) continue;
+												if (!wr->in_bounds (x, y, z)) continue;
 												if (sel->contains (x, y, z))
 													{
 														if (state == R_INCLUDE)

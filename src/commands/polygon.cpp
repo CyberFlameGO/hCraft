@@ -152,7 +152,7 @@ namespace hCraft {
 			if (data->points.size () > 1)
 				{
 					data->es.restore_to (pl);
-					data->es.reset ();
+					data->es.clear ();
 				}
 			draw_ops draw (data->es);
 			draw.draw_polygon (data->points, data->bl);
@@ -188,7 +188,7 @@ namespace hCraft {
 			
 			sparse_edit_stage &es = data->es;
 			es.restore_to (pl);
-			es.reset ();
+			es.clear ();
 			
 			draw_ops draw (es);
 			draw.draw_polygon (data->points, data->bl);
