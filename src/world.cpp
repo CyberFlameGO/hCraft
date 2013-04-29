@@ -359,7 +359,7 @@ namespace hCraft {
 				this->gen->generate_edge (*this, this->edge_chunk);
 				this->edge_chunk->generated = true;
 				this->edge_chunk->recalc_heightmap ();
-				this->edge_chunk->relight ();
+				this->lm.relight_chunk (this->edge_chunk);
 			}
 	}
 	
@@ -376,7 +376,7 @@ namespace hCraft {
 				this->gen->generate_edge (*this, this->edge_chunk);
 				this->edge_chunk->generated = true;
 				this->edge_chunk->recalc_heightmap ();
-				this->edge_chunk->relight ();
+				this->lm.relight_chunk (this->edge_chunk);
 			}
 	}
 	
@@ -526,12 +526,15 @@ namespace hCraft {
 		
 		// set links
 		{
+			std::lock_guard<std::mutex> lm_guard {this->lm.get_lock ()};
+			
 			// north (-z)
 			chunk *n = chunk_in_bounds (x, z - 1) ? get_chunk_nolock (x, z - 1) : nullptr;
 			if (n)
 				{
 					ch->north = n;
 					n->south = ch;
+					
 				}
 			else
 				ch->north = nullptr;
@@ -652,7 +655,7 @@ namespace hCraft {
 		this->gen->generate (*this, ch, x, z);
 		ch->generated = true;
 		ch->recalc_heightmap ();
-		ch->relight ();
+		this->lm.relight_chunk (ch);
 		return ch;
 	}
 	

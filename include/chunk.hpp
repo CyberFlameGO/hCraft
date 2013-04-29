@@ -197,7 +197,7 @@ namespace hCraft {
 		/* 
 		 * Lighting (re)calculation.
 		 */
-		void relight ();
+		//void relight ();
 		
 		/* 
 		 * (Re)creates the chunk's heightmap.

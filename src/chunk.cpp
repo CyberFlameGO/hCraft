@@ -477,7 +477,7 @@ namespace hCraft {
 	/* 
 	 * Lighting (re)calculation.
 	 */
-	
+	/*
 	void
 	chunk::relight ()
 	{
@@ -495,7 +495,7 @@ namespace hCraft {
 							this->set_sky_light (x, y, z, (curr_opacity > 0) ? curr_opacity : 0);
 						}
 				}
-	}
+	}*/
 	
 	
 	

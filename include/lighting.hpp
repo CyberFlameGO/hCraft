@@ -29,6 +29,7 @@ namespace hCraft {
 	// forward decs:
 	class world;
 	class logger;
+	class chunk;
 	
 	
 	/* 
@@ -83,6 +84,11 @@ namespace hCraft {
 		 * Returns the total amount of updates handled.
 		 */
 		int update (int max_updates = 384);
+		
+		/* 
+		 * Relights a whole chunk (as much as possible).
+		 */
+		void relight_chunk (chunk *ch);
 		
 		
 		/* 
