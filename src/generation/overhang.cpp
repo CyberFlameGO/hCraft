@@ -27,17 +27,20 @@ namespace hCraft {
 	 * Constructs a new overhang world generator.
 	 */
 	overhang_world_generator::overhang_world_generator (long seed)
+		: gen_birch_trees (5, {BT_TRUNK, 2}, {BT_LEAVES, 2})
 	{
 		this->gen_seed = seed;
-		this->gen_trees.seed (seed);
+		this->gen_oak_trees.seed (seed);
+		this->gen_birch_trees.seed (seed);
 		
+		// REV #03
 		this->pn1.SetSeed (seed & 0x7FFFFFFF);
 		this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn1.SetFrequency (0.006);
-		this->pn1.SetPersistence (0.35);
+		this->pn1.SetFrequency (0.009);
+		this->pn1.SetPersistence (0.31);
 		this->pn1.SetLacunarity (0.56);
 		
-		this->co1.SetConstValue (2.73);
+		this->co1.SetConstValue (6.33);
 		this->mu1.SetSourceModule (0, this->pn1);
 		this->mu1.SetSourceModule (1, this->co1);
 		
@@ -52,8 +55,101 @@ namespace hCraft {
 		this->pn3.SetFrequency (0.05);
 		this->pn3.SetPersistence (0.7);
 		this->pn3.SetLacunarity (0.55);
-		//this->sp1.SetSourceModule (0, this->pn3);
-		//this->sp1.SetYScale (0.0);
+		
+		/*
+		this->pn4.SetSeed ((seed + 3) & 0x7FFFFFFF);
+		this->pn4.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn4.SetFrequency (0.0009);
+		this->pn4.SetPersistence (0.02);
+		this->pn4.SetLacunarity (0.452);
+		*/
+		this->co2.SetConstValue (1.0);
+		
+		this->pn5.SetSeed ((seed + 4) & 0x7FFFFFFF);
+		this->pn5.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn5.SetFrequency (0.0009);
+		this->pn5.SetPersistence (0.02);
+		this->pn5.SetLacunarity (0.452);
+		
+		this->bl1.SetSourceModule (0, this->mu1);
+		this->bl1.SetSourceModule (1, this->co2);
+		this->bl1.SetControlModule (this->pn5);
+		
+		this->se1.SetSourceModule (1, this->bl1);
+		this->se1.SetSourceModule (0, this->pn2);
+		this->se1.SetControlModule (this->pn3);
+		this->se1.SetBounds (-1.0, -0.2);
+		this->se1.SetEdgeFalloff (0.34);
+		
+		
+		this->pn_sand.SetSeed ((seed + 3) & 0x7FFFFFFF);
+		this->pn_sand.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn_sand.SetFrequency (0.006);
+		this->pn_sand.SetPersistence (0.2);
+		this->pn_sand.SetLacunarity (0.5);
+		
+		/*
+		// REV #02
+		this->pn1.SetSeed (seed & 0x7FFFFFFF);
+		this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn1.SetFrequency (0.009);
+		this->pn1.SetPersistence (0.31);
+		this->pn1.SetLacunarity (0.56);
+		
+		this->co1.SetConstValue (5.0);
+		this->mu1.SetSourceModule (0, this->pn1);
+		this->mu1.SetSourceModule (1, this->co1);
+		
+		this->pn2.SetSeed ((seed + 1) & 0x7FFFFFFF);
+		this->pn2.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn2.SetFrequency (0.03);
+		this->pn2.SetPersistence (0.07);
+		this->pn2.SetLacunarity (0.5);
+		
+		this->pn3.SetSeed ((seed + 2) & 0x7FFFFFFF);
+		this->pn3.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn3.SetFrequency (0.05);
+		this->pn3.SetPersistence (0.7);
+		this->pn3.SetLacunarity (0.55);
+		
+		this->se1.SetSourceModule (1, this->mu1);
+		this->se1.SetSourceModule (0, this->pn2);
+		this->se1.SetControlModule (this->pn3);
+		this->se1.SetBounds (-1.0, -0.6);
+		this->se1.SetEdgeFalloff (0.3);
+		
+		
+		this->pn_sand.SetSeed ((seed + 3) & 0x7FFFFFFF);
+		this->pn_sand.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn_sand.SetFrequency (0.006);
+		this->pn_sand.SetPersistence (0.2);
+		this->pn_sand.SetLacunarity (0.5);
+		*/
+		
+		/*
+		// REV #01
+		
+		this->pn1.SetSeed (seed & 0x7FFFFFFF);
+		this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn1.SetFrequency (0.006);
+		this->pn1.SetPersistence (0.35);
+		this->pn1.SetLacunarity (0.56);
+		
+		this->co1.SetConstValue (2.82);
+		this->mu1.SetSourceModule (0, this->pn1);
+		this->mu1.SetSourceModule (1, this->co1);
+		
+		this->pn2.SetSeed ((seed + 1) & 0x7FFFFFFF);
+		this->pn2.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn2.SetFrequency (0.03);
+		this->pn2.SetPersistence (0.07);
+		this->pn2.SetLacunarity (0.5);
+		
+		this->pn3.SetSeed ((seed + 2) & 0x7FFFFFFF);
+		this->pn3.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn3.SetFrequency (0.05);
+		this->pn3.SetPersistence (0.7);
+		this->pn3.SetLacunarity (0.55);
 		
 		this->se1.SetSourceModule (1, this->mu1);
 		this->se1.SetSourceModule (0, this->pn2);
@@ -67,57 +163,17 @@ namespace hCraft {
 		this->pn_sand.SetFrequency (0.006);
 		this->pn_sand.SetPersistence (0.2);
 		this->pn_sand.SetLacunarity (0.5);
-		
-		/*
-		this->pn_gravel.SetSeed ((seed + 4) & 0x7FFFFFFF);
-		this->pn_gravel.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn_gravel.SetFrequency (0.006);
-		this->pn_gravel.SetPersistence (0.2);
-		this->pn_gravel.SetLacunarity (0.5);*/
-		
-		
-		/*
-		this->pn1.SetSeed (seed & 0x7FFFFFFF);
-		this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn1.SetFrequency (0.04);
-		this->pn1.SetPersistence (0.4);
-		this->pn1.SetLacunarity (0.62);
-		this->co1.SetConstValue (4.0);
-		this->sp1.SetSourceModule (0, this->pn1);
-		this->sp1.SetScale (0.3, 1.0, 0.3);
-		this->mu1.SetSourceModule (0, this->sp1);
-		this->mu1.SetSourceModule (1, this->co1);
-		
-		this->pn2.SetSeed ((seed + 1) & 0x7FFFFFFF);
-		this->pn2.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn2.SetFrequency (0.037);
-		this->pn2.SetPersistence (0.2);
-		this->pn2.SetLacunarity (0.5);
-		this->co2.SetConstValue (11.0);
-		this->mu2.SetSourceModule (0, this->pn2);
-		this->mu2.SetSourceModule (1, this->co2);
-		
-		this->vo1.SetSeed ((seed + 2) & 0x7FFFFFFF);
-		this->vo1.SetFrequency (0.015);
-		this->vo1.SetDisplacement (1.0);
-		
-		this->bl1.SetSourceModule (0, this->mu1);
-		this->bl1.SetSourceModule (1, this->mu2);
-		this->bl1.SetControlModule (this->vo1);
-		
-		
-		this->vo2.SetSeed ((seed + 2) & 0x7FFFFFFF);
-		this->vo2.SetFrequency (0.02);
-		this->vo2.SetDisplacement (1.0);*/
+		*/
 	}
 	
 	
 	
 #define OFFSET_LEVEL 60
 #define WATER_LEVEL  55
+#define MAX_HEIGHT  100
 	void
 	overhang_world_generator::terrain (world& wr, chunk *out, int cx, int cz)
-	{ 
+	{
 		int x, y, z;
 		double v, b;
 		for (x = 0; x < 16; ++x)
@@ -125,9 +181,9 @@ namespace hCraft {
 				{
 					for (y = 0; y < 40; ++y)
 						out->set_id (x, y, z, BT_STONE);
-					for (; y < 100; ++y) 
+					for (; y < MAX_HEIGHT; ++y) 
 						{
-							v = this->se1.GetValue ((cx << 4) | x, y, (cz << 4) | z);
+							v = this->se1.GetValue (((cx << 4) | x) * 0.4, y, ((cz << 4) | z) * 0.4);
 							
 							// bias sampled result with high (offset from waterlevel)
 							b = (OFFSET_LEVEL - y) * 0.06; 
@@ -140,6 +196,8 @@ namespace hCraft {
 						}
 				}
 	}
+	
+	
 	
 	void
 	overhang_world_generator::decorate (world& wr, chunk *out, int cx, int cz)
@@ -155,6 +213,7 @@ namespace hCraft {
 		this->rnd.seed (this->gen_seed + xz_hash);
 		std::uniform_int_distribution<> dis (1, 180);
 		
+		int d;
 		int r;
 		double v;
 		unsigned short id;
@@ -162,8 +221,9 @@ namespace hCraft {
 		for (x = 0; x < 16; ++x)
 			for (z = 0; z < 16; ++z)
 				{
+					bool first = true;
 					int c = 0;
-					for (y = (100 - 1); y >= 0; --y)
+					for (y = MAX_HEIGHT; y >= 0; --y)
 						{
 							id = out->get_id (x, y, z);
 							if (id == BT_STONE)
@@ -179,6 +239,21 @@ namespace hCraft {
 									
 									if (state == ST_AIR)
 										{
+											if (first)
+												{
+													first = false;
+													
+													// determine biome
+													if (y == WATER_LEVEL)
+														out->set_biome (x, z, BI_JUNGLE);
+													else
+														{
+															d = y - OFFSET_LEVEL;
+															if (d >= 4)
+																out->set_biome (x, z, BI_FOREST);
+														}
+												}
+											
 											if ((y - WATER_LEVEL) >= 1)
 												{
 													r = dis (rnd);
@@ -188,7 +263,10 @@ namespace hCraft {
 														out->set_id (x, y + 1, z, (dis (rnd) & 1) ? BT_DANDELION : BT_ROSE);
 													else if (r > 10 && r < 15 && ((y - WATER_LEVEL) > 4))
 														{
-															this->gen_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+															if (dis (rnd) > 160)
+																this->gen_birch_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+															else
+																this->gen_oak_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
 														}
 												}
 											
