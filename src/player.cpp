@@ -1872,7 +1872,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		/*
+		///*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -1880,7 +1880,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		///*
+		/*
 		// Used when testing
 		{
 			static const char *names[] =

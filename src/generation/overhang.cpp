@@ -186,7 +186,7 @@ namespace hCraft {
 						{
 							v = this->se1.GetValue (((cx << 4) | x) * 0.4, y, ((cz << 4) | z) * 0.4);
 							
-							// bias sampled result with high (offset from waterlevel)
+							// bias sampled result with height (offset from waterlevel)
 							b = (OFFSET_LEVEL - y) * 0.06; 
 							v += b; 
 							
