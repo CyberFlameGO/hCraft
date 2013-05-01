@@ -25,6 +25,7 @@
 #include "generation/flatgrass.hpp"
 #include "generation/plains.hpp"
 #include "generation/overhang.hpp"
+#include "generation/flatplains.hpp"
 
 
 namespace hCraft {
@@ -62,6 +63,10 @@ namespace hCraft {
 	create_overhang (long seed)
 		{ return new overhang_world_generator (seed); }
 	
+	static world_generator*
+	create_flatplains (long seed)
+		{ return new flatplains_world_generator (seed); }
+	
 	
 	/* 
 	 * Finds and instantiates a new world generator from the given name.
@@ -73,6 +78,7 @@ namespace hCraft {
 				{ "flatgrass", create_flatgrass },
 				{ "plains", create_plains },
 				{ "overhang", create_overhang },
+				{ "flatplains", create_flatplains },
 			};
 		
 		auto itr = generators.find (name);

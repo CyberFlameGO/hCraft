@@ -24,7 +24,7 @@
 namespace hCraft {
 	namespace dgen {
 		
-		trees::trees (int min_height, blocki bl_trunk, blocki bl_leaves)
+		generic_trees::generic_trees (int min_height, blocki bl_trunk, blocki bl_leaves)
 			: bl_trunk (bl_trunk), bl_leaves (bl_leaves)
 		{
 			this->min_height = min_height; 
@@ -35,13 +35,13 @@ namespace hCraft {
 		
 		
 		void
-		trees::seed (long s)
+		generic_trees::seed (long s)
 		{
 			this->rnd.seed (s);
 		}
 		
 		void
-		trees::generate (world &wr, int x, int y, int z)
+		generic_trees::generate (world &wr, int x, int y, int z)
 		{
 			auto& rnd = this->rnd;
 			std::uniform_int_distribution<> dis1 (0, 2), dis2 (0, 20);
@@ -65,6 +65,49 @@ namespace hCraft {
 					for (int yy = (tip - 2); yy <= (tip - 1); ++yy)
 						if (dis2 (rnd) != 0)
 							map.set (xx, yy, zz, this->bl_leaves.id, this->bl_leaves.meta);
+			
+			// trunk
+			for (int i = base; i <= tip; ++i)
+				map.set (x, i, z, this->bl_trunk.id, this->bl_trunk.meta);
+
+		}
+		
+		
+		
+//------
+		
+		palm_trees::palm_trees (int min_height, blocki bl_trunk, blocki bl_leaves)
+			: bl_trunk (bl_trunk), bl_leaves (bl_leaves)
+		{
+			this->min_height = min_height; 
+			if (this->min_height < 1)
+				this->min_height = 1;
+		}
+		
+		
+		
+		void
+		palm_trees::seed (long s)
+		{
+			this->rnd.seed (s);
+		}
+		
+		void
+		palm_trees::generate (world &wr, int x, int y, int z)
+		{
+			auto& rnd = this->rnd;
+			std::uniform_int_distribution<> dis1 (0, 2), dis2 (0, 20);
+			
+			chunk_link_map map (wr, wr.get_chunk_at (x, z), x >> 4, z >> 4);
+			
+			int h = this->min_height + dis1 (rnd);
+			int base = y;
+		 	int tip  = y + h - 1;
+			if (base < 1 || tip > 255) 
+				return;
+		
+			// leaves
+			// TODO
 			
 			// trunk
 			for (int i = base; i <= tip; ++i)

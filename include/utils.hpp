@@ -19,6 +19,9 @@
 #ifndef _hCraft__UTILS_H_
 #define _hCraft__UTILS_H_
 
+#include <string>
+#include <ctime>
+
 
 namespace hCraft {
 	
@@ -96,6 +99,13 @@ namespace hCraft {
 		 * Useful to initialize random number generators.
 		 */
 		unsigned long long ns_since_epoch ();
+		
+		/* 
+		 * Difference between two time_ts in days.
+		 */
+		int day_diff (std::time_t a, std::time_t b);
+		
+		void relative_time (std::time_t a, std::time_t b, std::string& out);
 		
 		
 		

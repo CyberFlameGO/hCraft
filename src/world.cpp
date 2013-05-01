@@ -34,6 +34,7 @@
 #include "physics/sand.hpp"
 #include "physics/langtons_ant.hpp"
 #include "physics/water.hpp"
+#include "physics/snow.hpp"
 
 
 namespace hCraft {
@@ -82,6 +83,7 @@ namespace hCraft {
 			REGISTER_PHYSICS (physics::sand)
 			REGISTER_PHYSICS (physics::langtons_ant)
 			REGISTER_PHYSICS (physics::water)
+			REGISTER_PHYSICS (physics::snow)
 #undef REGISTER_PHYSICS
 		}
 		this->ph_state = PHY_ON;
@@ -195,6 +197,8 @@ namespace hCraft {
 					 */
 					if (!this->updates.empty ())
 						{
+							std::lock_guard<std::mutex> lm_guard {this->lm.get_lock ()};
+							
 							std::vector<player *> pl_vc;
 							this->get_players ().populate (pl_vc);
 							
@@ -202,7 +206,7 @@ namespace hCraft {
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
 								{
 									block_update &u = this->updates.front ();
-							
+									
 									block_data old_bd = this->get_block (u.x, u.y, u.z);
 									if (old_bd.id == u.id && old_bd.meta == u.meta)
 										{
@@ -210,7 +214,7 @@ namespace hCraft {
 											this->updates.pop_front ();
 											continue;
 										}
-							
+									
 									block_info *old_inf = block_info::from_id (old_bd.id);
 									block_info *new_inf = block_info::from_id (u.id);
 							
@@ -218,7 +222,7 @@ namespace hCraft {
 										if (u.id < this->phblocks.size ())
 											ph = this->phblocks[u.id].get ();
 									}
-							
+									
 									if (((this->width > 0) && ((u.x >= this->width) || (u.x < 0))) ||
 										((this->depth > 0) && ((u.z >= this->depth) || (u.z < 0))) ||
 										((u.y < 0) || (u.y > 255)))
@@ -242,15 +246,17 @@ namespace hCraft {
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
 										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
-							
+									
 									// update players
 									pl_tr.set (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
 									
 									if (ch)
 										{
 											if (auto_lighting)
-												this->lm.enqueue_nolock (u.x, u.y, u.z);
-									
+												{
+													this->lm.enqueue_nolock (u.x, u.y, u.z);
+												}
+											
 											// physics
 											if (u.physics && ph)
 												{
@@ -264,11 +270,11 @@ namespace hCraft {
 													this->queue_physics (u.x, u.y, u.z, u.extra, u.ptr,
 														ph->tick_rate ());
 												}
-									
+											
 											// check neighbouring blocks
 											{
 												physics_block *nph;
-												
+											
 												int xx, yy, zz;
 												for (xx = (u.x - 1); xx <= (u.x + 1); ++xx)
 													for (yy = (u.y - 1); yy <= (u.y + 1); ++yy)
@@ -278,9 +284,9 @@ namespace hCraft {
 																	continue;
 																if ((yy < 0) || (yy > 255))
 																	continue;
-																
+															
 																nph = this->get_physics_at (xx, yy, zz);
-																if (nph)
+																if (nph && nph->affected_by_neighbours ())
 																	{
 																		nph->on_neighbour_modified (*this, xx, yy, zz,
 																			u.x, u.y, u.z);	
@@ -288,7 +294,7 @@ namespace hCraft {
 															}
 											}
 										}
-							
+									
 									this->updates.pop_front ();
 								}
 							
@@ -296,7 +302,7 @@ namespace hCraft {
 							pl_tr.preview (pl_vc);
 							pl_tr.clear ();
 						}
-						
+					
 				} // release of update lock
 					
 				/* 
@@ -309,14 +315,14 @@ namespace hCraft {
 				 */
 				{
 					std::lock_guard<std::mutex> lock ((this->entity_lock));
-						for (auto itr = this->entities.begin (); itr != this->entities.end (); )
-							{
-								entity *e = *itr;
-								if (e->tick (*this))
-									itr = this->despawn_entity_nolock (itr);
-								else
-									++ itr;
-							}
+					for (auto itr = this->entities.begin (); itr != this->entities.end (); )
+						{
+							entity *e = *itr;
+							if (e->tick (*this))
+								itr = this->despawn_entity_nolock (itr);
+							else
+								++ itr;
+						}
 				}
 				
 				/* 
@@ -339,7 +345,7 @@ namespace hCraft {
 									pl->send (packet::make_time_update (this->ticks / 10, this->ticks / 10));
 						}
 				}
-								
+				
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
 			}
 	}
@@ -455,13 +461,13 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Loads up a grid of radius x radius chunks around the given point
+	 * Loads up a grid of diameter x diameter chunks around the given point
 	 * (specified in chunk coordinates).
 	 */
 	void
-	world::load_grid (chunk_pos cpos, int radius)
+	world::load_grid (chunk_pos cpos, int diameter)
 	{
-		int r_half = radius >> 1;
+		int r_half = diameter >> 1;
 		int cx, cz;
 		
 		for (cx = (cpos.x - r_half); cx <= (cpos.x + r_half); ++cx)
@@ -476,9 +482,9 @@ namespace hCraft {
 	 * spawn position. 
 	 */
 	void
-	world::prepare_spawn (int radius, bool calc_spawn_point)
+	world::prepare_spawn (int diameter, bool calc_spawn_point)
 	{
-		this->load_grid (chunk_pos (this->spawn_pos), radius);
+		this->load_grid (chunk_pos (this->spawn_pos), diameter);
 		
 		if (calc_spawn_point)
 			{
@@ -640,15 +646,16 @@ namespace hCraft {
 				this->prov->open (*this);
 				if (this->prov->load (*this, ch, x, z))
 					{
-						this->prov->close ();
-						this->put_chunk (x, z, ch);
 						ch->recalc_heightmap ();
-						//ch->relight ();
-						return ch;
+						if (ch->generated)
+							{
+								this->prov->close ();
+								this->put_chunk (x, z, ch);
+								return ch;
+							}
 					}
-				this->prov->close ();
 				
-				//
+				this->prov->close ();
 				this->put_chunk (x, z, ch);
 			}
 		
@@ -970,13 +977,6 @@ namespace hCraft {
 		
 		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
 		this->estage.set (x, y, z, id, meta);
-	}
-	
-	void
-	world::queue_update (world_transaction *tr)
-	{
-		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->tr_updates.push_back (tr);
 	}
 	
 	void

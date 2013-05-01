@@ -20,8 +20,6 @@
 #include "blocks.hpp"
 #include <random>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	
@@ -43,7 +41,7 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Generates flatgrass terrain on the specified chunk.
+	 * Generates on the specified chunk.
 	 */
 	void
 	plains_world_generator::generate (world&  wr, chunk *out, int cx, int cz)

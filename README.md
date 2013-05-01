@@ -28,8 +28,43 @@ The _currently_ implemented features are:
    around 50,000 falling sand blocks (with 4 physics threads).
    Custom block mechanics can be easily added.
 *  Custom world generation - a very simplistic plains generator is set as default.
-   Current world generators include "plains" and "flatgrass" (more will be added in the future).
+   Current world generators include "plains", "flatgrass", "flatplains" and "overhang"
+   (amazing overhangs!) (more will be added in the future).
 
+*  Selections: Players can "select" areas using the implemented selections
+   commands (/select), and then subsequently fill them with any block.
+   Existing selection types:
+   *  Cuboids
+   *  Spheres
+   *  Blocks
+
+Commands
+--------
+
+*  /aid
+*  /bezier
+*  /circle
+*  /cuboid
+*  /curve
+*  /ellipse
+*  /fill
+*  /gm
+*  /help
+*  /line
+*  /me
+*  /nick
+*  /physics
+*  /ping
+*  /polygon
+*  /rank
+*  /sphere
+*  /status
+*  /tp
+*  /wcreate
+*  /wload
+*  /world
+*  /wunload
+     
 
 Building
 --------

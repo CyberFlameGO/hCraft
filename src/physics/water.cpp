@@ -43,7 +43,8 @@ namespace hCraft {
 		}
 		
 		void
-		water::tick (world &w, int x, int y, int z, int extra, void *ptr)
+		water::tick (world &w, int x, int y, int z, int extra, void *ptr,
+			std::minstd_rand& rnd)
 		{
 			block_data bd = w.get_block (x, y, z);
 			if (bd.id != BT_WATER)

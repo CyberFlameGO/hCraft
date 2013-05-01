@@ -35,7 +35,7 @@ namespace hCraft {
 		long gen_seed;
 		
 		noise::module::Perlin pn;
-		dgen::trees gen_trees;
+		dgen::generic_trees gen_trees;
 		
 	public:
 		/* 
@@ -55,7 +55,7 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Generates flatgrass terrain on the specified chunk.
+		 * Generates on the specified chunk.
 		 */
 		virtual void generate (world& wr, chunk *out, int cx, int cz);
 	};

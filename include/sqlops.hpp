@@ -20,6 +20,7 @@
 #define _hCraft__SQLOPS_H_
 
 #include "rank.hpp"
+#include <ctime>
 
 
 namespace hCraft {
@@ -39,10 +40,23 @@ namespace hCraft {
 		struct player_info
 		{
 			int id;
+			
 			std::string name;
+			std::string nick;
+			std::string ip;
+			
 			bool op;
 			rank rnk;
-			std::string nick;
+			
+			int blocks_destroyed;
+			int blocks_created;
+			int messages_sent;
+			
+			std::time_t first_login;
+			std::time_t last_login;
+			int login_count;
+			
+			double balance;
 	 	};
 	 	
 	 	
@@ -65,6 +79,17 @@ namespace hCraft {
 		static bool player_data (sql::connection& conn, const char *name,
 			server &srv, player_info& out);
 		
+		
+		/* 
+		 * Saves all information about the given player (named @{name}) stored in @{in}
+		 * to the database.
+		 * 
+		 * NOTE: The 'id' (always) and 'name' (if overwriting) fields are ignored.
+		 * 
+		 * Returns true if the player already existed before the function was called.
+		 */
+		static bool save_player_data (sql::connection& conn, const char *name,
+			server &srv, const player_info& in);
 		
 		/* 
 		 * Changes the rank of the player that has the specified name.

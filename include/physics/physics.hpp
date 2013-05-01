@@ -19,6 +19,8 @@
 #ifndef _hCraft__PHYSICS_H_
 #define _hCraft__PHYSICS_H_
 
+#include <random>
+
 
 namespace hCraft {
 	
@@ -41,10 +43,18 @@ namespace hCraft {
 		virtual int  tick_rate () { return 5; }
 		
 		/* 
+		 * Whether on_neighbour_modified () should be called in case any neighbouring
+		 * blocks are modified.
+		 */
+		virtual bool affected_by_neighbours () { return false; }
+		
+		
+		
+		/* 
 		 * Called every "tick_rate ()" milliseconds by the world's physics loop.
 		 */
 		virtual void tick (world &w, int x, int y, int z, int extra,
-				void *ptr) = 0;
+				void *ptr, std::minstd_rand& rnd) = 0;
 		
 		/* 
 		 * Called when a neighbouring block is destroyed\changed.

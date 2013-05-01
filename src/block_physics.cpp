@@ -136,9 +136,10 @@ namespace hCraft {
 	block_physics_worker::main_loop ()
 	{
 		physics_update u {};
-		std::chrono::steady_clock::time_point tp;
 		const static int updates_per_tick = 8000;
 		int i, fcount;
+		
+		std::minstd_rand rnd ((utils::ns_since_epoch ()));
 		
 		while (this->_running)
 			{
@@ -173,7 +174,7 @@ namespace hCraft {
 						this->man.remove_block (u.w, u.x, u.y, u.z);
 						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
 						if (pb)
-							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr);
+							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr, rnd);
 					}
 			}
 	}

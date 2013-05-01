@@ -29,6 +29,7 @@
 #include "callback.hpp"
 #include "selection/world_selection.hpp"
 #include "cistring.hpp"
+#include "sqlops.hpp"
 
 #include <atomic>
 #include <queue>
@@ -102,6 +103,8 @@ namespace hCraft {
 		struct bufferevent *bufev;
 		evutil_socket_t sock;
 		
+		int dbid;
+		bool op;
 		rank rnk;
 		char ip[16];
 		bool logged_in;
@@ -123,7 +126,6 @@ namespace hCraft {
 		double last_ground_height;
 		bool fall_flag;
 		
-		bool op;
 		char username[17];
 		char colored_username[24];
 		char nick[37]; // 36 chars max
@@ -186,6 +188,16 @@ namespace hCraft {
 		// the player crosses chunk boundaries.
 		std::unordered_set<edit_stage *> edstages;
 		sparse_edit_stage sb_updates; // selection block updates
+		
+		int bl_destroyed;
+		int bl_created;
+		int msgs_sent;
+		
+		std::time_t log_first;
+		std::time_t log_last;
+		int log_count;
+		
+		double bal;
 		
 	public:
 		std::unordered_map<cistring, world_selection *> selections;
@@ -292,8 +304,10 @@ namespace hCraft {
 		
 		/* 
 		 * Loads information about the player from the server's SQL database.
+		 * Returns false on failure.
 		 */
-		void load_data ();
+		bool load_data ();
+		void save_data ();
 		
 	public:
 		inline server& get_server () { return this->srv; }
@@ -484,6 +498,12 @@ namespace hCraft {
 		 * NOTE: This does NOT update the database.
 		 */
 		void set_rank (const rank& rnk);
+		
+		/* 
+		 * Fills the specified player_info structure with information about the
+		 * player.
+		 */
+		void player_data (sqlops::player_info& pd);
 		
 	//----
 		

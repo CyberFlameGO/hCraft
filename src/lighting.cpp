@@ -25,6 +25,9 @@
 #include <bitset>
 #include <vector>
 
+#include <iostream> // DEBUG
+
+
 namespace hCraft {
 	
 	/* 
@@ -373,6 +376,7 @@ namespace hCraft {
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
+		//std::cout << "A" << std::flush;
 		int updated = 0;
 		
 		// sky light updates
@@ -386,6 +390,8 @@ namespace hCraft {
 		if (this->sl_updates.empty ())
 			this->sl_overloaded = false;
 		
+		//std::cout << "B" << std::flush;
+		
 		// block light updates
 		updated = 0;
 		while (!this->bl_updates.empty () && (updated++ < max_updates))
@@ -398,6 +404,7 @@ namespace hCraft {
 		if (this->bl_updates.empty ())
 			this->bl_overloaded = false;
 		
+		//std::cout << "C" << std::flush;
 		return updated;
 	}
 }

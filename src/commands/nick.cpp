@@ -63,8 +63,8 @@ namespace hCraft {
 					return;
 				}
 			
-			rank rnk (row.at (3).as_cstr (), pl->get_server ().get_groups ());
-			prev_nickname.assign (row.at (4).as_cstr ());
+			rank rnk (row.at (5).as_cstr (), pl->get_server ().get_groups ());
+			prev_nickname.assign (row.at (2).as_cstr ());
 			if (reader.arg_count () >= 2)
 				nickname.assign (reader.all_from (1));
 			else
@@ -75,7 +75,7 @@ namespace hCraft {
 											 "§7characters or be empty§f.");
 					return;
 				}
-			else if (std::strcmp (nickname.c_str (), row.at (4).as_cstr ()) == 0)
+			else if (std::strcmp (nickname.c_str (), row.at (2).as_cstr ()) == 0)
 				{
 					pl->message ("§ePlayer §a" + target_name + " §ealready has that nickname§f.");
 					return;

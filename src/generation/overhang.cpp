@@ -32,15 +32,16 @@ namespace hCraft {
 		this->gen_seed = seed;
 		this->gen_oak_trees.seed (seed);
 		this->gen_birch_trees.seed (seed);
+		this->gen_palm_trees.seed (seed);
 		
 		// REV #03
 		this->pn1.SetSeed (seed & 0x7FFFFFFF);
 		this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn1.SetFrequency (0.009);
-		this->pn1.SetPersistence (0.31);
+		this->pn1.SetFrequency (0.011);
+		this->pn1.SetPersistence (0.32);
 		this->pn1.SetLacunarity (0.56);
 		
-		this->co1.SetConstValue (6.33);
+		this->co1.SetConstValue (7.13);
 		this->mu1.SetSourceModule (0, this->pn1);
 		this->mu1.SetSourceModule (1, this->co1);
 		
@@ -56,13 +57,6 @@ namespace hCraft {
 		this->pn3.SetPersistence (0.7);
 		this->pn3.SetLacunarity (0.55);
 		
-		/*
-		this->pn4.SetSeed ((seed + 3) & 0x7FFFFFFF);
-		this->pn4.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn4.SetFrequency (0.0009);
-		this->pn4.SetPersistence (0.02);
-		this->pn4.SetLacunarity (0.452);
-		*/
 		this->co2.SetConstValue (1.0);
 		
 		this->pn5.SetSeed ((seed + 4) & 0x7FFFFFFF);
@@ -78,7 +72,7 @@ namespace hCraft {
 		this->se1.SetSourceModule (1, this->bl1);
 		this->se1.SetSourceModule (0, this->pn2);
 		this->se1.SetControlModule (this->pn3);
-		this->se1.SetBounds (-1.0, -0.2);
+		this->se1.SetBounds (-1.0, -0.1);
 		this->se1.SetEdgeFalloff (0.34);
 		
 		
@@ -87,6 +81,13 @@ namespace hCraft {
 		this->pn_sand.SetFrequency (0.006);
 		this->pn_sand.SetPersistence (0.2);
 		this->pn_sand.SetLacunarity (0.5);
+		
+		
+		this->pn_foliage.SetSeed ((seed + 4) & 0x7FFFFFFF);
+		this->pn_foliage.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn_foliage.SetFrequency (0.004);
+		this->pn_foliage.SetPersistence (0.2);
+		this->pn_foliage.SetLacunarity (0.5);
 		
 		/*
 		// REV #02
@@ -213,14 +214,32 @@ namespace hCraft {
 		this->rnd.seed (this->gen_seed + xz_hash);
 		std::uniform_int_distribution<> dis (1, 180);
 		
+		bool biomes[256];
+		for (int i = 0; i < 256; ++i)
+			biomes[i] = false;
+		
 		int d;
 		int r;
-		double v;
+		double v, f;
 		unsigned short id;
 		int x, y, z;
 		for (x = 0; x < 16; ++x)
 			for (z = 0; z < 16; ++z)
 				{
+					// biome from foliage
+					f = this->pn_foliage.GetValue ((cx << 4) | x, 0, (cz << 4) | z);
+					if (f > 0.89)
+						{
+							out->set_biome (x, z, BI_JUNGLE);
+							biomes[(z << 4) | x] = true;
+						}
+					else if (f < -0.88)
+						{
+							out->set_biome (x, z, BI_DESERT);
+							biomes[(z << 4) | x] = true;
+						}
+					
+					
 					bool first = true;
 					int c = 0;
 					for (y = MAX_HEIGHT; y >= 0; --y)
@@ -231,8 +250,21 @@ namespace hCraft {
 									if (utils::iabs (WATER_LEVEL - y) <= 3)
 										{
 											v = pn_sand.GetValue ((cx << 4) | x, 0, (cz << 4) | z);
-											if (v > 0.25)
-												{ state = ST_DIRT; out->set_id (x, y, z, BT_SAND); continue; }
+											if (v > 0.0)
+												{
+													state = ST_DIRT;
+													out->set_id (x, y, z, BT_SAND);
+													
+													/*
+													if ((y - WATER_LEVEL) <= 3 && v > 0.3 && dis (rnd) > 170)
+														{
+															if (state == ST_AIR)
+																this->gen_palm_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+														} 
+													*/
+													
+													continue;
+												}
 											else if (v < -0.5)
 												{ state = ST_DIRT; out->set_id (x, y, z, BT_GRAVEL); continue; }
 										}
@@ -244,17 +276,27 @@ namespace hCraft {
 													first = false;
 													
 													// determine biome
-													if (y == WATER_LEVEL)
-														out->set_biome (x, z, BI_JUNGLE);
-													else
+													if (!biomes[(z << 4) | x])
 														{
-															d = y - OFFSET_LEVEL;
-															if (d >= 4)
-																out->set_biome (x, z, BI_FOREST);
+															if (y == WATER_LEVEL)
+																{
+																	out->set_biome (x, z, BI_JUNGLE);
+																	biomes[(z << 4) | x] = true;
+																}
+															else
+																{
+																	d = y - OFFSET_LEVEL;
+																	if (d >= 4)
+																		{
+																			out->set_biome (x, z, BI_FOREST);
+																			biomes[(z << 4) | x] = true;
+																		}
+																}
 														}
 												}
 											
-											if ((y - WATER_LEVEL) >= 1)
+											// plant stuff
+											if (f >= -0.88 && (y - WATER_LEVEL) >= 1)
 												{
 													r = dis (rnd);
 													if (r > 90)
@@ -267,6 +309,17 @@ namespace hCraft {
 																this->gen_birch_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
 															else
 																this->gen_oak_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+														}
+													else
+														{
+															if (dis (rnd) > 50)
+																{
+																	if (!biomes[(z << 4) | x])
+																		{
+																			out->set_biome (x, z, BI_EXTREME_HILLS);
+																			biomes[(z << 4) | x] = true;
+																		}
+																}
 														}
 												}
 											

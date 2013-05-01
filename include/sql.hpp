@@ -205,6 +205,8 @@ namespace hCraft {
 			
 			void bind (int index, int val);
 			void bind (const char *var, int val);
+			void bind (int index, long long val);
+			void bind (const char *var, long long val);
 			void bind (int index, double val);
 			void bind (const char *var, double val);
 			void bind (int index, const char *val, void (*dctor)(void *) = nullptr);

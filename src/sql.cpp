@@ -408,6 +408,25 @@ namespace hCraft {
 		}
 		
 		void
+		statement::bind (int index, long long val)
+		{
+			int err;
+			err = sqlite3_bind_int64 (this->stmt, index, val);
+			if (err != SQLITE_OK)
+				throw sql_error ("failed to bind parameter: "
+					+ std::string (sqlite3_errmsg (this->conn.handle ())));
+		}
+		
+		void
+		statement::bind (const char *var, long long val)
+		{
+			int index = sqlite3_bind_parameter_index (this->stmt, var);
+			if (index == 0)
+				throw sql_error ("invalid parameter: " + std::string (var));
+			this->bind (index, val);
+		}
+		
+		void
 		statement::bind (int index, double val)
 		{
 			int err;

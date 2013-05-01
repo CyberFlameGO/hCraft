@@ -302,6 +302,7 @@ namespace hCraft {
 			return;
 		this->shutting_down = true;
 		
+		log (LT_SYSTEM) << "Stopping server..." << std::endl;
 		for (auto itr = this->inits.rbegin (); itr != this->inits.rend (); ++itr)
 			{
 				initializer &init = *itr;
@@ -700,9 +701,17 @@ namespace hCraft {
 			"CREATE TABLE IF NOT EXISTS `players` ("
 				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
 				"`name` TEXT COLLATE NOCASE, "
+				"`nick` TEXT, "
+				"`ip` TEXT, "
 				"`op` INTEGER, "
-				"`groups` TEXT, "
-				"`nick` TEXT);"
+				"`rank` TEXT, "
+				"`blocks_destroyed` INTEGER, "
+				"`blocks_created` INTEGER, "
+				"`messages_sent` INTEGER, "
+				"`first_login` UNSIGNED BIG INT, "
+				"`last_login` UNSIGNED BIG INT, "
+				"`login_count` INTEGER, "
+				"`balance` DOUBLE); "
 			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
 		
@@ -750,6 +759,7 @@ namespace hCraft {
 	void
 	server::destroy_core ()
 	{
+		log (LT_SYSTEM) << "Stopping threading pools and schedulers" << std::endl;
 		this->tpool.stop ();
 		this->sched.stop ();
 		
@@ -802,6 +812,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "polygon");
 		_add_command (this->perms, this->commands, "curve");
 		_add_command (this->perms, this->commands, "rank");
+		_add_command (this->perms, this->commands, "status");
 	}
 	
 	void
@@ -830,6 +841,9 @@ namespace hCraft {
 		grp_member->color = 'a';
 		grp_member->inherit (grp_guest);
 		grp_member->add ("command.chat.me");
+		grp_member->add ("command.info.status");
+		grp_member->add ("command.info.status.nick");
+		grp_member->add ("command.info.status.balance");
 		
 		group* grp_builder = groups.add (3, "builder");
 		grp_builder->color = '2';
@@ -860,6 +874,8 @@ namespace hCraft {
 		grp_moderator->color = 'c';
 		grp_moderator->inherit (grp_designer);
 		grp_moderator->add ("command.misc.ping");
+		grp_moderator->add ("command.info.status.rank");
+		grp_moderator->add ("command.info.status.logins");
 		
 		group* grp_admin = groups.add (7, "admin");
 		grp_admin->color = '4';
@@ -868,6 +884,7 @@ namespace hCraft {
 		grp_admin->add ("command.world.tp.others");
 		grp_admin->add ("command.admin.gm");
 		grp_admin->add ("command.admin.rank");
+		grp_admin->add ("command.info.status.*");
 		grp_admin->text_color = 'c';
 		
 		group* grp_executive = groups.add (8, "executive");
@@ -967,7 +984,7 @@ namespace hCraft {
 			
 			"  admin :\n"
 			"  {\n"
-			"    inheritance = [ \"moderator\" ];\n"
+			"    inheritance = [ \"moderator\", \"architect\" ];\n"
 			"    power = 7;\n"
 			"    color = \"4\";\n"
 			"    text-color = \"c\";\n"
@@ -1313,7 +1330,7 @@ namespace hCraft {
 					world_generator::create ("overhang"),
 					world_provider::create ("hw", "data/worlds", this->get_config ().main_world));
 				main_world->set_size (192, 192);
-				main_world->prepare_spawn (10, true);
+				main_world->prepare_spawn (15, true);
 				main_world->save_all ();
 			}
 		else
@@ -1402,12 +1419,15 @@ namespace hCraft {
 	void
 	server::destroy_worlds ()
 	{
+		log (LT_SYSTEM) << "Saving worlds..." << std::endl;
+		
 		// clear worlds
 		{
 			std::lock_guard<std::mutex> guard {this->world_lock};
 			for (auto itr = this->worlds.begin (); itr != this->worlds.end (); ++itr)
 				{
 					world *w = itr->second;
+					log (LT_SYSTEM) << "  - Saving world \"" << w->get_name () << "\"" << std::endl;
 					w->stop ();
 					w->save_all ();
 					delete w;
@@ -1466,6 +1486,8 @@ namespace hCraft {
 	void
 	server::destroy_workers ()
 	{
+		log (LT_SYSTEM) << "Destroying server workers.." << std::endl;
+		
 		this->workers_stop = true;
 		for (auto itr = this->workers.begin (); itr != this->workers.end (); ++itr)
 			{

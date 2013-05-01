@@ -136,7 +136,7 @@ namespace hCraft {
 		{},
 		{},
 		{},
-		{},
+		{ 0x4E, "snow-cover", 0.5f, 15, 0, 64, false, BS_NONSOLID },
 		{ 0x4F, "ice", 2.5f, 15, 0, 64, true, BS_SOLID },
 		{ 0x50, "snow-block", 1.0f, 15, 0, 64, true, BS_SOLID },
 		{},
@@ -261,7 +261,7 @@ namespace hCraft {
 		{},
 		{},
 		{},
-		{},
+		{ "snow-cover", 0x4E },
 		{ "ice", 0x4F },
 		{ "snow-block", 0x50 },
 		{},
@@ -307,19 +307,20 @@ namespace hCraft {
 		{ "endstone", 0x79 },
 	};
 	
-	// A metadata value of 0xA signifies that the drop mapping should be applied
+	// A metadata value of 0x10 signifies that the drop mapping should be applied
 	// on all possible meta values.
 	static std::unordered_map<blocki, blocki, blocki_hash> drop_map {
-		{ {BT_GRASS, 0xA}, {BT_DIRT, 0} },
-		{ {BT_STONE, 0xA}, {BT_COBBLE, 0} },
+		{ {BT_GRASS, 0x10}, {BT_DIRT, 0} },
+		{ {BT_STONE, 0x10}, {BT_COBBLE, 0} },
 		
-		{ {BT_TALL_GRASS, 0xA}, {} },
+		{ {BT_TALL_GRASS, 0x10}, {} },
+		{ {BT_LEAVES, 0x10}, {} },
 		
 		// ores:
-		{ {BT_COAL_ORE, 0xA}, {IT_COAL, 0} },
-		{ {BT_REDSTONE_ORE, 0xA}, {IT_REDSTONE_DUST, 0} },
-		{ {BT_GLOWING_REDSTONE_ORE, 0xA}, {IT_REDSTONE_DUST, 0} },
-		{ {BT_DIAMOND_ORE, 0xA}, {IT_DIAMOND, 0} },
+		{ {BT_COAL_ORE, 0x10}, {IT_COAL, 0} },
+		{ {BT_REDSTONE_ORE, 0x10}, {IT_REDSTONE_DUST, 0} },
+		{ {BT_GLOWING_REDSTONE_ORE, 0x10}, {IT_REDSTONE_DUST, 0} },
+		{ {BT_DIAMOND_ORE, 0x10}, {IT_DIAMOND, 0} },
 	};
 	
 	

@@ -110,7 +110,7 @@ namespace hCraft {
 		BT_INACTIVE_REDSTONE_TORCH,
 		BT_REDSTONE_TORCH,
 		BT_STONE_BUTTON,
-		BT_SNOW,
+		BT_SNOW_COVER,
 		BT_ICE,
 		BT_SNOW_BLOCK,
 		BT_CACTUS,
@@ -207,7 +207,7 @@ namespace hCraft {
 		bool
 		operator== (const blocki other) const
 		{
-			return (this->id == other.id) && ((other.meta == 0xA || this->meta == 0xA) ||
+			return (this->id == other.id) && ((other.meta == 0x10 || this->meta == 0x10) ||
 				(this->meta == other.meta));
 		}
 		

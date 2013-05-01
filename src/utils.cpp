@@ -20,6 +20,10 @@
 #include <chrono>
 #include <zlib.h>
 #include <cstring>
+#include <cmath>
+#include <sstream>
+
+#include <iostream>
 
 
 namespace hCraft {
@@ -35,6 +39,98 @@ namespace hCraft {
 			return std::chrono::duration_cast<std::chrono::nanoseconds> (
 				std::chrono::high_resolution_clock::now ().time_since_epoch ()).count ()
 				& 0x7FFFFFFF;
+		}
+		
+		
+		/* 
+		 * Difference between two time_ts in days.
+		 */
+		int
+		day_diff (std::time_t a, std::time_t b)
+		{
+			double d = (long long)a - (long long)b;
+			return std::floor (d / 86400.0);
+		}
+		
+		
+		void
+		relative_time (std::time_t a, std::time_t b, std::string& out)
+		{
+			std::ostringstream ss;
+			int c = 0;
+			
+			int d = day_diff (a, b);
+			if (d == 0)
+				{
+					double dd = std::difftime (a, b);
+					
+					if (dd >= 3600.0)
+						{
+							int h = dd / 3600.0;
+							dd -= h * 3600;
+							ss << h << " hour" << ((h == 1) ? "" : "s");
+							++ c;
+						}
+					
+					if (dd >= 60.0)
+						{
+							int m = dd / 60.0;
+							dd -= m * 60;
+							ss << ((c > 0) ? ", " : "") << m << " minute" << ((m == 1) ? "" : "s");
+							++ c;
+						}
+					
+					if (dd >= 1.0)
+						{
+							int s = dd;
+							ss << ((c > 0) ? ", " : "") << s << " second" << ((s == 1) ? "" : "s");
+							++ c;
+						}
+					else if (c == 0)
+						{
+							out = "Just now";
+							return;
+						}
+					
+					ss << " ago";
+					out.assign (ss.str ());
+					return;
+				}
+			else if (d == 1)
+				{ out = "Yesterday"; return; }
+			
+			if (d >= 365)
+				{
+					int y = d / 365;
+					d %= 365;
+					ss << y << " year" << ((y == 1) ? "" : "s");
+					++ c;
+				}
+			
+			if (d >= 30)
+				{
+					int m = d / 30;
+					d %= 30;
+					ss << ((c > 0) ? ", " : "") << m << " month" << ((m == 1) ? "" : "s");
+					++ c;
+				}
+			
+			if (d >= 7)
+				{
+					int w = d / 7;
+					d %= 7;
+					ss << ((c > 0) ? ", " : "") << w << " week" << ((w == 1) ? "" : "s");
+					++ c;
+				}
+			
+			if (d > 0)
+				{
+					ss << ((c > 0) ? ", " : "") << d << " day" << ((d == 1) ? "" : "s");
+					++ c;
+				}
+			
+			ss << " ago";
+			out.assign (ss.str ());
 		}
 		
 		

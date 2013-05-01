@@ -105,7 +105,6 @@ namespace hCraft {
 		std::deque<world_transaction *> tr_updates;
 		std::deque<block_update> updates;
 		std::vector<std::shared_ptr<physics_block> > phblocks;
-		std::mutex update_lock;
 		world_physics_state ph_state;
 		unsigned long long ticks;
 		
@@ -132,6 +131,7 @@ namespace hCraft {
 		
 		dense_edit_stage estage;
 		std::mutex estage_lock;
+		std::mutex update_lock;
 		
 	public:
 		inline const char* get_name () { return this->name; }

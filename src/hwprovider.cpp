@@ -691,6 +691,8 @@ namespace hCraft {
 			}
 		data_size += 256; // biome array
 		data_size += 4; // bitmaps
+		data_size += 1; // some bits
+		
 		
 		/* 
 		 * Create and fill the array:
@@ -698,6 +700,7 @@ namespace hCraft {
 		unsigned char *data = new unsigned char[data_size];
 		unsigned int n = 0;
 		
+		data[n++] = ch->generated;
 		n += _write_short (data + n, primary_bitmap);
 		n += _write_short (data + n, add_bitmap);
 		
@@ -1141,8 +1144,9 @@ namespace hCraft {
 		unsigned int n = 0, i;
 		unsigned short primary_bitmap, add_bitmap;
 		
-		primary_bitmap = _read_short (data + 0);
-		add_bitmap = _read_short (data + 2);
+		ch->generated = data[n++];
+		primary_bitmap = _read_short (data + 1);
+		add_bitmap = _read_short (data + 3);
 		n += 4;
 		
 		// create sub-chunks

@@ -132,7 +132,11 @@ namespace hCraft {
 					{
 						node = p.nodes[i];
 						if (node == 0)
-							break;
+							{
+								if (perm.nodes[i] != 0)
+									match = false;
+								break;
+							}
 						
 						if (node != PERM_WILD_ALL && node != perm.nodes[i])
 							{ match = false; break; }
@@ -153,7 +157,11 @@ namespace hCraft {
 					{
 						node = p.nodes[i];
 						if (node == 0)
-							break;
+							{
+								if (perm.nodes[i] != 0)
+									match = false;
+								break;
+							}
 						
 						if (node != PERM_WILD_ALL && node != perm.nodes[i])
 							{ match = false; break; }
@@ -338,8 +346,9 @@ namespace hCraft {
 	 * Returns a group string representation of this rank object (groups names
 	 * seperated by semicolons).
 	 */
+	
 	void
-	rank::get_string (std::string& out)
+	rank::get_string (std::string& out) const
 	{
 		out.clear ();
 		for (group *grp : this->groups)
@@ -357,6 +366,31 @@ namespace hCraft {
 						out.push_back ('[');
 						out.append (grp->ladder->name);
 						out.push_back (']');
+					}
+			}
+	}
+	
+	void
+	rank::get_colored_string (std::string& out) const
+	{
+		out.clear ();
+		for (group *grp : this->groups)
+			{
+				if (!out.empty ())
+					out.append ("§7;");
+				
+				if (grp == this->main_group)
+					out.append ("§c@");
+				out.append ("§");
+				out.push_back (grp->color);
+				out.append (grp->name);
+				
+				// ladder
+				if (grp->ladder)
+					{
+						out.append ("§8[");
+						out.append (grp->ladder->name);
+						out.append ("§8]");
 					}
 			}
 	}
@@ -497,8 +531,8 @@ namespace hCraft {
 		if (this->groups.empty ())
 			return false;
 		
-		const permission_manager& perm_man = this->groups[0]->perm_man;
-		permission perm_struct = perm_man.get (perm);
+		permission_manager& perm_man = this->groups[0]->perm_man;
+		permission perm_struct = perm_man.add (perm);
 		if (!perm_struct.valid ())
 			{
 				for (group *grp : this->groups)

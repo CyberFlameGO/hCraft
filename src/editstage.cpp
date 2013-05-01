@@ -23,6 +23,8 @@
 #include <cstring>
 #include <mutex>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -343,8 +345,9 @@ namespace hCraft {
 						affected_players.push_back (pl);
 				});
 		
-		std::lock_guard<std::mutex> lm_guard ((this->w->lm.get_lock ()));
+		std::lock_guard<std::mutex> u_guard ((this->w->update_lock));
 		std::lock_guard<std::mutex> es_guard ((this->w->estage_lock));
+		std::lock_guard<std::mutex> lm_guard ((this->w->lm.get_lock ()));
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
 				int cx = itr->first.x;
@@ -750,8 +753,9 @@ namespace hCraft {
 		unsigned char meta;
 		std::vector<sb_correction> corrections;
 		
-		std::lock_guard<std::mutex> lm_guard ((this->w->lm.get_lock ()));
+		std::lock_guard<std::mutex> u_guard ((this->w->update_lock));
 		std::lock_guard<std::mutex> es_guard ((this->w->estage_lock));
+		std::lock_guard<std::mutex> lm_guard ((this->w->lm.get_lock ()));
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
 				int cx = itr->first.x;

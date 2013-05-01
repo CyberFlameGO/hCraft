@@ -100,7 +100,8 @@ namespace hCraft {
 		
 		
 		void
-		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr)
+		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr,
+			std::minstd_rand& rnd)
 		{
 			if (y == 0)
 				{ w.queue_update (x, y, z, BT_AIR); return; }

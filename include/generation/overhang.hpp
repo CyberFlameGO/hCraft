@@ -44,8 +44,9 @@ namespace hCraft {
 		noise::module::Select se1;
 		noise::module::Blend bl1;
 		
-		noise::module::Perlin pn_sand;
-		dgen::trees gen_oak_trees, gen_birch_trees;
+		noise::module::Perlin pn_sand, pn_foliage;
+		dgen::generic_trees gen_oak_trees, gen_birch_trees;
+		dgen::palm_trees gen_palm_trees;
 		
 		/*
 		noise::module::Perlin pn1, pn2;

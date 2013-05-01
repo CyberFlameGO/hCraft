@@ -92,7 +92,7 @@ namespace hCraft {
 			const char*
 			get_help ()
 			{ return
-				".TH GM 1 \"/gm\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".TH RANK 1 \"/rank\" \"Revision 1\" \"PLAYER COMMANDS\" "
 				".SH NAME "
 					"rank - Changes the rank of a specified player. "
 					".PP "

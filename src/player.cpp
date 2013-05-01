@@ -25,6 +25,7 @@
 #include "sql.hpp"
 #include "pickup.hpp"
 
+#include <ctime>
 #include <memory>
 #include <algorithm>
 #include <string>
@@ -74,6 +75,7 @@ namespace hCraft {
 		this->handlers_scheduled = 0;
 		this->total_read = 0;
 		this->read_rem = 1;
+		this->dbid = -1;
 		
 		this->eating = false;
 		this->hearts = 20;
@@ -349,6 +351,8 @@ namespace hCraft {
 		
 		bufferevent_disable (this->bufev, EV_READ | EV_WRITE);
 		bufferevent_setcb (this->bufev, nullptr, nullptr, nullptr, nullptr);
+		
+		this->save_data ();
 		
 		/*
 		// wait for the I/O to stop.
@@ -1150,66 +1154,81 @@ namespace hCraft {
 	
 	/* 
 	 * Loads information about the player from the server's SQL database.
+	 * Returns false on failure.
 	 */
-	void
+	bool
 	player::load_data ()
 	{
 		{
 			sql::row row;
 			auto& conn = this->get_server ().sql ().pop ();
 			
-			{
-				auto count_stmt = conn.query ("SELECT Count(*) FROM `players`");
-				if (count_stmt.step (row))
-					{
-						int pl_count = row.at (0).as_int ();
-						if (pl_count == 0)
-							{
-								this->message ("§4Congratulations§c!");
-								this->message ("§cYou are the first player to log in§7, §cand thus you have been");
-								this->message ("§cgiven the highest rank and have been granted §4operator §cstatus§7.");
-								
-								this->op = true;
-								this->rnk.set (("@" + this->get_server ().get_groups ().highest ()->name).c_str (),
-									this->get_server ().get_groups ());
-							}
-					}
-			}
-			
-			auto stmt = conn.query ("SELECT * FROM `players` WHERE `name`=?");
-			stmt.bind (1, this->get_username ());
-			
-			if (stmt.step (row))
+			if (sqlops::player_count (conn) == 0)
 				{
-					this->op = (row.at (2).as_int () == 1);
-					try
-						{
-							this->rnk.set (row.at (3).as_cstr (), this->get_server ().get_groups ());
-						}
-					catch (const std::exception& str)
-						{
-							this->rnk.set (this->get_server ().get_groups ().default_rank);
-							this->log (LT_WARNING) << "Player \"" << this->get_username () << "\" has an invalid rank." << std::endl;
-						}
-					std::strcpy (this->nick, row.at (4).as_cstr ());
+					this->message ("§4Congratulations§c!");
+					this->message ("§cYou are the first player to log in§7, §cand thus you have been");
+					this->message ("§cgiven the highest rank and have been granted §4operator §cstatus§7.");
+					
+					this->op = true;
+					this->rnk.set (("@" + this->get_server ().get_groups ().highest ()->name).c_str (),
+						this->get_server ().get_groups ());
+				}
+			
+			this->log_last = std::time (nullptr);
+			
+			sqlops::player_info pd;
+			bool found_player = false;
+			try
+				{
+					found_player = sqlops::player_data (conn, this->username, this->srv, pd);
+				}
+			catch (const std::exception& ex)
+				{
+					log (LT_ERROR) << "Failed to load player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
+					return false;
+				}
+			
+			// common fields
+			pd.last_login = this->log_last;
+			pd.ip.assign (this->ip);
+			
+			if (found_player)
+				{
+					// modify some fields
+					++ pd.login_count;
+					this->dbid = pd.id;
 				}
 			else
 				{
-					if (!this->op)
-						this->rnk.set (this->get_server ().get_groups ().default_rank);
-					
-					std::string grp_str;
-					this->rnk.get_string (grp_str);
-					
-					std::strcpy (this->nick, this->username);
-					
-					auto stmt = conn.query (
-						"INSERT INTO `players` (`name`, `op`, `groups`, `nick`) VALUES (?, ?, ?, ?)");
-					stmt.bind (1, this->get_username ());
-					stmt.bind (2, this->op ? 1 : 0);
-					stmt.bind (3, grp_str.c_str (), sql::pass_transient);
-					stmt.bind (4, this->get_nickname ());
-					stmt.execute ();
+					pd.name.assign (this->username);
+					pd.nick = pd.name;
+					pd.op = this->op;
+					pd.rnk = this->op ? this->rnk : this->srv.get_groups ().default_rank;
+					pd.blocks_destroyed = pd.blocks_created = pd.messages_sent = 0;
+					pd.first_login = std::time (nullptr);
+					pd.login_count = 1;
+					pd.balance = 0.0;
+				}
+			
+			this->rnk = pd.rnk;
+			std::strcpy (this->nick, pd.nick.c_str ());
+			this->op = pd.op;
+			this->bl_destroyed = pd.blocks_destroyed;
+			this->bl_created = pd.blocks_created;
+			this->msgs_sent = pd.messages_sent;
+			this->log_first = pd.first_login;
+			this->log_count = pd.login_count;
+			this->bal = pd.balance;
+			
+			// save to db
+			try
+				{
+					sqlops::save_player_data (conn, this->username, this->srv, pd);
+				}
+			catch (const std::exception& ex)
+				{
+					log (LT_ERROR) << "Failed to save player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
+					this->message ("§c * §4Failed to save player data§c.");
 				}
 			
 			this->get_server ().sql ().push (conn);
@@ -1220,6 +1239,32 @@ namespace hCraft {
 		str.push_back (this->rnk.main_group->color);
 		str.append (this->nick);
 		std::strcpy (this->colored_nick, str.c_str ());
+		return true;
+	}
+	
+	void
+	player::save_data ()
+	{
+		if (!this->handshake)
+			return;
+		
+		{
+			sql::row row;
+			auto& conn = this->get_server ().sql ().pop ();
+			
+			sqlops::player_info pd;
+			this->player_data (pd);
+			try
+				{
+					sqlops::save_player_data (conn, this->username, this->srv, pd);
+				}
+			catch (const std::exception& ex)
+				{
+					log (LT_ERROR) << "Failed to save player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
+				}
+			
+			this->get_server ().sql ().push (conn);
+		}
 	}
 	
 	
@@ -1273,6 +1318,30 @@ namespace hCraft {
 		str.push_back (this->rnk.main ()->color);
 		str.append (this->username);
 		std::strcpy (this->colored_username, str.c_str ());
+	}
+	
+	
+	
+	/* 
+	 * Fills the specified player_info structure with information about the
+	 * player.
+	 */
+	void
+	player::player_data (sqlops::player_info& pd)
+	{
+		pd.id = this->dbid;
+		pd.name.assign (this->username);
+		pd.nick.assign (this->nick);
+		pd.ip.assign (this->ip);
+		pd.op = this->op;
+		pd.rnk = this->rnk;
+		pd.blocks_destroyed = this->bl_destroyed;
+		pd.blocks_created = this->bl_created;
+		pd.messages_sent = this->msgs_sent;
+		pd.first_login = this->log_first;
+		pd.last_login = this->log_last;
+		pd.login_count = this->log_count;
+		pd.balance = this->bal;
 	}
 	
 	
@@ -1803,7 +1872,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -1811,7 +1880,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -1828,7 +1897,8 @@ namespace hCraft {
 		pl->log () << "Player " << username << " has logged in from @" << pl->get_ip () << std::endl;
 		std::strcpy (pl->username, username);
 		
-		pl->load_data ();
+		if (!pl->load_data ())
+			return -1;
 		pl->handshake = true;
 		
 		{
@@ -2159,6 +2229,7 @@ namespace hCraft {
 							}
 					}
 				
+				++ pl->bl_destroyed;
 				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
 					{
@@ -2250,14 +2321,18 @@ namespace hCraft {
 			return 0;
 		
 		int nx = x, ny = y, nz = z;
-		switch (direction)
+		
+		if (pl->get_world ()->get_id (x, y, z) != BT_TALL_GRASS)
 			{
-				case 0: -- ny; break;
-				case 1: ++ ny; break;
-				case 2: -- nz; break;
-				case 3: ++ nz; break;
-				case 4: -- nx; break;
-				case 5: ++ nx; break;
+				switch (direction)
+					{
+						case 0: -- ny; break;
+						case 1: ++ ny; break;
+						case 2: -- nz; break;
+						case 3: ++ nz; break;
+						case 4: -- nx; break;
+						case 5: ++ nx; break;
+					}
 			}
 		
 		int w_width = pl->get_world ()->get_width ();
@@ -2279,12 +2354,7 @@ namespace hCraft {
 				return 0;
 			}
 		
-		if (item.id () == BT_STONE)
-			{
-				pl->get_world ()->queue_update (nx, ny, nz, 68, 0);
-				return 0;
-			}
-		
+		++ pl->bl_created;
 		pl->get_world ()->queue_update (nx, ny, nz,
 			item.id (), item.damage ());
 		if (pl->gamemode () != GT_CREATIVE)

@@ -78,6 +78,62 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		/* 
+		 * /status
+		 * 
+		 * Displays information about a specified player.
+		 * 
+		 * Permissions:
+		 *   - command.info.status
+		 *       Needed to execute the command.
+		 *
+		 *   - command.info.status.nick
+		 *   - command.info.status.ip
+		 *   - command.info.status.rank
+		 *   - command.info.status.logins
+		 *   - command.info.status.blockstats
+		 *   - command.info.status.balance
+		 */
+		class c_status: public command
+		{
+		public:
+			const char* get_name () { return "status"; }
+			
+			const char*
+			get_summary ()
+				{ return "Displays information about a specified player."; }
+			
+			const char*
+			get_help ()
+			{ return
+				".TH STATUS 1 \"/status\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+					"status - Displays information about a specified player. "
+					".PP "
+				".SH SYNOPSIS "
+					"$g/status $yPLAYER .LN "
+					"$g/status $yOPTION "
+					".PP "
+				".SH DESCRIPTION "
+					"Displays some basic information about the specified player, such as "
+					"when they first logged in, last logout date, rank; along with some "
+					"miscellaneous data that includes, amount of blocks placed, blocks "
+					"destroyed, current money balance, etc...  If the user has the required "
+					"permissions, administrative information will be included as well. "
+					"If OPTION is specified, then do as follows: "
+					".PP "
+					"$G\\\\help \\h $gDisplay help "
+					".PP "
+					"$G\\\\summary \\s $gDisplay a short description "
+				;}
+			
+			const char* get_exec_permission () { return "command.info.status"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

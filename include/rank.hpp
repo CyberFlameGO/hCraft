@@ -226,7 +226,8 @@ namespace hCraft {
 		 * Returns a group string representation of this rank object (groups names
 		 * seperated by semicolons).
 		 */
-		void get_string (std::string& out);
+		void get_string (std::string& out) const;
+		void get_colored_string (std::string& out) const;
 		
 		
 		/* 

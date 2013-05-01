@@ -43,6 +43,7 @@ namespace hCraft {
 	
 	// info commands:
 	static command* create_c_help () { return new commands::c_help (); }
+	static command* create_c_status () { return new commands::c_status (); }
 	
 	// chat commands:
 	static command* create_c_me () { return new commands::c_me (); }
@@ -106,6 +107,7 @@ namespace hCraft {
 			{ "polygon", create_c_polygon },
 			{ "curve", create_c_curve },
 			{ "rank", create_c_rank },
+			{ "status", create_c_status },
 			};
 		
 		auto itr = creators.find (name);
