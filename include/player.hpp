@@ -204,6 +204,7 @@ namespace hCraft {
 		world_selection *curr_sel;
 		std::unordered_set<selection_block, selection_block_hash> sel_blocks;
 		blocki sb_block;
+		std::mutex sb_lock;
 		
 		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
 		
@@ -525,6 +526,10 @@ namespace hCraft {
 		void sb_remove (int x, int y, int z);
 		bool sb_exists (int x, int y, int z);
 		void sb_commit ();
+		void sb_add_nolock (int x, int y, int z);
+		void sb_remove_nolock (int x, int y, int z);
+		bool sb_exists_nolock (int x, int y, int z);
+		void sb_commit_nolock ();
 		void sb_send (int x, int y, int z);
 		
 		

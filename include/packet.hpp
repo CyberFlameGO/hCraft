@@ -166,7 +166,7 @@ namespace hCraft {
 		static packet* make_empty_chunk (int x, int z);
 		
 		static packet* make_multi_block_change (int cx, int cz,
-			const std::vector<block_change_record>& records);
+			const std::vector<block_change_record>& records, player *sb = nullptr);
 		
 		static packet* make_block_change (int x, unsigned char y, int z,
 			unsigned short id, unsigned char meta);

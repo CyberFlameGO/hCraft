@@ -21,6 +21,7 @@
 #include "entity.hpp"
 #include "utils.hpp"
 #include "nbt.hpp"
+#include "player.hpp"
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
@@ -1200,7 +1201,7 @@ namespace hCraft {
 	
 	packet*
 	packet::make_multi_block_change (int cx, int cz,
-		const std::vector<block_change_record>& records)
+		const std::vector<block_change_record>& records, player *sb)
 	{
 		packet* pack = new packet (15 + (records.size () * 4));
 		int srec = utils::min (records.size (), 65535);
@@ -1209,16 +1210,33 @@ namespace hCraft {
 		pack->put_int (cx);
 		pack->put_int (cz);
 		pack->put_short (srec);
-		pack->put_int (srec * 4);
 		
+		int spos = pack->pos;
+		pack->pos += 4;
+		
+		if (sb)
+			sb->sb_lock.lock ();
+		
+		int elems = srec;
 		for (int i = 0; i < srec; ++i)
 			{
 				block_change_record rec = records[i];
+				if (sb && sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z))
+					{ -- elems; continue; }
+				
 				pack->put_byte ((rec.x << 4) | rec.z);
 				pack->put_byte (rec.y);
 				pack->put_byte (rec.id >> 4);
 				pack->put_byte (((rec.id & 0xF) << 4) | rec.meta);
-				}
+			}
+		
+		if (sb)
+			sb->sb_lock.unlock ();
+		
+		int npos = pack->pos;
+		pack->pos = spos;
+		pack->put_int (elems * 4);
+		pack->pos = npos;
 		
 		return pack;
 	}

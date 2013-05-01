@@ -456,6 +456,20 @@ namespace hCraft {
 		if (this->bad ())
 			{ delete pack; return; }
 		
+		// some checking...
+		if (pack->data[0] == 0x34)
+			{
+				packet_reader reader ((pack->data));
+				reader.read_byte ();
+				int cx = reader.read_int ();
+				int cz = reader.read_int ();
+				if (!this->can_see_chunk (cx, cz))
+					{
+						delete pack;
+						return;
+					}
+			}
+		
 		std::lock_guard<std::mutex> guard {this->out_lock};
 		this->out_queue.push (pack);
 		if (this->out_queue.size () == 1)
@@ -790,10 +804,10 @@ namespace hCraft {
 		return (itr != this->known_chunks.end ());*/
 		
 		chunk_pos me_pos = this->pos;
-		chunk_pos ch_pos = {x, z};
+		chunk_pos ch_pos {x, z};
 		return (
-			(utils::iabs (me_pos.x - ch_pos.x) <= player::chunk_radius ()) &&
-			(utils::iabs (me_pos.z - ch_pos.z) <= player::chunk_radius ()));
+			(utils::iabs (me_pos.x - ch_pos.x) < player::chunk_radius ()) &&
+			(utils::iabs (me_pos.z - ch_pos.z) < player::chunk_radius ()));
 	}
 	
 	
@@ -1423,7 +1437,7 @@ namespace hCraft {
 	 */
 	
 	void
-	player::sb_add (int x, int y, int z)
+	player::sb_add_nolock (int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		auto itr = this->sel_blocks.find (selection_block (x, y, z));
@@ -1435,7 +1449,7 @@ namespace hCraft {
 	}
 	
 	void
-	player::sb_remove (int x, int y, int z)
+	player::sb_remove_nolock (int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		auto itr = this->sel_blocks.find (selection_block (x, y, z));
@@ -1446,13 +1460,13 @@ namespace hCraft {
 		if (itr->counter == 0)
 			{
 				this->sel_blocks.erase (itr);
-				block_data bd = this->curr_world->get_block (x, y, z);
-				this->sb_updates.set (x, y, z, bd.id, bd.meta);
+				//block_data bd = this->curr_world->get_block (x, y, z);
+				this->sb_updates.set (x, y, z, ES_REM);
 			}
 	}
 	
 	bool
-	player::sb_exists (int x, int y, int z)
+	player::sb_exists_nolock (int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return false;
 		return (this->sel_blocks.find (selection_block (x, y, z))
@@ -1460,9 +1474,37 @@ namespace hCraft {
 	}
 	
 	void
-	player::sb_commit ()
+	player::sb_commit_nolock ()
 	{
 		this->sb_updates.preview_to (this, false);
+	}
+	
+	void
+	player::sb_add (int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->sb_lock};
+		this->sb_add_nolock (x, y, z);
+	}
+	
+	void
+	player::sb_remove (int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->sb_lock};
+		this->sb_remove_nolock (x, y, z);
+	}
+	
+	bool
+	player::sb_exists (int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->sb_lock};
+		return this->sb_exists_nolock (x, y, z);
+	}
+	
+	void
+	player::sb_commit ()
+	{
+		std::lock_guard<std::mutex> guard {this->sb_lock};
+		this->sb_commit_nolock ();
 	}
 	
 	void

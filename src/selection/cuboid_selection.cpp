@@ -175,12 +175,13 @@ namespace hCraft {
 				buf.emplace_back (p2.x, p2.y, z);
 			}
 		
+		std::lock_guard<std::mutex> sb_guard {pl->sb_lock};
 		if (add)
 			for (auto pos : buf)
-				pl->sb_add (pos.x, pos.y, pos.z);
+				pl->sb_add_nolock (pos.x, pos.y, pos.z);
 		else
 			for (auto pos : buf)
-				pl->sb_remove (pos.x, pos.y, pos.z);
+				pl->sb_remove_nolock (pos.x, pos.y, pos.z);
 	}
 	
 	

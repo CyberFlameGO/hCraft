@@ -112,7 +112,7 @@ namespace hCraft {
 	sphere_selection::expand (int x, int y, int z)
 	{
 		int d = utils::max (utils::max (utils::max (x, 0), y), z);
-		this->rad += d;
+		this->rad += d; 
 	}
 	
 	void
@@ -174,12 +174,13 @@ namespace hCraft {
 			}
 		#undef SPHERE_INC
 		
+		std::lock_guard<std::mutex> sb_guard {pl->sb_lock};
 		if (show)
 			for (block_pos b : bset)
-				pl->sb_add (b.x, b.y, b.z);
+				pl->sb_add_nolock (b.x, b.y, b.z);
 		else
 			for (block_pos b : bset)
-				pl->sb_remove (b.x, b.y, b.z);
+				pl->sb_remove_nolock (b.x, b.y, b.z);
 	}
 	
 	/* 

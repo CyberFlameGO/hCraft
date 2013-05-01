@@ -33,6 +33,9 @@ namespace hCraft {
 	class player;
 	
 	
+	#define ES_NONE	0xFFF
+	#define ES_REM  0xFFE
+	
 	/* 
 	 * When block modification updates are queued to be handled by a world,
 	 * they are also committed to the world's "edit stage", which can be thought

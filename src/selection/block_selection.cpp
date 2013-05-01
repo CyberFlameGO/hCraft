@@ -290,6 +290,8 @@ namespace hCraft {
 	{
 		block_pos pmin = sel->min (), pmax = sel->max ();
 		
+		std::lock_guard<std::mutex> sb_guard {pl->sb_lock};
+		
 		int x, y, z;
 		for (x = pmin.x; x <= pmax.x; ++x)
 			for (y = pmin.y; y <= pmax.y; ++y)
@@ -298,9 +300,9 @@ namespace hCraft {
 						if (sel->contains (x, y, z))
 							{
 								if (show)
-									pl->sb_add (x, y, z);
+									pl->sb_add_nolock (x, y, z);
 								else
-									pl->sb_remove (x, y, z);
+									pl->sb_remove_nolock (x, y, z);
 							}
 					}
 	}

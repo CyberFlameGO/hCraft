@@ -102,7 +102,6 @@ namespace hCraft {
 		std::unique_ptr<std::thread> th;
 		bool th_running;
 		
-		std::deque<world_transaction *> tr_updates;
 		std::deque<block_update> updates;
 		std::vector<std::shared_ptr<physics_block> > phblocks;
 		world_physics_state ph_state;

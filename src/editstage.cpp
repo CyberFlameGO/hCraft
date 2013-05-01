@@ -133,11 +133,11 @@ namespace hCraft {
 		int b_index = ((y & 0x7) << 6) | ((z & 0x7) << 3) | ((x & 0x7));
 		
 		// update mod count
-		if ((micro->data[b_index] >> 4) != 0xFFF) {
-			if (id == 0xFFF)
+		if ((micro->data[b_index] >> 4) != ES_NONE) {
+			if (id == ES_NONE)
 				-- ch.mod_count;
 		} else {
-			 if (id != 0xFFF)
+			 if (id != ES_NONE)
 			 	++ ch.mod_count;
 		}
 			
@@ -181,19 +181,20 @@ namespace hCraft {
 		
 		int b_index = ((y & 0x7) << 6) | ((z & 0x7) << 3) | ((x & 0x7));
 		unsigned short val = micro->data[b_index];
-		if (val == 0xFFFF)
+		unsigned short id  = val >> 4;
+		if (id == ES_NONE || id == ES_REM)
 			{
 				block_data bd = this->w->get_block (x, y, z);
 				return {bd.id, bd.meta};
 			}
 		
-		return {(unsigned short)(val >> 4), (unsigned char)(val & 0xF)};
+		return {id, (unsigned char)(val & 0xF)};
 	}
 	
 	void
 	dense_edit_stage::reset (int x, int y, int z)
 	{
-		this->set (x, y, z, 0xFFF, 0xF);
+		this->set (x, y, z, ES_NONE, 0xF);
 	}
 	
 	
@@ -236,13 +237,13 @@ namespace hCraft {
 						for (int bi = 0; bi < 512; ++bi)
 							{
 								id = micro->data[bi] >> 4;
-								if (id != 0xFFF)
+								if (id != ES_NONE)
 									{
 										bx = ((mi & 1) << 3) | (bi & 0x7);
 										by = (sy << 4) | (((mi >> 2) & 1) << 3) | ((bi >> 6) & 0x7);
 										bz = (((mi >> 1) & 1) << 3) | ((bi >> 3) & 0x7);
 										
-										if (restore)
+										if (restore || (id == ES_REM))
 											{
 												bd = this->w->get_block ((cx << 4) | bx, by, (cz << 4) | bz);
 												id = bd.id;
@@ -257,18 +258,8 @@ namespace hCraft {
 					}
 			}
 		
-		if (players.size () == 1)
-			{
-				players[0]->send
-					(packet::make_multi_block_change (cx, cz, records));
-			}
-		else
-			{
-				packet *pack = packet::make_multi_block_change (cx, cz, records);
-				for (player *pl : players)
-					pl->send (new packet (*pack));
-				delete pack;
-			}
+		for (player *pl : players)
+			pl->send (packet::make_multi_block_change (cx, cz, records, pl));
 	}
 	
 	
@@ -390,14 +381,25 @@ namespace hCraft {
 												unsigned int index = (y << 6) | (z << 3) | x;
 										
 												id = micro->data[index] >> 4;
-												if (id != 0xFFF)
+												if (id != ES_NONE)
 													{
 														rx = mx | x;
 														ry = my | y;
 														rz = mz | z;
 														column_changed.set ((rz << 4) | rx);
 														
+														int wx = (cx << 4) | rx;
+														int wy = yy | ry;
+														int wz = (cz << 4) | rz;
+														
 														meta = micro->data[index] & 0xF;
+														if (id == ES_REM)
+															{
+																block_data bd = this->w->get_block (wx, wy, wz);
+																id = bd.id;
+																meta = bd.meta;
+															}
+														
 														if (add_records)
 															{
 																block_change_record rec;
@@ -409,10 +411,8 @@ namespace hCraft {
 																records.push_back (rec);
 															}
 												
-														int wx = (cx << 4) | rx;
-														int wy = yy | ry;
-														int wz = (cz << 4) | rz;
-														this->w->estage.set (wx, wy, wz, 0xFFF, 0xF);
+														
+														this->w->estage.set (wx, wy, wz, ES_NONE, 0xF);
 														
 														// update boundaries
 														if (wx < bound_min.x) bound_min.x = wx;
@@ -577,7 +577,14 @@ namespace hCraft {
 				return {bd.id, bd.meta};
 			}
 		
-		return {(unsigned short)((bitr->second) >> 4), (unsigned char)((bitr->second) & 0xF)};
+		unsigned short id = bitr->second >> 4;
+		if (id == ES_REM)
+			{
+				block_data bd = this->w->get_block (x, y, z);
+				return {bd.id, bd.meta};
+			}
+			
+		return {id, (unsigned char)((bitr->second) & 0xF)};
 	}
 	
 	
@@ -651,9 +658,9 @@ namespace hCraft {
 						if (pl->sb_exists ((cx << 4) | x, y, (cz << 4) | z))
 							corrections.emplace_back (pl, (cx << 4) | x, y, (cz << 4) | z);
 				
-				if (restore)
+				if (restore || (((bitr->second) >> 4) == ES_REM))
 					{
-						block_data bd = this->w->get_block (x, y, z);
+						block_data bd = this->w->get_block ((cx << 4) | x, y, (cz << 4) | z);
 						records.push_back ({x, y, z, bd.id, bd.meta});
 					}
 				else
@@ -779,9 +786,15 @@ namespace hCraft {
 						
 						wx = (cx << 4) | x;
 						wz = (cz << 4) | z;
+						if (id == ES_REM)
+							{
+								block_data bd = this->w->get_block (wx, y, wz);
+								id = bd.id;
+								meta = bd.meta;
+							}
 						
 						column_changed.set ((z << 4) | x);
-						this->w->estage.set (wx, y, wz, 0xFFF, 0xF);
+						this->w->estage.set (wx, y, wz, ES_NONE, 0xF);
 						
 						// selection blocks
 						for (player *pl : affected_players)
