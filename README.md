@@ -57,6 +57,7 @@ Commands
 *  /ping
 *  /polygon
 *  /rank
+*  /select
 *  /sphere
 *  /status
 *  /tp
