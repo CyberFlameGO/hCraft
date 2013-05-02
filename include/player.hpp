@@ -189,16 +189,6 @@ namespace hCraft {
 		std::unordered_set<edit_stage *> edstages;
 		sparse_edit_stage sb_updates; // selection block updates
 		
-		int bl_destroyed;
-		int bl_created;
-		int msgs_sent;
-		
-		std::time_t log_first;
-		std::time_t log_last;
-		int log_count;
-		
-		double bal;
-		
 	public:
 		std::unordered_map<cistring, world_selection *> selections;
 		world_selection *curr_sel;
@@ -209,6 +199,16 @@ namespace hCraft {
 		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
 		
 		inventory inv;
+		
+		int bl_destroyed;
+		int bl_created;
+		int msgs_sent;
+		
+		std::time_t log_first;
+		std::time_t log_last;
+		int log_count;
+		
+		double bal;
 		
 	private:
 		/* 

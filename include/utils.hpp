@@ -109,7 +109,7 @@ namespace hCraft {
 		
 		
 		
-		//----
+	//----
 		
 		/* 
 		 * GZIP compression.
@@ -118,6 +118,16 @@ namespace hCraft {
 			unsigned char *dest, int level = 9);
 		unsigned char* gz_compress (unsigned char *src, unsigned long slen,
 			long& dest_size, int level = 9);
+			
+		
+	//----
+		
+		/* 
+		 * Formats a number with commas and optionally decreases\increases the
+		 * number of digits after the decimal point.
+		 *   563946.4274  ->  563,946.43
+		 */
+		std::string format_number (double num, int trunc = 2);
 	}
 }
 

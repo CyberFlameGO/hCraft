@@ -111,7 +111,7 @@ namespace hCraft {
 						
 						if (can_see_balance)
 							{
-								ss << "§6 | §eBalance§6: §a$" << pd.balance;
+								ss << "§6 | §eBalance§6: §a$" << utils::format_number (pd.balance, 2);
 								pl->message (ss.str ());
 								ss.clear (); ss.str (std::string ());
 							}

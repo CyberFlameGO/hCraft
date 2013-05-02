@@ -1199,6 +1199,7 @@ namespace hCraft {
 			catch (const std::exception& ex)
 				{
 					log (LT_ERROR) << "Failed to load player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
+					this->get_server ().sql ().push (conn);
 					return false;
 				}
 			
@@ -1914,7 +1915,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -1922,7 +1923,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =

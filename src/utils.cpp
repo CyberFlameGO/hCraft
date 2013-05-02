@@ -22,8 +22,9 @@
 #include <cstring>
 #include <cmath>
 #include <sstream>
-
-#include <iostream>
+#include <limits>
+#include <iomanip>
+#include <locale>
 
 
 namespace hCraft {
@@ -189,6 +190,38 @@ namespace hCraft {
 					return nullptr;
 				}	
 			return dest;
+		}
+		
+		
+	//----
+		
+		namespace {
+			class comma_numpunct : public std::numpunct<char>
+			{
+			protected:
+				virtual char
+				do_thousands_sep() const
+					{ return ','; }
+
+				virtual std::string
+				do_grouping() const
+					{ return "\03"; }
+			};
+		}
+		
+		/* 
+		 * Formats a number with commas and optionally decreases\increases the
+		 * number of digits after the decimal point.
+		 *   563946.4274  ->  563,946.43
+		 */
+		std::string
+		format_number (double num, int trunc)
+		{
+			std::ostringstream ss;
+			std::locale comma_locale (std::locale (), new comma_numpunct ());
+			ss.imbue (comma_locale);
+			ss << std::fixed << std::setprecision (2) << std::showpoint << num;
+			return ss.str ();
 		}
 	}
 }

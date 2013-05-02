@@ -79,6 +79,21 @@ namespace hCraft {
 		static bool player_data (sql::connection& conn, const char *name,
 			server &srv, player_info& out);
 		
+		/* 
+		 * Returns the rank of the specified player.
+		 */
+		static rank player_rank (sql::connection& conn, const char *name, server& srv);
+		
+		
+		/* 
+		 * Player name-related:
+		 */
+		static std::string player_name (sql::connection& conn, const char *name);
+		static std::string player_colored_name (sql::connection& conn, const char *name, server &srv);
+		static std::string player_nick (sql::connection& conn, const char *name);
+		static std::string player_colored_nick (sql::connection& conn, const char *name, server &srv);
+		
+		
 		
 		/* 
 		 * Saves all information about the given player (named @{name}) stored in @{in}
@@ -96,6 +111,14 @@ namespace hCraft {
 		 */
 		static void modify_player_rank (sql::connection& conn, const char *name,
 			const char *rankstr);
+		
+		
+		/* 
+		 * Money-related:
+		 */
+		static void set_money (sql::connection& conn, const char *name, double amount);
+		static void add_money (sql::connection& conn, const char *name, double amount);
+		static double get_money (sql::connection& conn, const char *name);
 	};
 }
 

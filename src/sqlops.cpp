@@ -158,6 +158,80 @@ namespace hCraft {
 		return false;
 	}
 	
+	/* 
+	 * Returns the rank of the specified player.
+	 */
+	rank
+	sqlops::player_rank (sql::connection& conn, const char *name, server& srv)
+	{
+		sql::row row;
+		auto stmt = conn.query ("SELECT `rank` FROM `players` WHERE `name`=?");
+		stmt.bind (1, name, sql::pass_transient);
+		stmt.step (row);
+		
+		rank rnk;
+		try
+			{
+				rnk.set (row.at (0).as_cstr (), srv.get_groups ());
+			}
+		catch (const std::exception& str)
+			{
+				// invalid rank
+				srv.get_logger () (LT_ERROR) << "Player \"" << name << "\" has an invalid rank." << std::endl;
+				return srv.get_groups ().default_rank;
+			}
+		
+		return rnk;
+	}
+	
+	
+	
+	/* 
+	 * Player name-related:
+	 */
+	
+	std::string
+	sqlops::player_name (sql::connection& conn, const char *name)
+	{
+		sql::row row;
+		auto stmt = conn.query ("SELECT `name` FROM `players` WHERE `name`=?");
+		stmt.bind (1, name, sql::pass_transient);
+		stmt.step (row);
+		return row.at (0).as_str ();
+	}
+	
+	std::string
+	sqlops::player_colored_name (sql::connection& conn, const char *name, server &srv)
+	{
+		rank rnk = player_rank (conn, name, srv);
+		std::string str;
+		str.append ("§");
+		str.push_back (rnk.main ()->color);
+		str.append (player_name (conn, name));
+		return str;
+	}
+	
+	std::string
+	sqlops::player_nick (sql::connection& conn, const char *name)
+	{
+		sql::row row;
+		auto stmt = conn.query ("SELECT `nick` FROM `players` WHERE `name`=?");
+		stmt.bind (1, name, sql::pass_transient);
+		stmt.step (row);
+		return row.at (0).as_str ();
+	}
+	
+	std::string
+	sqlops::player_colored_nick (sql::connection& conn, const char *name, server &srv)
+	{
+		rank rnk = player_rank (conn, name, srv);
+		std::string str;
+		str.append ("§");
+		str.push_back (rnk.main ()->color);
+		str.append (player_nick (conn, name));
+		return str;
+	}
+	
 	
 		
 	/* 
@@ -171,9 +245,49 @@ namespace hCraft {
 		stmt.bind (1, rankstr, sql::pass_transient);
 		stmt.bind (2, name, sql::pass_transient);
 		
-		sql::row row;
-		while (stmt.step (row))
+		while (stmt.step ())
 			;
+	}
+	
+	
+	
+	/* 
+	 * Money-related:
+	 */
+	
+	void
+	sqlops::set_money (sql::connection& conn, const char *name, double amount)
+	{
+		auto stmt = conn.query ("UPDATE `players` SET `balance`=? WHERE `name`=?");
+		stmt.bind (1, amount);
+		stmt.bind (2, name, sql::pass_transient);
+		
+		sql::row row;
+		while (stmt.step ())
+			;
+	}
+	
+	void
+	sqlops::add_money (sql::connection& conn, const char *name, double amount)
+	{
+		auto stmt = conn.query ("UPDATE `players` SET `balance`=`balance`+? WHERE `name`=?");
+		stmt.bind (1, amount);
+		stmt.bind (2, name, sql::pass_transient);
+		
+		sql::row row;
+		while (stmt.step ())
+			;
+	}
+	
+	double
+	sqlops::get_money (sql::connection& conn, const char *name)
+	{
+		sql::row row;
+		auto stmt = conn.query ("SELECT `balance` FROM `players` WHERE `name`=?");
+		stmt.bind (1, name, sql::pass_transient);
+		if (stmt.step (row))
+			return row.at (0).as_double ();
+		return 0.0;
 	}
 }
 

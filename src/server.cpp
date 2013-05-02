@@ -813,6 +813,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "curve");
 		_add_command (this->perms, this->commands, "rank");
 		_add_command (this->perms, this->commands, "status");
+		_add_command (this->perms, this->commands, "money");
 	}
 	
 	void
@@ -844,6 +845,8 @@ namespace hCraft {
 		grp_member->add ("command.info.status");
 		grp_member->add ("command.info.status.nick");
 		grp_member->add ("command.info.status.balance");
+		grp_member->add ("command.info.money");
+		grp_member->add ("command.info.money.pay");
 		
 		group* grp_builder = groups.add (3, "builder");
 		grp_builder->color = '2';
@@ -885,6 +888,7 @@ namespace hCraft {
 		grp_admin->add ("command.admin.gm");
 		grp_admin->add ("command.admin.rank");
 		grp_admin->add ("command.info.status.*");
+		grp_admin->add ("command.info.money.*");
 		grp_admin->text_color = 'c';
 		
 		group* grp_executive = groups.add (8, "executive");
