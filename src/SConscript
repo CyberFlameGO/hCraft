@@ -68,6 +68,7 @@ hCraft_sources = Split("""
 		commands/rank.cpp
 		commands/status.cpp
 		commands/money.cpp
+		commands/kick.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

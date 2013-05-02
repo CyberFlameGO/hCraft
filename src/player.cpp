@@ -1915,7 +1915,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		/*
+		///*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -1923,7 +1923,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		///*
+		/*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -2070,6 +2070,9 @@ namespace hCraft {
 			}
 			
 	continue_write:
+		if (!pl->rnk.main ()->can_chat)
+			return 0;
+		
 		std::ostringstream ss;
 		
 		if (is_global_message)
@@ -2262,6 +2265,16 @@ namespace hCraft {
 				 * Digging
 				 */
 				
+				if (!pl->rnk.main ()->can_build)
+					{
+						// player not allowed to build
+						pl->send (packet::make_block_change (
+							x, y, z,
+							pl->get_world ()->get_id (x, y, z),
+							pl->get_world ()->get_meta (x, y, z)));
+						return 0;
+					}
+				
 				// degrade tool
 				if (pl->curr_gamemode != GT_CREATIVE)
 					{
@@ -2394,6 +2407,16 @@ namespace hCraft {
 			{
 				// modifying a selection block
 				pl->sb_send (nx, ny, nz);
+				return 0;
+			}
+		
+		if (!pl->rnk.main ()->can_build)
+			{
+				// player not allowed to build
+				pl->send (packet::make_block_change (
+					nx, ny, nz,
+					pl->get_world ()->get_id (nx, ny, nz),
+					pl->get_world ()->get_meta (nx, ny, nz)));
 				return 0;
 			}
 		

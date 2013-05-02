@@ -19,8 +19,7 @@
 #include "sqlops.hpp"
 #include "sql.hpp"
 #include "server.hpp"
-
-#include <iostream> // DEBUG
+#include <ctime>
 
 
 namespace hCraft {
@@ -244,7 +243,7 @@ namespace hCraft {
 		auto stmt = conn.query ("UPDATE `players` SET `rank`=? WHERE `name`=?");
 		stmt.bind (1, rankstr, sql::pass_transient);
 		stmt.bind (2, name, sql::pass_transient);
-		
+
 		while (stmt.step ())
 			;
 	}
@@ -261,8 +260,6 @@ namespace hCraft {
 		auto stmt = conn.query ("UPDATE `players` SET `balance`=? WHERE `name`=?");
 		stmt.bind (1, amount);
 		stmt.bind (2, name, sql::pass_transient);
-		
-		sql::row row;
 		while (stmt.step ())
 			;
 	}
@@ -273,8 +270,6 @@ namespace hCraft {
 		auto stmt = conn.query ("UPDATE `players` SET `balance`=`balance`+? WHERE `name`=?");
 		stmt.bind (1, amount);
 		stmt.bind (2, name, sql::pass_transient);
-		
-		sql::row row;
 		while (stmt.step ())
 			;
 	}
@@ -288,6 +283,44 @@ namespace hCraft {
 		if (stmt.step (row))
 			return row.at (0).as_double ();
 		return 0.0;
+	}
+	
+	
+	
+	/* 
+	 * Recording bans\kicks:
+	 */
+	
+	void
+	sqlops::record_kick (sql::connection& conn, const char *target,
+		const char *kicker, const char *reason)
+	{
+		auto stmt = conn.query ("INSERT INTO `kicks` (`target`, `kicker`, `reason`, "
+			"`kick_time`) VALUES (?, ?, ?, ?)");
+		std::time_t t = std::time (nullptr);
+		
+		stmt.bind (1, target);
+		stmt.bind (2, kicker);
+		stmt.bind (3, reason);
+		stmt.bind (4, (long long)t);
+		while (stmt.step ())
+			;
+	}
+	
+	void
+	sqlops::record_ban (sql::connection& conn, const char *target,
+		const char *kicker, const char *reason)
+	{
+		auto stmt = conn.query ("INSERT INTO `bans` (`target`, `banner`, `reason`, "
+			"`ban_time`) VALUES (?, ?, ?, ?)");
+		std::time_t t = std::time (nullptr);
+		
+		stmt.bind (1, target);
+		stmt.bind (2, kicker);
+		stmt.bind (3, reason);
+		stmt.bind (4, (long long)t);
+		while (stmt.step ())
+			;
 	}
 }
 

@@ -85,6 +85,16 @@ namespace hCraft {
 		static rank player_rank (sql::connection& conn, const char *name, server& srv);
 		
 		
+		
+		/* 
+		 * Recording bans\kicks:
+		 */
+		static void record_kick (sql::connection& conn, const char *target,
+			const char *kicker, const char *reason);
+		static void record_ban (sql::connection& conn, const char *target,
+			const char *kicker, const char *reason);
+		
+		
 		/* 
 		 * Player name-related:
 		 */

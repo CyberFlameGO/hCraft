@@ -116,6 +116,50 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		/* /kick
+		 * 
+		 * Kicks a player from the server.
+		 * 
+		 * Permissions:
+		 *   - command.admin.kick
+		 *       Needed to execute the command.
+		 */
+		class c_kick: public command
+		{
+		public:
+			const char* get_name () { return "kick"; }
+			
+			const char*
+			get_summary ()
+				{ return "Kicks a player from the server."; }
+			
+			const char*
+			get_help ()
+			{ return
+				".TH KICK 1 \"/KICK\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+					"kick - Kicks a player from the server.. "
+					".PP "
+				".SH SYNOPSIS "
+					"$g/kick $yPLAYER $G[REASON] .LN "
+					"$g/kick $yOPTION "
+					".PP "
+				".SH DESCRIPTION "
+					"Kicks the player PLAYER from the server, with an optional reason REASON. "
+					"Or, if OPTION is specified, then do as follows: "
+					".PP "
+					"$G\\\\help \\h $gDisplay help "
+					".PP "
+					"$G\\\\summary \\s $gDisplay a short description "
+				;}
+			
+			const char* get_exec_permission () { return "command.admin.kick"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

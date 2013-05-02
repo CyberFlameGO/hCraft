@@ -713,6 +713,20 @@ namespace hCraft {
 				"`login_count` INTEGER, "
 				"`balance` DOUBLE); "
 			
+			"CREATE TABLE IF NOT EXISTS `kicks` ("
+				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+				"`target` TEXT COLLATE NOCASE, "
+				"`kicker` TEXT COLLATE NOCASE, "
+				"`reason` TEXT, "
+				"`kick_time` INTEGER); "
+			
+			"CREATE TABLE IF NOT EXISTS `bans` ("
+				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+				"`target` TEXT COLLATE NOCASE, "
+				"`banner` TEXT COLLATE NOCASE, "
+				"`reason` TEXT, "
+				"`ban_time` INTEGER); "
+			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
 		
 		
@@ -814,6 +828,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "rank");
 		_add_command (this->perms, this->commands, "status");
 		_add_command (this->perms, this->commands, "money");
+		_add_command (this->perms, this->commands, "kick");
 	}
 	
 	void
@@ -834,6 +849,11 @@ namespace hCraft {
 	static void
 	create_default_ranks (group_manager& groups)
 	{
+		group* grp_spectator = groups.add (0, "spectator");
+		grp_spectator->color = '8';
+		grp_spectator->can_build = false;
+		grp_spectator->add ("command.info.help");
+		
 		group* grp_guest = groups.add (1, "guest");
 		grp_guest->color = '7';
 		grp_guest->add ("command.info.help");
@@ -889,6 +909,7 @@ namespace hCraft {
 		grp_admin->add ("command.admin.rank");
 		grp_admin->add ("command.info.status.*");
 		grp_admin->add ("command.info.money.*");
+		grp_admin->add ("command.admin.kick");
 		grp_admin->text_color = 'c';
 		
 		group* grp_executive = groups.add (8, "executive");
@@ -925,13 +946,22 @@ namespace hCraft {
 			"// comes right after the \"builder\" rank in the [normal] group ladder.\n"
 			"ladders :\n"
 			"{\n"
-			"  normal = [ \"guest\", \"member\", \"builder\", \"designer\", \"architect\" ];\n"
+			"  normal = [ \"spectator\", \"guest\", \"member\", \"builder\", \"designer\", \"architect\" ];\n"
 			"  staff  = [ \"moderator\", \"admin\", \"executive\", \"owner\" ];\n"
 			"}\n"
 			"\n"
 			"// The list of all defined groups:\n"
 			"groups :\n"
 			"{\n"
+			
+			"  spectator :\n"
+			"  {\n"
+			"    power = 0;\n"
+			"    color = \"8\";\n"
+			"    text-color = \"f\";\n"
+			"    can-build = false;\n"
+			"    @include \"perms/spectator.txt\"\n"
+			"  };\n"
 			
 			"  guest :\n"
 			"  {\n"
