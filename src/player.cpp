@@ -940,6 +940,8 @@ namespace hCraft {
 		this->send (packet::make_player_pos_and_look (
 			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
 		this->move_to (dest);
+		this->send (packet::make_player_pos_and_look (
+			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
 	}
 	
 	/* 
