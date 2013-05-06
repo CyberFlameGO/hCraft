@@ -15,6 +15,7 @@ Features
 
 The _currently_ implemented features are:
 *  The client can connect to the server.
+*  Authentication and encryption are supported.
 *  Movement and block modification are relayed between connected players.
 *  Worlds can be loaded from/saved to an experimental world format (*HWv1*) -
    a compact single-file world container.
