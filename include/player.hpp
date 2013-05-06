@@ -41,6 +41,9 @@
 #include <event2/bufferevent.h>
 #include <functional>
 
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
+
 
 namespace hCraft {
 	
@@ -96,6 +99,8 @@ namespace hCraft {
 	 */
 	class player: public entity
 	{
+		friend class authenticator;
+		
 		server& srv;
 		logger& log;
 		
@@ -109,6 +114,8 @@ namespace hCraft {
 		char ip[16];
 		bool logged_in;
 		bool handshake;
+		bool authenticated;
+		bool encrypted;
 		bool fail; // true if the player is no longer valid, and must be disposed of.
 		std::chrono::time_point<std::chrono::system_clock> fail_time;
 		
@@ -147,6 +154,10 @@ namespace hCraft {
 		int total_read;
 		int read_rem;
 		std::atomic_int handlers_scheduled;
+		CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption *decryptor;
+		
+		unsigned char vtoken[4];
+		unsigned char ssec[16]; // shared secret
 		
 		// Using a thread pool to execute packet handling methods gives rise to a
 		// problem: Packets that must be executed in a certain order (such as, for
@@ -160,6 +171,7 @@ namespace hCraft {
 		bool writing;
 		std::queue<packet *> out_queue;
 		std::mutex out_lock;
+		CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption *encryptor;
 		
 		bool ping_waiting;
 		std::chrono::time_point<std::chrono::system_clock> last_ping;
@@ -241,6 +253,7 @@ namespace hCraft {
 		static int handle_packet_66 (player *pl, packet_reader reader);
 		static int handle_packet_6a (player *pl, packet_reader reader);
 		static int handle_packet_6b (player *pl, packet_reader reader);
+		static int handle_packet_fc (player *pl, packet_reader reader);
 		static int handle_packet_fe (player *pl, packet_reader reader);
 		static int handle_packet_ff (player *pl, packet_reader reader);
 		
@@ -309,6 +322,19 @@ namespace hCraft {
 		 */
 		bool load_data ();
 		void save_data ();
+		
+		
+	//----
+		
+		/* 
+		 * Called by the authenticator to inform the player that it's ready to spawn.
+		 */
+		void done_authenticating ();
+		
+		/* 
+		 * Sends the world and spawns the player.
+		 */
+		void login ();
 		
 	public:
 		inline server& get_server () { return this->srv; }

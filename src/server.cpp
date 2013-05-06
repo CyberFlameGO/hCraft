@@ -17,6 +17,7 @@
  */
 
 #include "server.hpp"
+#include "utils.hpp"
 #include <memory>
 #include <fstream>
 #include <cstring>
@@ -458,6 +459,7 @@ namespace hCraft {
 		std::strcpy (out.srv_motd, "§6A new §ehCraft §6server is born§f!");
 		out.max_players = 12;
 		std::strcpy (out.main_world, "main");
+		out.online_mode = true;
 		
 		std::strcpy (out.ip, "0.0.0.0");
 		out.port = 25565;
@@ -478,6 +480,8 @@ namespace hCraft {
 				= in.srv_name;
 			grp_general.add ("server-motd", libconfig::Setting::TypeString)
 				= in.srv_motd;
+			grp_general.add ("online-mode", libconfig::Setting::TypeBoolean)
+				= in.online_mode;
 			grp_general.add ("max-players", libconfig::Setting::TypeInt)
 				= in.max_players;
 			grp_general.add ("main-world", libconfig::Setting::TypeString)
@@ -512,6 +516,7 @@ namespace hCraft {
 		std::string str;
 		int num;
 		bool error = false;
+		bool bl;
 		
 		// server name
 		if (grp_general.lookupValue ("server-name", str))
@@ -542,6 +547,12 @@ namespace hCraft {
 						error = true;
 					}
 			}
+		
+		// online mode
+		grp_general.lookupValue ("online-mode", bl);
+		out.online_mode = bl;
+		if (!out.online_mode)
+			log (LT_INFO) << "The server is running in offline mode! (Authentication/encryption will not take place)" << std::endl;
 		
 		// max players
 		if (grp_general.lookupValue ("max-players", num))
@@ -758,6 +769,25 @@ namespace hCraft {
 		mkdir ("data/worlds", 0744);
 		mkdir ("data/perms", 0744);
 		
+		// authentication/encryption
+		{
+			this->auth.start ();
+			
+			CryptoPP::AutoSeededRandomPool rnd;
+			this->rsa_private.GenerateRandomWithKeySize (rnd, 1024);
+			
+			// server id
+			this->server_id.clear ();
+			std::minstd_rand srnd (utils::ns_since_epoch ());
+			std::uniform_int_distribution<> dis (0, 15);
+			for (int i = 0; i < 16; ++i)
+				{
+					int j = dis (srnd);
+					this->server_id.push_back ((j >= 10) ? ('a' + (j - 10)) : ('0' + j));
+				}
+			log (LT_DEBUG) << "Server ID: " << this->server_id << std::endl;
+		}
+		
 		this->sched.start ();
 		
 		this->players = new playerlist ();
@@ -776,6 +806,7 @@ namespace hCraft {
 		log (LT_SYSTEM) << "Stopping threading pools and schedulers" << std::endl;
 		this->tpool.stop ();
 		this->sched.stop ();
+		this->auth.stop ();
 		
 		delete this->players;
 	}

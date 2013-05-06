@@ -34,6 +34,7 @@ hCraft_sources = Split("""
 		editstage.cpp
 		drawops.cpp
 		sqlops.cpp
+		authentication.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -90,6 +91,8 @@ hCraft_libs = Split("""
 		sqlite3
 		noise
 		tbb
+		cryptopp
+		curl
 		""")
 
 Import('env')

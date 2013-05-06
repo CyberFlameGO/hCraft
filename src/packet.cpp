@@ -28,6 +28,9 @@
 #include <sstream>
 #include <string>
 
+#include <cryptopp/queue.h>
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -272,6 +275,32 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Resizes the packet.
+	 */
+	void
+	packet::resize (unsigned int new_size)
+	{
+		unsigned char *d = new unsigned char[new_size];
+		int m = utils::max (new_size, this->size);
+		std::memcpy (d, this->data, m);
+		delete[] this->data;
+		this->data = d;
+		if (new_size < this->size)
+			this->size = new_size;
+		if (new_size < this->pos)
+			this->pos = new_size;
+		this->cap = new_size;
+	}
+	
+	void 
+	packet::clear ()
+	{
+		this->pos = this->size = 0;
+	}
+	
+	
+	
 	static nbt_tag_compound*
 	build_slot_metadata (const slot_item& item)
 	{
@@ -487,7 +516,7 @@ namespace hCraft {
 				""           , ""           , ""           , ""           , // 0xF3
 				""           , ""           , ""           , ""           , // 0xF7
 				""           , ""           , "oza"        , ""           , // 0xFB
-				""           , ""           , "ob"         , "oz"         , // 0xFF
+				"oaa"        , ""           , "ob"         , "oz"         , // 0xFF
 			};
 		
 		const char *str = rem_table[(*data) & 0xFF];
@@ -678,6 +707,13 @@ namespace hCraft {
 			}
 		
 		return slot_item (id, damage, amount);
+	}
+	
+	void
+	packet_reader::read_bytes (unsigned char *out, int len)
+	{
+		std::memcpy (out, this->data + this->pos, len);
+		this->pos += len;
 	}
 	
 	
@@ -1331,6 +1367,40 @@ namespace hCraft {
 		pack->put_string (name);
 		pack->put_bool (online);
 		pack->put_short (ping_ms);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_empty_encryption_key_response ()
+	{
+		packet *pack = new packet (5);
+		
+		pack->put_byte (0xFC);
+		pack->put_short (0);
+		pack->put_short (0);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_encryption_key_request (const std::string& sid,
+		CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4])
+	{
+		CryptoPP::ByteQueue q;
+		pkey.Save (q);
+		
+		unsigned char buf[384];
+		size_t keylen = q.Get (buf, sizeof buf);
+		
+		packet *pack = new packet (7 + (sid.length () * 2) + keylen + 4);
+		
+		pack->put_byte (0xFD);
+		pack->put_string (sid.c_str ());
+		pack->put_short (keylen);
+		pack->put_bytes (buf, keylen);
+		pack->put_short (4);
+		pack->put_bytes (vtoken, 4);
 		
 		return pack;
 	}

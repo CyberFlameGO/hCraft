@@ -30,6 +30,7 @@
 #include "permissions.hpp"
 #include "rank.hpp"
 #include "sql.hpp"
+#include "authentication.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -40,6 +41,9 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <unordered_set>
+
+#include <cryptopp/rsa.h>
+#include <cryptopp/osrng.h>
 
 
 namespace hCraft {
@@ -65,6 +69,7 @@ namespace hCraft {
 		char srv_motd[81];
 		int  max_players;
 		char main_world[33];
+		bool online_mode;
 		
 		char ip[16];
 		int  port;
@@ -159,8 +164,13 @@ namespace hCraft {
 		
 		command_list *commands;
 		
+		// encryption
+		CryptoPP::RSA::PrivateKey rsa_private;
+		std::string server_id;
+		
 	public:
 		block_physics_manager global_physics; // initially shared between all worlds
+		authenticator auth;
 		
 	private:
 		// <init, destroy> functions:
@@ -284,6 +294,12 @@ namespace hCraft {
 			conn.execute (str);
 			this->sql ().push (conn);
 		}
+		
+		inline const std::string& auth_id () { return this->server_id; }
+		inline CryptoPP::RSA::PublicKey public_key ()
+			{ return CryptoPP::RSA::PublicKey (this->rsa_private); }
+		inline CryptoPP::RSA::PrivateKey& private_key ()
+			{ return this->rsa_private; }
 		
 	public:
 		/* 

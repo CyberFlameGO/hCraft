@@ -41,6 +41,9 @@
 #include <cmath>
 #include <random>
 
+#include <cryptopp/integer.h>
+#include <cryptopp/osrng.h>
+
 
 namespace hCraft {
 	
@@ -68,6 +71,8 @@ namespace hCraft {
 		this->kicked = false;
 		this->handshake = false;
 		this->op = false;
+		this->authenticated = false;
+		this->encrypted = false;
 		
 		this->disconnecting = false;
 		this->reading = false;
@@ -102,6 +107,9 @@ namespace hCraft {
 		if (!this->bufev)
 			{ this->fail = true; this->get_server ().schedule_destruction (this); return; }
 		
+		this->encryptor = nullptr;
+		this->decryptor = nullptr;
+		
 		// set timeouts
 		{
 			struct timeval read_tv, write_tv;
@@ -126,6 +134,11 @@ namespace hCraft {
 	player::~player ()
 	{
 		this->disconnect ();
+		
+		if (this->encryptor)
+			delete this->encryptor;
+		if (this->decryptor)
+			delete this->decryptor;
 		
 		while (this->is_disconnecting ())
 			std::this_thread::sleep_for (std::chrono::milliseconds (1));
@@ -209,6 +222,7 @@ namespace hCraft {
 		struct evbuffer *buf = bufferevent_get_input (bufev);
 		size_t buf_size;
 		int n;
+		int tl = 0;
 		
 		while ((buf_size = evbuffer_get_length (buf)) > 0)
 			{
@@ -216,8 +230,33 @@ namespace hCraft {
 				if (n <= 0)
 					{ pl->reading = false; pl->disconnect (); return; }
 				
+				tl = pl->total_read;
+				pl->total_read += n;
+				if (pl->encrypted)
+					{
+						// decrypt data.
+						std::string src ((char *)(pl->rdbuf + tl), pl->total_read - tl);
+						std::string tar;
+						
+						try
+							{
+								CryptoPP::StringSource (src, true,
+									new CryptoPP::StreamTransformationFilter (*pl->decryptor,
+										new CryptoPP::StringSink (tar)));
+							}
+						catch (CryptoPP::Exception& ex)
+							{
+								pl->log (LT_ERROR) << "Packet decryption failed (Player \"" << pl->get_username () << "\")" << std::endl;
+								pl->disconnect ();
+								return;
+							}
+						
+						std::memcpy (pl->rdbuf + tl, tar.data (), tar.size ());
+						pl->total_read = tar.size () + tl; // might not be necessary...
+					}
+				
 				// a small check...
-				if (!pl->handshake && (pl->total_read == 0))
+				if (!pl->handshake && (pl->total_read == 1))
 					{
 						if (pl->rdbuf[0] != 0x02 && pl->rdbuf[0] != 0xFE)
 							{
@@ -228,7 +267,6 @@ namespace hCraft {
 							}
 					}
 				
-				pl->total_read += n;
 				pl->read_rem = packet::remaining (pl->rdbuf, pl->total_read);
 				if (pl->read_rem == -1)
 					{
@@ -456,18 +494,29 @@ namespace hCraft {
 		if (this->bad ())
 			{ delete pack; return; }
 		
-		// some checking...
-		if (pack->data[0] == 0x34)
+		// encrypt contents
+		if (this->encrypted)
 			{
-				packet_reader reader ((pack->data));
-				reader.read_byte ();
-				int cx = reader.read_int ();
-				int cz = reader.read_int ();
-				if (!this->can_see_chunk (cx, cz))
+				std::string src ((const char *)pack->data, (int)pack->size);
+				std::string tar;
+				
+				try
 					{
-						delete pack;
+						CryptoPP::StringSource (src, true,
+							new CryptoPP::StreamTransformationFilter (*this->encryptor,
+								new CryptoPP::StringSink (tar)));
+					}
+				catch (CryptoPP::Exception& ex)
+					{
+						log (LT_ERROR) << "Packet encryption failed (Player \"" << this->get_username () << "\")" << std::endl;
+						this->disconnect ();
 						return;
 					}
+		
+				if (pack->cap < tar.size ())
+					pack->resize (tar.size ());
+				pack->clear ();
+				pack->put_bytes ((const unsigned char *)tar.data (), tar.size ());
 			}
 		
 		std::lock_guard<std::mutex> guard {this->out_lock};
@@ -1825,6 +1874,80 @@ namespace hCraft {
 //----
 	
 	/* 
+	 * Called by the authenticator to inform the player that it's ready to spawn.
+	 */
+	void
+	player::done_authenticating ()
+	{
+		this->authenticated = true;
+		
+		this->decryptor = new CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption (this->ssec, 16, this->ssec, 1);
+		
+		this->send (
+			packet::make_empty_encryption_key_response ());
+		
+		// begin encryption
+		this->encryptor = new CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption (this->ssec, 16, this->ssec, 1);
+		this->encrypted = true;
+		
+		/* 
+		 * The player will spawn as soon as the 0xCD packet is received.
+		 */
+	}
+	
+	
+	/* 
+	 * Sends the world and spawns the player.
+	 */
+	void
+	player::login ()
+	{
+		if (this->logged_in)
+			return;
+		
+		this->curr_gamemode = GT_CREATIVE;
+		this->send (packet::make_login (this->get_eid (), "hCraft", this->curr_gamemode,
+			0, 0, (this->get_server ().get_config ().max_players > 64)
+				? 64 : (this->get_server ().get_config ().max_players)));
+		this->logged_in = true;
+		if (!this->get_server ().done_connecting (this))
+			{
+				this->disconnect ();
+				return;
+			}
+
+		// insert self into player list ping
+		{
+			char ping_name[128];
+			get_ping_name (this->get_rank ().main_group->color, this->get_username (),
+				ping_name);
+			//this->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
+		}
+
+		{
+			std::ostringstream ss;
+			ss << "§e[§a+§e] " << this->get_colored_nickname ()
+				 << " §ehas joined the server§f!";
+			this->get_server ().get_players ().message (ss.str ());
+		}
+		this->join_world (this->get_server ().get_main_world ());
+
+		this->inv.subscribe (this);
+
+		this->inv.add (slot_item (IT_FEATHER, 0, 1));
+		this->inv.add (slot_item (BT_STONE, 0, 1));
+
+		slot_item sword (IT_IRON_SWORD, 0, 1);
+		sword.lore.emplace_back ("§7Poison I");
+		sword.enchants.push_back ({ENC_KNOCKBACK, 1});
+		this->inv.add (sword);
+	}
+	
+	
+	
+//----
+	
+	/* 
 	 * Packet handlers:
 	 * NOTE: These return 0 on success (any other value will disconnect the
 	 *       player).
@@ -1944,8 +2067,6 @@ namespace hCraft {
 		
 		if (!pl->load_data ())
 			return -1;
-		pl->handshake = true;
-		
 		{
 			std::string str;
 			str.append ("§");
@@ -1953,40 +2074,27 @@ namespace hCraft {
 			str.append (pl->username);
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
+		pl->handshake = true;
 		
-		pl->curr_gamemode = GT_CREATIVE;
-		pl->send (packet::make_login (pl->get_eid (), "hCraft", pl->curr_gamemode,
-			0, 0, (pl->get_server ().get_config ().max_players > 64)
-				? 64 : (pl->get_server ().get_config ().max_players)));
-		pl->logged_in = true;
-		if (!pl->get_server ().done_connecting (pl))
-			return 0;
 		
-		// insert self into player list ping
-		{
-			char ping_name[128];
-			get_ping_name (pl->get_rank ().main_group->color, pl->get_username (),
-				ping_name);
-			//pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
-		}
-		
-		{
-			std::ostringstream ss;
-			ss << "§e[§a+§e] " << pl->get_colored_nickname ()
-				 << " §ehas joined the server§f!";
-			pl->get_server ().get_players ().message (ss.str ());
-		}
-		pl->join_world (pl->get_server ().get_main_world ());
-		
-		pl->inv.subscribe (pl);
-		
-		pl->inv.add (slot_item (IT_FEATHER, 0, 1));
-		pl->inv.add (slot_item (BT_STONE, 0, 1));
-		
-		slot_item sword (IT_IRON_SWORD, 0, 1);
-		sword.lore.emplace_back ("§7Poison I");
-		sword.enchants.push_back ({ENC_KNOCKBACK, 1});
-		pl->inv.add (sword);
+		// encryption\authentication
+		if (pl->srv.get_config ().online_mode)
+			{
+				auto pkey = pl->srv.public_key ();
+			
+				// verification token
+				std::minstd_rand rnd (utils::ns_since_epoch ());
+				std::uniform_int_distribution<> dis (0, 255);
+				for (int i = 0; i < 4; ++i)
+					pl->vtoken[i] = dis (rnd);
+			
+				pl->send (
+					packet::make_encryption_key_request (pl->srv.auth_id (), pkey, pl->vtoken));
+			}
+		else
+			{
+				pl->login ();
+			}
 		
 		return 0;
 	}
@@ -2515,8 +2623,20 @@ namespace hCraft {
 	player::handle_packet_cd (player *pl, packet_reader reader)
 	{
 		char payload = reader.read_byte ();
-		if (payload == 1)
+		if (payload == 0)
 			{
+				/* 
+				 * Finished logging in.
+				 */
+				
+				pl->login ();
+			}
+		else if (payload == 1)
+			{
+				/* 
+				 * Respawn
+				 */
+				
 				pl->send (packet::make_respawn (0, 0, pl->curr_gamemode, "hCraft"));
 				
 				// revert health
@@ -2876,6 +2996,58 @@ namespace hCraft {
 	}
 	
 	int
+	player::handle_packet_fc (player *pl, packet_reader reader)
+	{
+		unsigned short ssec_len = reader.read_short ();
+		unsigned char ssec[1024];
+		reader.read_bytes (ssec, ssec_len);
+		
+		unsigned short vtoken_len = reader.read_short ();
+		unsigned char vtoken[1024];
+		reader.read_bytes (vtoken, vtoken_len);
+		
+		CryptoPP::AutoSeededRandomPool rng;
+		CryptoPP::RSAES_PKCS1v15_Decryptor decrypt (pl->srv.private_key ());
+		
+		// check four verification bytes
+		{
+			CryptoPP::SecByteBlock ct_vtoken (vtoken, vtoken_len);
+			size_t dpl = decrypt.MaxPlaintextLength (ct_vtoken.size ());
+			CryptoPP::SecByteBlock rec ((dpl));
+			auto res = decrypt.Decrypt (rng, ct_vtoken, ct_vtoken.size (), rec);
+			if (res.messageLength != 4)
+				{
+					pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
+					return -1;
+				}
+			rec.resize (res.messageLength);
+			for (int i = 0; i < 4; ++i)
+				if (pl->vtoken[i] != rec[i])
+					{
+						pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
+						return -1;
+					}
+		}
+		
+		// decrypt shared secret
+		{
+			CryptoPP::SecByteBlock ct_ssec (ssec, ssec_len);
+			size_t dpl = decrypt.MaxPlaintextLength (ct_ssec.size ());
+			CryptoPP::SecByteBlock rec ((dpl));
+			auto res = decrypt.Decrypt (rng, ct_ssec, ct_ssec.size (), rec);
+			if (res.messageLength != 16)
+				{
+					pl->log (LT_WARNING) << "Player \"" << pl->username << " sent invalid shared secret" << std::endl;
+					return -1;
+				}
+			std::memcpy (pl->ssec, rec.data (), 16);
+		}
+		
+		pl->srv.auth.enqueue (pl);
+		return 0;
+	}
+	
+	int
 	player::handle_packet_fe (player *pl, packet_reader reader)
 	{
 		int magic = reader.read_byte ();
@@ -2982,7 +3154,7 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF3
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF7
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xFB
-				handle_packet_xx, handle_packet_xx, handle_packet_fe, handle_packet_ff, // 0xFF
+				handle_packet_fc, handle_packet_xx, handle_packet_fe, handle_packet_ff, // 0xFF
 			};
 		
 		if (this->bad ()) return 0;

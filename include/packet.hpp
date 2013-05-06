@@ -23,6 +23,8 @@
 #include <vector>
 #include "slot.hpp"
 
+#include <cryptopp/rsa.h>
+
 
 namespace hCraft {
 	
@@ -86,6 +88,14 @@ namespace hCraft {
 		void put_bool (bool val)
 			{ put_byte (val ? 1 : 0); }
 		void put_slot (const slot_item& item);
+		
+		
+		/* 
+		 * Resizes the packet.
+		 */
+		void resize (unsigned int new_size);
+		
+		void clear ();
 		
 	//----
 		
@@ -184,6 +194,11 @@ namespace hCraft {
 		static packet* make_player_list_item (const char *name, bool online,
 			short ping_ms);
 		
+		static packet* make_empty_encryption_key_response ();
+		
+		static packet* make_encryption_key_request (const std::string& sid,
+			CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4]);
+		
 		static packet* make_kick (const char *str);
 		static packet* make_ping_kick (const char *motd, int player_count,
 			int max_players);
@@ -226,6 +241,7 @@ namespace hCraft {
 		double read_double ();
 		int read_string (char *out, int max_chars = 65535);
 		slot_item read_slot ();
+		void read_bytes (unsigned char *out, int len);
 	};
 }
 

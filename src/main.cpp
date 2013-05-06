@@ -22,12 +22,15 @@
 #include <cstring>
 #include <exception>
 #include <sys/stat.h>
+#include <curl/curl.h>
 
 
 int
 main (int argc, char *argv[])
 {
 	mkdir ("data", 0744);
+	
+	curl_global_init (CURL_GLOBAL_ALL);
 	
 	hCraft::logger log;
 	hCraft::server srv (log);
