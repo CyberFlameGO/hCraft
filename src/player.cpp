@@ -73,6 +73,7 @@ namespace hCraft {
 		this->op = false;
 		this->authenticated = false;
 		this->encrypted = false;
+		this->banned = false;
 		
 		this->disconnecting = false;
 		this->reading = false;
@@ -494,6 +495,8 @@ namespace hCraft {
 		if (this->bad ())
 			{ delete pack; return; }
 		
+		std::lock_guard<std::mutex> guard {this->out_lock};
+		
 		// encrypt contents
 		if (this->encrypted)
 			{
@@ -519,7 +522,6 @@ namespace hCraft {
 				pack->put_bytes ((const unsigned char *)tar.data (), tar.size ());
 			}
 		
-		std::lock_guard<std::mutex> guard {this->out_lock};
 		this->out_queue.push (pack);
 		if (this->out_queue.size () == 1)
 			{
@@ -1259,8 +1261,23 @@ namespace hCraft {
 			pd.ip.assign (this->ip);
 			
 			if (found_player)
-				{
+				{ 
+					if (pd.banned)
+						{
+							this->kick ("§c[ §4You are banned from this server §c]");
+							return true;
+						}
+					
 					// modify some fields
+					if (pd.login_count == 0)
+						pd.first_login = std::time (nullptr);
+					if (pd.name.compare (this->get_username ()) != 0)
+						{
+							// can happen
+							pd.name.assign (this->get_username ());
+							pd.nick.assign (this->get_username ());
+						}
+						
 					++ pd.login_count;
 					this->dbid = pd.id;
 				}
@@ -1274,6 +1291,7 @@ namespace hCraft {
 					pd.first_login = std::time (nullptr);
 					pd.login_count = 1;
 					pd.balance = 0.0;
+					pd.banned = false;
 				}
 			
 			this->rnk = pd.rnk;
@@ -1285,6 +1303,7 @@ namespace hCraft {
 			this->log_first = pd.first_login;
 			this->log_count = pd.login_count;
 			this->bal = pd.balance;
+			this->banned = pd.banned;
 			
 			// save to db
 			try
@@ -1408,6 +1427,7 @@ namespace hCraft {
 		pd.last_login = this->log_last;
 		pd.login_count = this->log_count;
 		pd.balance = this->bal;
+		pd.banned = this->banned;
 	}
 	
 	
@@ -2040,7 +2060,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -2048,7 +2068,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -2067,6 +2087,10 @@ namespace hCraft {
 		
 		if (!pl->load_data ())
 			return -1;
+		if (pl->kicked)
+			// player got kicked by load_data ()
+			return 0;
+			
 		{
 			std::string str;
 			str.append ("§");

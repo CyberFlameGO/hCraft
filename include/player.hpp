@@ -222,6 +222,8 @@ namespace hCraft {
 		
 		double bal;
 		
+		bool banned;
+		
 	private:
 		/* 
 		 * libevent callback functions:

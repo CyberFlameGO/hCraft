@@ -57,6 +57,8 @@ namespace hCraft {
 			int login_count;
 			
 			double balance;
+			
+			bool banned;
 	 	};
 	 	
 	 	
@@ -87,12 +89,21 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Fills the given player_info structure with default values for a player
+		 * with the specified name.
+		 */
+		static void default_player_data (const char *name, server &srv, player_info& pd);
+		
+		
+		
+		/* 
 		 * Recording bans\kicks:
 		 */
 		static void record_kick (sql::connection& conn, const char *target,
 			const char *kicker, const char *reason);
 		static void record_ban (sql::connection& conn, const char *target,
 			const char *kicker, const char *reason);
+		static void modify_ban_status (sql::connection& conn, const char *username, bool ban);
 		
 		
 		/* 

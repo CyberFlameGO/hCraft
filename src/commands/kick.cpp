@@ -39,7 +39,8 @@ namespace hCraft {
 		{
 			if (!pl->perm (this->get_exec_permission ()))
 					return;
-		
+			
+			reader.add_option ("message", "m", 1, 1);
 			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args ())
@@ -48,6 +49,14 @@ namespace hCraft {
 			std::string& target_name = reader.next ().as_str ();
 			std::string  reason = reader.has_next () ? reader.all_after (0)
 				: "No reason specified";
+			std::string  kick_msg = "§c";
+			{
+				auto opt = reader.opt ("message");
+				if (opt->found ())
+					kick_msg.append (opt->arg (0).as_str ());
+				else
+					kick_msg.append ("You have been kicked from the server");
+			}
 			
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 			if (!target)
@@ -58,12 +67,6 @@ namespace hCraft {
 			else if (target->bad ()) return;
 			
 			server& srv = pl->get_server ();
-			{
-				std::ostringstream ss;
-				ss << "§4 > " << target->get_colored_nickname () << " §chas been kicked by "
-					 << pl->get_colored_nickname () << "§c!";
-				srv.get_players ().message (ss.str ());
-			}
 			
 			// record kick
 			{
@@ -85,7 +88,13 @@ namespace hCraft {
 				pl->message (ss.str ());
 			}
 			
-			target->kick ("§cYou have been kicked from the server", reason.c_str ());
+			{
+				std::ostringstream ss;
+				ss << "§4 > " << target->get_colored_nickname () << " §chas been kicked by "
+					 << pl->get_colored_nickname () << "§c!";
+				srv.get_players ().message (ss.str ());
+			}
+			target->kick (kick_msg.c_str (), reason.c_str ());
 		}
 	}
 }

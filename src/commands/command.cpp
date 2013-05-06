@@ -78,6 +78,7 @@ namespace hCraft {
 	static command* create_c_gm () { return new commands::c_gm (); }
 	static command* create_c_rank () { return new commands::c_rank (); }
 	static command* create_c_kick () { return new commands::c_kick (); }
+	static command* create_c_ban () { return new commands::c_ban (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -112,6 +113,7 @@ namespace hCraft {
 			{ "status", create_c_status },
 			{ "money", create_c_money },
 			{ "kick", create_c_kick },
+			{ "ban", create_c_ban },
 			};
 		
 		auto itr = creators.find (name);

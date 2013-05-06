@@ -722,7 +722,8 @@ namespace hCraft {
 				"`first_login` UNSIGNED BIG INT, "
 				"`last_login` UNSIGNED BIG INT, "
 				"`login_count` INTEGER, "
-				"`balance` DOUBLE); "
+				"`balance` DOUBLE, "
+				"`banned` INTEGER); "
 			
 			"CREATE TABLE IF NOT EXISTS `kicks` ("
 				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -860,6 +861,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "status");
 		_add_command (this->perms, this->commands, "money");
 		_add_command (this->perms, this->commands, "kick");
+		_add_command (this->perms, this->commands, "ban");
 	}
 	
 	void
@@ -941,6 +943,7 @@ namespace hCraft {
 		grp_admin->add ("command.info.status.*");
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
+		grp_admin->add ("command.admin.ban");
 		grp_admin->text_color = 'c';
 		
 		group* grp_executive = groups.add (8, "executive");
@@ -958,7 +961,22 @@ namespace hCraft {
 		grp_owner->text_color = '7';
 		grp_owner->add ("*");
 		
-		groups.default_rank.set ("@guest", groups);
+		// ladders
+		group_ladder *ld_normal = groups.add_ladder ("normal");
+		group_ladder *ld_staff = groups.add_ladder ("staff");
+		ld_normal->insert (grp_spectator);
+		ld_normal->insert (grp_guest);
+		ld_normal->insert (grp_member);
+		ld_normal->insert (grp_builder);
+		ld_normal->insert (grp_designer);
+		ld_normal->insert (grp_architect);
+		ld_staff->insert (grp_moderator);
+		ld_staff->insert (grp_admin);
+		ld_staff->insert (grp_executive);
+		ld_staff->insert (grp_owner);
+		
+		
+		groups.default_rank.set ("@guest[normal]", groups);
 	}
 	
 	

@@ -69,22 +69,22 @@ namespace hCraft {
 		sql::statement stmt {conn};
 		if ((exists = player_exists (conn, name)))
 			{
-				stmt.prepare ("UPDATE `players`  SET `nick`=?, `ip`=?, `op`=?, "
+				stmt.prepare ("UPDATE `players`  SET `name`=?, `nick`=?, `ip`=?, `op`=?, "
 					"`rank`=?, `blocks_destroyed`=?, `blocks_created`=?, "
 					"`messages_sent`=?, `first_login`=?, `last_login`=?, "
-					"`login_count`=?, `balance`=?   WHERE `name`=?");
+					"`login_count`=?, `balance`=?, `banned`=?   WHERE `name`=?");
 			}
 		else
 			{
 				stmt.prepare ("INSERT INTO `players` (`name`, `nick`, "
 					"`ip`, `op`, `rank`, `blocks_destroyed`, `blocks_created`, "
 					"`messages_sent`, `first_login`, `last_login`, "
-					"`login_count`, `balance`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+					"`login_count`, `balance`, `banned`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 			}
 		
 		int i = 1;
-		if (!exists)
-			stmt.bind (i++, name);
+		
+		stmt.bind (i++, name);
 		stmt.bind (i++, in.nick.c_str ());
 		stmt.bind (i++, in.ip.c_str ());
 		stmt.bind (i++, in.op ? 1 : 0);
@@ -100,6 +100,7 @@ namespace hCraft {
 		stmt.bind (i++, (long long)in.last_login);
 		stmt.bind (i++, in.login_count);
 		stmt.bind (i++, in.balance);
+		stmt.bind (i++, in.banned ? 1 : 0);
 		
 		if (exists)
 			stmt.bind (i++, name);
@@ -152,6 +153,8 @@ namespace hCraft {
 				
 				out.balance = row.at (12).as_double ();
 				
+				out.banned = (row.at (13).as_int () == 1);
+				
 				return true;
 			}
 		return false;
@@ -181,6 +184,31 @@ namespace hCraft {
 			}
 		
 		return rnk;
+	}
+	
+	
+	
+	/* 
+	 * Fills the given player_info structure with default values for a player
+	 * with the specified name.
+	 */
+	void
+	sqlops::default_player_data (const char *name, server &srv, player_info& pd)
+	{
+		pd.id = -1;
+		pd.name.assign (name);
+		pd.nick.assign (name);
+		pd.ip.assign ("0.0.0.0");
+		pd.op = false;
+		pd.rnk = srv.get_groups ().default_rank;
+		pd.blocks_created = 0;
+		pd.blocks_destroyed = 0;
+		pd.messages_sent = 0;
+		pd.first_login = (std::time_t)0;
+		pd.last_login = (std::time_t)0;
+		pd.login_count = 0;
+		pd.balance = 0.0;
+		pd.banned = false;
 	}
 	
 	
@@ -319,6 +347,16 @@ namespace hCraft {
 		stmt.bind (2, kicker);
 		stmt.bind (3, reason);
 		stmt.bind (4, (long long)t);
+		while (stmt.step ())
+			;
+	}
+	
+	void
+	sqlops::modify_ban_status (sql::connection& conn, const char *username, bool ban)
+	{
+		auto stmt = conn.query ("UPDATE `players` SET `banned`=? WHERE `name`=?");
+		stmt.bind (1, ban ? 1 : 0);
+		stmt.bind (2, username, sql::pass_transient);
 		while (stmt.step ())
 			;
 	}
