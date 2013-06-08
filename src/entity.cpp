@@ -187,5 +187,69 @@ namespace hCraft {
 	*/
 		return false;
 	}
+	
+	
+	
+//----
+
+	living::living (int eid)
+		: entity (eid)
+		{ }
+	
+	
+	
+	/* 
+	 * Modifies the entity's health.
+	 */
+	void
+	living::set_health (int hearts, int hunger, float hunger_saturation)
+	{
+		this->hearts = hearts;
+		this->hunger = hunger;
+		this->hunger_saturation = hunger_saturation;
+	}
+	
+	void
+	living::set_hearts (int hearts)
+	{
+		if (hearts < this->hearts)
+			{
+				// exhaustion from damage
+				this->increment_exhaustion (0.3);
+			}
+		this->set_health (hearts, this->hunger, this->hunger_saturation);
+	}
+	
+	void
+	living::set_hunger (int hunger)
+	{
+		if (this->hunger_saturation > hunger)
+			this->hunger_saturation = hunger;
+		this->set_health (this->hearts, hunger, this->hunger_saturation);
+	}
+	
+	void
+	living::set_hunger_saturation (float hunger_saturation)
+	{
+		this->set_health (this->hearts, this->hunger, hunger_saturation);
+	}
+	
+	void
+	living::increment_exhaustion (float val)
+	{
+		this->exhaustion += val;
+		if (this->exhaustion >= 4.0)
+			{
+				this->exhaustion -= 4.0;
+				if (this->hunger_saturation <= 0.0)
+					this->set_hunger (this->hunger - 1);
+				else
+					{
+						double new_sat = this->hunger_saturation - 1.0;
+						if (new_sat < 0.0) new_sat = 0.0;
+						this->set_hunger_saturation (new_sat);
+					}
+			}
+	}
 }
 

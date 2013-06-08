@@ -16,18 +16,18 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "command.hpp"
+#include "commands/command.hpp"
 #include "player.hpp"
 #include "manual.hpp"
 #include "blocks.hpp"
 #include "stringutils.hpp"
 
-#include "infoc.hpp"
-#include "chatc.hpp"
-#include "miscc.hpp"
-#include "worldc.hpp"
-#include "drawc.hpp"
-#include "adminc.hpp"
+#include "commands/infoc.hpp"
+#include "commands/chatc.hpp"
+#include "commands/miscc.hpp"
+#include "commands/worldc.hpp"
+#include "commands/drawc.hpp"
+#include "commands/adminc.hpp"
 
 #include <unordered_map>
 #include <stdexcept>
@@ -79,6 +79,7 @@ namespace hCraft {
 	static command* create_c_rank () { return new commands::c_rank (); }
 	static command* create_c_kick () { return new commands::c_kick (); }
 	static command* create_c_ban () { return new commands::c_ban (); }
+	static command* create_c_unban () { return new commands::c_unban (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -114,6 +115,7 @@ namespace hCraft {
 			{ "money", create_c_money },
 			{ "kick", create_c_kick },
 			{ "ban", create_c_ban },
+			{ "unban", create_c_unban },
 			};
 		
 		auto itr = creators.find (name);

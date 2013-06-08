@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "chatc.hpp"
-#include "../player.hpp"
-#include "../server.hpp"
-#include "../rank.hpp"
+#include "commands/chatc.hpp"
+#include "player.hpp"
+#include "server.hpp"
+#include "rank.hpp"
 #include <cstring>
 #include <sstream>
 

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "drawc.hpp"
+#include "commands/drawc.hpp"
 #include "player.hpp"
 #include "world.hpp"
 #include "stringutils.hpp"

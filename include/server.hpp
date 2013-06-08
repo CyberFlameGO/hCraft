@@ -169,7 +169,7 @@ namespace hCraft {
 		std::string server_id;
 		
 	public:
-		block_physics_manager global_physics; // initially shared between all worlds
+		physics_manager global_physics; // initially shared between all worlds
 		authenticator auth;
 		
 	private:

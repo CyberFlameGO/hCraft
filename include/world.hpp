@@ -22,10 +22,10 @@
 #include "position.hpp"
 #include "chunk.hpp"
 #include "generation/worldgenerator.hpp"
-#include "worldprovider.hpp"
+#include "providers/worldprovider.hpp"
 #include "lighting.hpp"
+#include "physics/blocks/physics_block.hpp"
 #include "physics/physics.hpp"
-#include "block_physics.hpp"
 #include "editstage.hpp"
 
 #include <unordered_set>
@@ -125,7 +125,7 @@ namespace hCraft {
 		
 	public:
 		bool auto_lighting;
-		block_physics_manager physics;
+		physics_manager physics;
 		lighting_manager lm;
 		
 		dense_edit_stage estage;

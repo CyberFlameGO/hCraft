@@ -204,6 +204,51 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		/* /unban
+		 * 
+		 * Revokes a permanent ban from a specified player.
+		 * 
+		 * Permissions:
+		 *   - command.admin.unban
+		 *       Needed to execute the command.
+		 */
+		class c_unban: public command
+		{
+		public:
+			const char* get_name () { return "unban"; }
+			
+			const char*
+			get_summary ()
+				{ return "Revokes a permanent ban from a specified player."; }
+			
+			const char*
+			get_help ()
+			{ return
+				".TH UNBAN 1 \"/unban\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+					"kick - Permanently bans a player from the server. "
+					".PP "
+				".SH SYNOPSIS "
+					"$g/ban $yPLAYER $G[REASON] .LN "
+					"$g/ban $yOPTION "
+					".PP "
+				".SH DESCRIPTION "
+					"Removes the ban placed on player PLAYER, and logs the optional reason "
+					"REASON (the default reason is $'No reason specified$'). "
+					"Or, if OPTION is specified, then do as follows: "
+					".PP "
+					"$G\\\\help \\h $gDisplay help "
+					".PP "
+					"$G\\\\summary \\s $gDisplay a short description "
+				;}
+			
+			const char* get_exec_permission () { return "command.admin.unban"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

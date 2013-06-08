@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "worldc.hpp"
-#include "../server.hpp"
-#include "../player.hpp"
+#include "commands/worldc.hpp"
+#include "server.hpp"
+#include "player.hpp"
 #include "stringutils.hpp"
 #include "cistring.hpp"
 #include <sstream>

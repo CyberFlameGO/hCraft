@@ -169,7 +169,9 @@ namespace hCraft {
 		sql::row row;
 		auto stmt = conn.query ("SELECT `rank` FROM `players` WHERE `name`=?");
 		stmt.bind (1, name, sql::pass_transient);
-		stmt.step (row);
+		
+		if (!stmt.step (row))
+			return srv.get_groups ().default_rank;
 		
 		rank rnk;
 		try
@@ -223,8 +225,9 @@ namespace hCraft {
 		sql::row row;
 		auto stmt = conn.query ("SELECT `name` FROM `players` WHERE `name`=?");
 		stmt.bind (1, name, sql::pass_transient);
-		stmt.step (row);
-		return row.at (0).as_str ();
+		if (stmt.step (row))
+			return row.at (0).as_str ();
+		return "";
 	}
 	
 	std::string
@@ -244,8 +247,9 @@ namespace hCraft {
 		sql::row row;
 		auto stmt = conn.query ("SELECT `nick` FROM `players` WHERE `name`=?");
 		stmt.bind (1, name, sql::pass_transient);
-		stmt.step (row);
-		return row.at (0).as_str ();
+		if (stmt.step (row))
+			return row.at (0).as_str ();
+		return "";
 	}
 	
 	std::string
@@ -337,14 +341,30 @@ namespace hCraft {
 	
 	void
 	sqlops::record_ban (sql::connection& conn, const char *target,
-		const char *kicker, const char *reason)
+		const char *banner, const char *reason)
 	{
 		auto stmt = conn.query ("INSERT INTO `bans` (`target`, `banner`, `reason`, "
 			"`ban_time`) VALUES (?, ?, ?, ?)");
 		std::time_t t = std::time (nullptr);
 		
 		stmt.bind (1, target);
-		stmt.bind (2, kicker);
+		stmt.bind (2, banner);
+		stmt.bind (3, reason);
+		stmt.bind (4, (long long)t);
+		while (stmt.step ())
+			;
+	}
+	
+	void
+	sqlops::record_unban (sql::connection& conn, const char *target,
+		const char *unbanner, const char *reason)
+	{
+		auto stmt = conn.query ("INSERT INTO `unbans` (`target`, `unbanner`, `reason`, "
+			"`unban_time`) VALUES (?, ?, ?, ?)");
+		std::time_t t = std::time (nullptr);
+		
+		stmt.bind (1, target);
+		stmt.bind (2, unbanner);
 		stmt.bind (3, reason);
 		stmt.bind (4, (long long)t);
 		while (stmt.step ())
@@ -359,6 +379,17 @@ namespace hCraft {
 		stmt.bind (2, username, sql::pass_transient);
 		while (stmt.step ())
 			;
+	}
+	
+	bool
+	sqlops::is_banned (sql::connection& conn, const char *username)
+	{
+		sql::row row;
+		auto stmt = conn.query ("SELECT `banned` FROM `players` WHERE `name`=?");
+		stmt.bind (1, username, sql::pass_transient);
+		if (stmt.step (row))
+			return (row.at (0).as_int () == 1);
+		return false;
 	}
 }
 

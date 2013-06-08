@@ -19,7 +19,7 @@
 #ifndef _hCraft__PHYSICS__SNOW_H_
 #define _hCraft__PHYSICS__SNOW_H_
 
-#include "physics.hpp"
+#include "physics/blocks/physics_block.hpp"
 
 
 namespace hCraft {

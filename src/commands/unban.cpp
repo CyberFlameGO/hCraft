@@ -26,75 +26,88 @@
 namespace hCraft {
 	namespace commands {
 		
-		/* /kick
+		/* /unban
 		 * 
-		 * Kicks a player from the server.
+		 * Revokes a permanent ban from a specified player.
 		 * 
 		 * Permissions:
-		 *   - command.admin.kick
+		 *   - command.admin.unban
 		 *       Needed to execute the command.
 		 */
 		void
-		c_kick::execute (player *pl, command_reader& reader)
+		c_unban::execute (player *pl, command_reader& reader)
 		{
 			if (!pl->perm (this->get_exec_permission ()))
 					return;
 			
-			reader.add_option ("message", "m", 1, 1);
 			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }
 			
-			std::string& target_name = reader.next ().as_str ();
+			std::string  target_name = reader.next ().as_str ();
 			std::string  reason = reader.has_next () ? reader.all_after (0)
 				: "No reason specified";
-			std::string  kick_msg = "§c";
-			{
-				auto opt = reader.opt ("message");
-				if (opt->found ())
-					kick_msg.append (opt->arg (0).as_str ());
-				else
-					kick_msg.append ("You have been kicked from the server");
-			}
 			
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
-			if (!target)
+			if (target)
 				{
-					pl->message ("§c * §7No such player§f: §c" + target_name);
+					if (target == pl)
+						{
+							pl->message ("§c * §7You are not banned§c.");
+							return;
+						}
+					
+					pl->message ("§c * §7That player is online§c...");
 					return;
 				}
-			else if (target->bad ()) return;
-			
+				
+			std::string target_colored_nick;
 			server& srv = pl->get_server ();
-			
-			// record kick
+
+			// record unban
 			{
 				auto& conn = pl->get_server ().sql ().pop ();
 				try
 					{
-						sqlops::record_kick (conn, target->get_username (),
+						if (!sqlops::player_exists (conn, target_name.c_str ()))
+							{
+								pl->message ("§c * §7No such player§f: §c" + target_name);
+								pl->get_server ().sql ().push (conn);
+								return;
+							}
+						
+						if (!sqlops::is_banned (conn, target_name.c_str ()))
+							{
+								pl->message ("§c * §7Player is not banned§c.");
+								pl->get_server ().sql ().push (conn);
+								return;
+							}
+						
+						target_name = sqlops::player_name (conn, target_name.c_str ());
+						target_colored_nick = sqlops::player_colored_nick (conn, target_name.c_str (), pl->get_server ());
+						sqlops::modify_ban_status (conn, target_name.c_str (), false);
+						sqlops::record_unban (conn, target_name.c_str (),
 							pl->get_username (), reason.c_str ());
 					}
 				catch (const std::exception& ex)
 					{
-						pl->message ("§4 * §cAn error has occurred while recording kick message");
+						pl->message ("§4 * §cAn error has occurred while recording unban message");
 					}
 				
 				pl->get_server ().sql ().push (conn);
 				
 				std::ostringstream ss;
-				ss << "§7 | §eRecorded kick message§7: §c\"" << reason << "§c\"";
+				ss << "§7 | §eRecorded unban message§7: §c\"" << reason << "§c\"";
 				pl->message (ss.str ());
 			}
 			
 			{
 				std::ostringstream ss;
-				ss << "§4 > " << target->get_colored_nickname () << " §chas been kicked by "
-					 << pl->get_colored_nickname () << "§c!";
+				ss << "§8 > " << target_colored_nick << " §8has been unbanned by "
+					 << pl->get_colored_nickname () << "§8!";
 				srv.get_players ().message (ss.str ());
 			}
-			target->kick (kick_msg.c_str (), reason.c_str ());
 		}
 	}
 }

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "physics/water.hpp"
+#include "physics/blocks/water.hpp"
 #include "world.hpp"
 #include "blocks.hpp"
 

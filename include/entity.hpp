@@ -153,6 +153,7 @@ namespace hCraft {
 	};
 	
 	
+	
 	/* 
 	 * An entity can be any movable dynamic object in a world that encompasses
 	 * a certain "state" (e.g.: players, mobs, minecarts, etc...).
@@ -163,11 +164,11 @@ namespace hCraft {
 		int eid;
 		
 		bool on_fire;
-		bool crouched;
+		bool crouched; // TODO: move to player? since only players can crouch...
 		bool riding;
 		bool sprinting;
 		bool right_action;
-	
+		
 	public:
 		entity_pos pos;
 		std::chrono::steady_clock::time_point spawn_time;
@@ -206,6 +207,14 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Called by the world that's holding the entity every tick (50ms).
+		 * A return value of true will cause the world to destroy the entity.
+		 */
+		virtual bool tick (world &w);
+		
+		
+		
+		/* 
 		 * Constructs metdata records according to the entity's type.
 		 */
 		virtual void build_metadata (entity_metadata& dict);
@@ -221,14 +230,47 @@ namespace hCraft {
 		 * Removes the entity from the view of the specified player.
 		 */
 		virtual bool despawn_from (player *pl);
+	};
+	
+	
+	
+	/* 
+	 * Anything that has a health bar, basically.
+	 */
+	class living: public entity
+	{
+	protected:
+		int hearts; // 1 = half a heart
+		int hunger; // 1 = half a hunger thingy
+		float hunger_saturation;
+		float exhaustion;
 		
+	public:
+		inline int get_hearts () { return this->hearts; }
+		inline int get_hunger () { return this->hunger; }
+		inline int get_hunger_saturation () { return this->hunger_saturation; }
+		inline bool is_dead () { return this->hearts <= 0; }
 		
+	public:
+		living (int eid);
+		
+
 		
 		/* 
-		 * Called by the world that's holding the entity every tick (50ms).
-		 * A return value of true will cause the world to destroy the entity.
+		 * Health modification:
 		 */
-		virtual bool tick (world &w);
+		
+		/* 
+		 * Modifies the entity's health.
+		 */
+		virtual void set_health (int hearts, int hunger, float hunger_saturation);
+		
+		// these call set_health () in some way.
+		void set_hearts (int hearts);
+		void set_hunger (int hunger);
+		void set_hunger_saturation (float hunger_saturation);
+		void increment_exhaustion (float val);
+		void kill () { this->set_hearts (0); }
 	};
 }
 

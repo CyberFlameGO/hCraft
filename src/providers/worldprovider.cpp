@@ -16,14 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "worldprovider.hpp"
+#include "providers/worldprovider.hpp"
 #include <unordered_map>
 #include <string>
 #include <vector>
 #include <memory>
 #include <sys/stat.h>
 
-#include "hwprovider.hpp"
+#include "providers/hwprovider.hpp"
 
 
 namespace hCraft {

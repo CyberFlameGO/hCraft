@@ -97,7 +97,7 @@ namespace hCraft {
 	/* 
 	 * Represents a player.
 	 */
-	class player: public entity
+	class player: public living
 	{
 		friend class authenticator;
 		
@@ -119,10 +119,6 @@ namespace hCraft {
 		bool fail; // true if the player is no longer valid, and must be disposed of.
 		std::chrono::time_point<std::chrono::system_clock> fail_time;
 		
-		int hearts; // 0-20 (the server will handle more)
-		int hunger; // 0-20 (the server will handle more)
-		float hunger_saturation;
-		float exhaustion;
 		bool eating;
 		std::chrono::steady_clock::time_point eat_time;
 		
@@ -177,9 +173,10 @@ namespace hCraft {
 		std::chrono::time_point<std::chrono::system_clock> last_ping;
 		int ping_id;
 		int ping_time_ms;
+		int keep_alives_received;
 		
 		world *curr_world;
-		chunk_pos curr_chunk;
+		chunk_pos chcurr;
 		std::mutex world_lock;
 		std::mutex join_lock;
 		std::unordered_set<player *> visible_players;
@@ -308,14 +305,6 @@ namespace hCraft {
 		 */
 		void move_to (entity_pos dest);
 		
-		/* 
-		 * Used when transitioning players between worlds or teleporting.
-		 * This sends common chunks (shared by two worlds in their position) without
-		 * unloading them first.
-		 */
-		void stream_common_chunks (world *wr, entity_pos dest_pos,
-			int radius = player::chunk_radius ());
-		
 	//----
 		
 		/* 
@@ -350,11 +339,6 @@ namespace hCraft {
 		
 		inline const rank& get_rank () { return this->rnk; }
 		inline bool is_op () { return this->op; }
-		
-		inline int get_hearts () { return this->hearts; }
-		inline int get_hunger () { return this->hunger; }
-		inline int get_hunger_saturation () { return this->hunger_saturation; }
-		inline bool is_dead () { return this->hearts <= 0; }
 		
 		inline bool is_reading () { return this->reading; }
 		inline bool is_writing () { return this->writing; }
@@ -414,6 +398,11 @@ namespace hCraft {
 		 */
 		void send (packet *pack);
 		
+		/* 
+		 * Resends the block located at the given block coordinates.
+		 */
+		void send_orig_block (int x, int y, int z);
+		
 		
 		
 		/* 
@@ -430,18 +419,13 @@ namespace hCraft {
 		 * Loads new close chunks to the player and unloads those that are too
 		 * far away.
 		 */
-		void stream_chunks (int radius = player::chunk_radius ());
+		void stream_chunks (world *prev_world = nullptr, int radius = player::chunk_radius ());
 		
 		/* 
 		 * Checks whether the specified chunk is within the visible chunk range
 		 * of the player.
 		 */
 		bool can_see_chunk (int x, int z);
-		
-		/* 
-		 * Resends the block located at the given block coordinates.
-		 */
-		void send_orig_block (int x, int y, int z);
 		
 		
 		
@@ -473,19 +457,6 @@ namespace hCraft {
 		 * Despawns self from the specified player.
 		 */
 		virtual bool despawn_from (player *pl) override;
-		
-		
-		
-		/* 
-		 * Health modification:
-		 */
-		
-		void set_hearts (int hearts);
-		void set_hunger (int hunger);
-		void set_hunger_saturation (float hunger_saturation);
-		void set_health (int hearts, int hunger, float hunger_saturation);
-		void increment_exhaustion (float val);
-		void kill () { this->set_hearts (0); }
 		
 		
 		
@@ -585,6 +556,11 @@ namespace hCraft {
 		 * A return value of true will cause the world to destroy the entity.
 		 */
 		virtual bool tick (world &w) override;
+		
+		/* 
+		 * Modifies the entity's health.
+		 */
+		virtual void set_health (int hearts, int hunger, float hunger_saturation) override;
 	};
 }
 

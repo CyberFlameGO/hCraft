@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "infoc.hpp"
-#include "../stringutils.hpp"
-#include "../server.hpp"
-#include "../player.hpp"
+#include "commands/infoc.hpp"
+#include "stringutils.hpp"
+#include "server.hpp"
+#include "player.hpp"
 
 
 namespace hCraft {

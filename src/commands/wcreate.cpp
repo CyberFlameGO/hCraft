@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "worldc.hpp"
-#include "../server.hpp"
-#include "../player.hpp"
-#include "../world.hpp"
-#include "../worldprovider.hpp"
-#include "../generation/worldgenerator.hpp"
+#include "commands/worldc.hpp"
+#include "server.hpp"
+#include "player.hpp"
+#include "world.hpp"
+#include "providers/worldprovider.hpp"
+#include "generation/worldgenerator.hpp"
 #include <chrono>
 #include <functional>
 
@@ -147,19 +147,19 @@ namespace hCraft {
 					return;
 				}
 			
+			world_generator *gen = world_generator::create (gen_name.c_str (), gen_seed);
+			if (!gen)
+				{
+					pl->message ("§c * §eInvalid world generator§f: §c" + gen_name);
+					return;
+				}
+			
 			world_provider *prov = world_provider::create (provider_name.c_str (),
 				"data/worlds", world_name.c_str ());
 			if (!prov)
 				{
 					pl->message ("§c * §eInvalid world provider§f: §c" + provider_name);
-					return;
-				}
-			
-			world_generator *gen = world_generator::create (gen_name.c_str (), gen_seed);
-			if (!gen)
-				{
-					pl->message ("§c * §eInvalid world generator§f: §c" + gen_name);
-					delete prov;
+					delete gen;
 					return;
 				}
 			

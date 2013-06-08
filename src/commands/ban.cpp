@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "adminc.hpp"
+#include "commands/adminc.hpp"
 #include "player.hpp"
 #include "stringutils.hpp"
 #include "server.hpp"
@@ -46,7 +46,7 @@ namespace hCraft {
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }
 			
-			std::string& target_name = reader.next ().as_str ();
+			std::string  target_name = reader.next ().as_str ();
 			std::string  reason = reader.has_next () ? reader.all_after (0)
 				: "No reason specified";
 			std::string  ban_msg = "§4";
@@ -100,6 +100,12 @@ namespace hCraft {
 									}
 								else
 									{
+										if (sqlops::is_banned (conn, target_name.c_str ()))
+											{
+												pl->message ("§c * §7Player is already banned§c.");
+												return;
+											}
+										
 										target_name = sqlops::player_name (conn, target_name.c_str ());
 										target_colored_nick = sqlops::player_colored_nick (conn, target_name.c_str (), pl->get_server ());
 									}

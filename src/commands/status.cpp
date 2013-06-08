@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "infoc.hpp"
+#include "commands/infoc.hpp"
 #include "player.hpp"
 #include "server.hpp"
 #include "sqlops.hpp"
@@ -105,8 +105,8 @@ namespace hCraft {
 								pd.rnk.get_colored_string (crnkstr);
 								pl->message ("§6 | §eRank§6: " + crnkstr);
 							}
-				
-						if (can_see_ip)
+						
+						if (can_see_ip && (pd.login_count > 0))
 							pl->message ("§6 | §eLast IP address§6: §c" + pd.ip);
 						
 						if (can_see_balance)
@@ -132,30 +132,36 @@ namespace hCraft {
 							{
 								char out[128];
 								
-								std::string first_relative;
-								utils::relative_time (now, pd.first_login, first_relative);
-								std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_first);
-								ss << "§6 | §eFirst login§6: §a" << first_relative;
-								pl->message (ss.str ());
-								ss.clear (); ss.str (std::string ());
-								ss << "§6   - (§b" << out << "§6)";
-								pl->message (ss.str ());
-								ss.clear (); ss.str (std::string ());
+								if (pd.login_count > 0)
+									{
+										std::string first_relative;
+										utils::relative_time (now, pd.first_login, first_relative);
+										std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_first);
+										ss << "§6 | §eFirst login§6: §a" << first_relative;
+										pl->message (ss.str ());
+										ss.clear (); ss.str (std::string ());
+										ss << "§6   - (§b" << out << "§6)";
+										pl->message (ss.str ());
+										ss.clear (); ss.str (std::string ());
 					
-								std::string last_relative;
-								utils::relative_time (now, pd.last_login, last_relative);
-								std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_last);
-								ss << "§6 | §eLast login§6: §a" << last_relative;
-								pl->message (ss.str ());
-								ss.clear (); ss.str (std::string ());
-								ss << "§6   - (§b" << out << "§6)";
-								pl->message (ss.str ());
-								ss.clear (); ss.str (std::string ());
+										std::string last_relative;
+										utils::relative_time (now, pd.last_login, last_relative);
+										std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_last);
+										ss << "§6 | §eLast login§6: §a" << last_relative;
+										pl->message (ss.str ());
+										ss.clear (); ss.str (std::string ());
+										ss << "§6   - (§b" << out << "§6)";
+										pl->message (ss.str ());
+										ss.clear (); ss.str (std::string ());
+									}
 					
 								ss << "§6 | §eLogin count§6: §b" << pd.login_count;
 								pl->message (ss.str ());
 								ss.clear (); ss.str (std::string ());
 							}
+						
+						if (pd.banned)
+							pl->message ("§6 | §eStatus§6: §4Banned");
 						
 						if (sect3)
 							pl->message ("§6 -");

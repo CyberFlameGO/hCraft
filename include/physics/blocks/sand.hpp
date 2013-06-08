@@ -16,25 +16,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS__WATER_H_
-#define _hCraft__PHYSICS__WATER_H_
+#ifndef _hCraft__PHYSICS__SAND_H_
+#define _hCraft__PHYSICS__SAND_H_
 
-#include "physics.hpp"
+#include "physics/blocks/physics_block.hpp"
 
 
 namespace hCraft {
 	
 	namespace physics {
 		
-		class water: public physics_block
+		class sand: public physics_block
 		{
 		public:
-			virtual int  id () override { return 8; }
-			virtual int  vanilla_id () override { return 8; }
-			virtual int  tick_rate () override { return 5; }
+			virtual int  id () override { return 12; }
+			virtual int  vanilla_id () override { return 12; }
+			virtual int  tick_rate () override { return 3; }
+			virtual bool affected_by_neighbours () { return true; }
 		
 			virtual void tick (world &w, int x, int y, int z, int extra,
 				void *ptr, std::minstd_rand& rnd) override;
+			virtual void on_neighbour_modified (world &w, int x, int y, int z,
+				int nx, int ny, int nz) override;
 		};
 	}
 }

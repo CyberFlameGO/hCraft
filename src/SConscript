@@ -15,8 +15,6 @@ hCraft_sources = Split("""
 		stringutils.cpp
 		wordwrap.cpp
 		threadpool.cpp
-		worldprovider.cpp
-		hwprovider.cpp
 		utils.cpp
 		rank.cpp
 		permissions.cpp
@@ -28,13 +26,15 @@ hCraft_sources = Split("""
 		sql.cpp
 		lighting.cpp
 		manual.cpp
-		block_physics.cpp
 		pickup.cpp
 		crafting.cpp
 		editstage.cpp
 		drawops.cpp
 		sqlops.cpp
 		authentication.cpp
+		
+		providers/worldprovider.cpp
+		providers/hwprovider.cpp
 		
 		generation/worldgenerator.cpp
 		generation/flatgrass.cpp
@@ -71,15 +71,17 @@ hCraft_sources = Split("""
 		commands/money.cpp
 		commands/kick.cpp
 		commands/ban.cpp
+		commands/unban.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp
 		selection/sphere_selection.cpp
 		
-		physics/sand.cpp
-		physics/langtons_ant.cpp
-		physics/water.cpp
-		physics/snow.cpp
+		physics/physics.cpp
+		physics/blocks/sand.cpp
+		physics/blocks/langtons_ant.cpp
+		physics/blocks/water.cpp
+		physics/blocks/snow.cpp
 		""")
 
 hCraft_libs = Split("""

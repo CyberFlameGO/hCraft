@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "worldc.hpp"
-#include "../server.hpp"
-#include "../player.hpp"
-#include "../world.hpp"
+#include "commands/worldc.hpp"
+#include "server.hpp"
+#include "player.hpp"
+#include "world.hpp"
 #include <string>
 #include <sstream>
 

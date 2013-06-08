@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "physics/langtons_ant.hpp"
+#include "physics/blocks/langtons_ant.hpp"
 #include "world.hpp"
 #include "utils.hpp"
 

@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "miscc.hpp"
-#include "../server.hpp"
-#include "../player.hpp"
+#include "commands/miscc.hpp"
+#include "server.hpp"
+#include "player.hpp"
 #include <sstream>
 
 

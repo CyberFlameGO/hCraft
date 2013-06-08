@@ -739,6 +739,13 @@ namespace hCraft {
 				"`reason` TEXT, "
 				"`ban_time` INTEGER); "
 			
+			"CREATE TABLE IF NOT EXISTS `unbans` ("
+				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+				"`target` TEXT COLLATE NOCASE, "
+				"`unbanner` TEXT COLLATE NOCASE, "
+				"`reason` TEXT, "
+				"`unban_time` INTEGER); "
+			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
 		
 		
@@ -862,6 +869,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "money");
 		_add_command (this->perms, this->commands, "kick");
 		_add_command (this->perms, this->commands, "ban");
+		_add_command (this->perms, this->commands, "unban");
 	}
 	
 	void
@@ -954,6 +962,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.chat.nick");
+		grp_executive->add ("command.admin.unban");
 		grp_executive->text_color = '7';
 		
 		group* grp_owner = groups.add (9, "owner");

@@ -31,10 +31,10 @@
 #include <iostream> // DEBUG
 
 // physics:
-#include "physics/sand.hpp"
-#include "physics/langtons_ant.hpp"
-#include "physics/water.hpp"
-#include "physics/snow.hpp"
+#include "physics/blocks/sand.hpp"
+#include "physics/blocks/langtons_ant.hpp"
+#include "physics/blocks/water.hpp"
+#include "physics/blocks/snow.hpp"
 
 
 namespace hCraft {
@@ -190,18 +190,14 @@ namespace hCraft {
 			{
 				++ this->ticks;
 				{
-					//std::cout << "a" << std::flush;
 					std::lock_guard<std::mutex> guard {this->update_lock};
-					//std::cout << "b" << std::flush;
 					
 					/* 
 					 * Block updates.
 					 */
 					if (!this->updates.empty ())
 						{
-							//std::cout << "c" << std::flush;
 							std::lock_guard<std::mutex> lm_guard {this->lm.get_lock ()};
-							//std::cout << "d" << std::flush;
 							
 							std::vector<player *> pl_vc;
 							this->get_players ().populate (pl_vc);
@@ -209,19 +205,16 @@ namespace hCraft {
 							update_count = 0;
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
 								{
-								//	std::cout << "e" << std::flush;
 									block_update &u = this->updates.front ();
 									
-								//	std::cout << "A" << std::flush;
 									block_data old_bd = this->get_block (u.x, u.y, u.z);
 									if (old_bd.id == u.id && old_bd.meta == u.meta)
 										{
 											// nothing modified
-										//	std::cout << "Q" << std::flush;
 											this->updates.pop_front ();
 											continue;
 										}
-								//	std::cout << "B" << std::flush;
+									
 									block_info *old_inf = block_info::from_id (old_bd.id);
 									block_info *new_inf = block_info::from_id (u.id);
 							
@@ -229,7 +222,7 @@ namespace hCraft {
 										if (u.id < this->phblocks.size ())
 											ph = this->phblocks[u.id].get ();
 									}
-									//std::cout << "C" << std::flush;
+									
 									if (((this->width > 0) && ((u.x >= this->width) || (u.x < 0))) ||
 										((this->depth > 0) && ((u.z >= this->depth) || (u.z < 0))) ||
 										((u.y < 0) || (u.y > 255)))
@@ -237,7 +230,7 @@ namespace hCraft {
 											this->updates.pop_front ();
 											continue;
 										}
-									//std::cout << "D" << std::flush;
+									
 									if ((this->get_id (u.x, u.y, u.z) == u.id) &&
 											(this->get_meta (u.x, u.y, u.z) == u.meta))
 										{
@@ -247,24 +240,22 @@ namespace hCraft {
 									
 									unsigned short old_id = this->get_id (u.x, u.y, u.z);
 									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
-									//std::cout << "E" << std::flush;
 									this->set_id_and_meta (u.x, u.y, u.z, u.id, u.meta);
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
 										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
-									//std::cout << "F" << std::flush;
+									
 									// update players
 									pl_tr.set (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
-									//std::cout << "G" << std::flush;
+									
 									if (ch)
 										{
-											//std::cout << "H" << std::flush;
 											if (auto_lighting)
 												{
 													this->lm.enqueue_nolock (u.x, u.y, u.z);
 												}
-											//std::cout << "I" << std::flush;
+											
 											// physics
 											if (u.physics && ph)
 												{
@@ -278,7 +269,7 @@ namespace hCraft {
 													this->queue_physics (u.x, u.y, u.z, u.extra, u.ptr,
 														ph->tick_rate ());
 												}
-											//std::cout << "J" << std::flush;
+											
 											// check neighbouring blocks
 											{
 												physics_block *nph;
@@ -301,66 +292,23 @@ namespace hCraft {
 																	}
 															}
 											}
-											//std::cout << "K" << std::flush;
 										}
 									
 									this->updates.pop_front ();
-								//	std::cout << "f" << std::flush;
 								}
 							
 							// send updates to players
-							//std::cout << "g" << std::flush;
 							pl_tr.preview (pl_vc);
 							pl_tr.clear ();
-							//std::cout << "h" << std::flush;
 						}
 					
 				} // release of update lock
-					
-				//std::cout << "i" << std::flush;
+				
 				/* 
 				 * Lighting updates.
 				 */
 				this->lm.update (light_update_cap);
-				//std::cout << "j" << std::flush;
 				
-				/* 
-				 * Entities
-				 */
-				{
-					std::lock_guard<std::mutex> lock ((this->entity_lock));
-					for (auto itr = this->entities.begin (); itr != this->entities.end (); )
-						{
-							entity *e = *itr;
-							if (e->tick (*this))
-								itr = this->despawn_entity_nolock (itr);
-							else
-								++ itr;
-						}
-				}
-				
-				/* 
-				 * Players
-				 */
-				{
-					// NOTE: a world tick is 5ms!
-					
-					if ((this->ticks % 10) == 0)
-						{
-							std::vector<player *> players;
-							this->get_players ().populate (players);
-							for (player *pl : players)
-								pl->tick (*this);
-					
-							// update time (every 4 seconds)
-							// NOTE: a 'world tick' = 5 milliseconds
-							if ((this->ticks % 800) == 0)
-								for (player *pl : players)
-									pl->send (packet::make_time_update (this->ticks / 10, this->ticks / 10));
-						}
-				}
-				
-				//std::cout << "k" << std::flush;
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
 			}
 	}
@@ -724,6 +672,9 @@ namespace hCraft {
 		
 		ch->add_entity (e);
 		e->spawn_time = std::chrono::steady_clock::now ();
+		
+		// physics
+		this->srv.global_physics.queue_physics (this, e);
 		
 		// spawn entity to players
 		chunk_pos cpos = e->pos;

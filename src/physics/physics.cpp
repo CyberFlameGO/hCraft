@@ -16,10 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "block_physics.hpp"
+#include "physics/physics.hpp"
 #include "physics/physics.hpp"
 #include "world.hpp"
 #include "utils.hpp"
+#include "entity.hpp"
+#include "player.hpp"
 #include <functional>
 #include <cstring>
 
@@ -28,6 +30,34 @@
 
 namespace hCraft {
 	
+	physics_update::physics_update (world *w, int x, int y, int z, int extra, int tick,
+		std::chrono::steady_clock::time_point nt)
+		: params (), nt (nt)
+	{
+		this->type = PU_BLOCK;
+		
+		this->w = w;
+		this->data.blk.x = x;
+		this->data.blk.y = y;
+		this->data.blk.z = z;
+		this->data.blk.extra = extra;
+		this->tick = tick;
+	}
+	
+	physics_update::physics_update (world *w, entity *e, bool persistent,
+		int tick, std::chrono::steady_clock::time_point nt)
+		: params (), nt (nt)
+	{
+		this->type = PU_ENTITY;
+		
+		this->w = w;
+		this->data.ent.e = e;
+		this->data.ent.persistent = persistent;
+		this->tick = tick;
+	}
+		
+		
+		
 	physics_params::physics_params ()
 	{
 		this->actions[0].type = PA_NONE;
@@ -45,18 +75,18 @@ namespace hCraft {
 	/* 
 	 * Constructs and starts the worker thread.
 	 */
-	block_physics_worker::block_physics_worker (block_physics_manager &man)
+	physics_worker::physics_worker (physics_manager &man)
 		: paused (false), ticks (0), man (man),
 			rnd (utils::ns_since_epoch ()), _running (true),
 		
 			// and finally, the thread:
-			th (std::bind (std::mem_fn (&hCraft::block_physics_worker::main_loop), this))
+			th (std::bind (std::mem_fn (&hCraft::physics_worker::main_loop), this))
 		{ }
 	
 	/* 
 	 * Destructor - stops the worker thread.
 	 */
-	block_physics_worker::~block_physics_worker ()
+	physics_worker::~physics_worker ()
 	{
 		this->_running = false;
 		if (this->th.joinable ())
@@ -64,7 +94,7 @@ namespace hCraft {
 	}
 	
 	
-	block_physics_manager::~block_physics_manager ()
+	physics_manager::~physics_manager ()
 	{
 		this->updates.clear ();
 		this->workers.clear ();
@@ -78,7 +108,7 @@ namespace hCraft {
 		std::uniform_int_distribution<> dis (0, act.val);
 		if (dis (rnd) == 0)
 			{
-				u.w->queue_update (u.x, u.y, u.z, BT_AIR);
+				u.w->queue_update (u.data.blk.x, u.data.blk.y, u.data.blk.z, BT_AIR);
 				return false;
 			}
 		
@@ -86,7 +116,7 @@ namespace hCraft {
 	}
 	
 	static bool
-	handle_params (physics_update& u, block_physics_manager &man, std::minstd_rand& rnd)
+	handle_params (physics_update& u, physics_manager &man, std::minstd_rand& rnd)
 	{
 		bool expire = true;
 		
@@ -133,7 +163,7 @@ namespace hCraft {
 	 * Where everything happens.
 	 */
 	void
-	block_physics_worker::main_loop ()
+	physics_worker::main_loop ()
 	{
 		physics_update u {};
 		const static int updates_per_tick = 8000;
@@ -169,12 +199,37 @@ namespace hCraft {
 								continue;
 							}
 						
+						// parameters
 						if (!handle_params (u, this->man, this->rnd))
 							continue;
-						this->man.remove_block (u.w, u.x, u.y, u.z);
-						physics_block *pb = (u.w)->get_physics_at (u.x, u.y, u.z);
-						if (pb)
-							pb->tick (*u.w, u.x, u.y, u.z, u.extra, nullptr, rnd);
+						
+						if (u.type == PU_BLOCK)
+							{
+								auto blk = u.data.blk;
+								this->man.remove_block (u.w, blk.x, blk.y, blk.z);
+								physics_block *pb = (u.w)->get_physics_at (blk.x, blk.y, blk.z);
+								if (pb)
+									pb->tick (*u.w, blk.x, blk.y, blk.z, blk.extra, nullptr, rnd);
+							}
+						else if (u.type == PU_ENTITY)
+							{
+								auto ent = u.data.ent;
+								
+								if (ent.e->get_type () == ET_PLAYER)
+									{
+										player *pl = dynamic_cast<player *> (ent.e);
+										if (pl->get_world () != u.w)
+											continue;
+									}
+								
+								if (!ent.e->tick (*u.w) && ent.persistent)
+									{
+										// requeue
+										physics_update nu = u;
+										nu.nt = std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * nu.tick);
+										man.updates.push (nu);
+									}
+							}
 					}
 			}
 	}
@@ -182,7 +237,7 @@ namespace hCraft {
 	
 	
 	bool
-	block_physics_manager::block_exists_nolock (world *w, int x, int y, int z)
+	physics_manager::block_exists_nolock (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return false;
 		
@@ -203,7 +258,7 @@ namespace hCraft {
 	}
 	
 	void
-	block_physics_manager::add_block_nolock (world *w, int x, int y, int z)
+	physics_manager::add_block_nolock (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		
@@ -223,21 +278,21 @@ namespace hCraft {
 	
 		
 	bool
-	block_physics_manager::block_exists (world *w, int x, int y, int z)
+	physics_manager::block_exists (world *w, int x, int y, int z)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		return this->block_exists_nolock (w, x, y, z);
 	}
 	
 	void
-	block_physics_manager::add_block (world *w, int x, int y, int z)
+	physics_manager::add_block (world *w, int x, int y, int z)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		this->add_block_nolock (w, x, y, z);
 	}
 	
 	void
-	block_physics_manager::remove_block (world *w, int x, int y, int z)
+	physics_manager::remove_block (world *w, int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
 		std::lock_guard<std::mutex> guard {this->lock};
@@ -269,7 +324,7 @@ namespace hCraft {
 	 * Changes the number of worker threads to utilize.
 	 */
 	void
-	block_physics_manager::set_thread_count (unsigned int count)
+	physics_manager::set_thread_count (unsigned int count)
 	{
 		if (count > 20) count = 20;
 		std::lock_guard<std::mutex> guard {this->lock};
@@ -280,7 +335,7 @@ namespace hCraft {
 		if (count > this->workers.size ())
 			{
 				while (this->workers.size () < count)
-					this->workers.emplace_back (new block_physics_worker (*this));
+					this->workers.emplace_back (new physics_worker (*this));
 				return;
 			}
 		
@@ -299,7 +354,7 @@ namespace hCraft {
 	 * Queues an update to be processed by one of the workers:
 	 */
 	void
-	block_physics_manager::queue_physics (world *w, int x, int y, int z,
+	physics_manager::queue_physics (world *w, int x, int y, int z,
 		int extra, int tick_delay, physics_params *params)
 	{
 		if (tick_delay == 0) tick_delay = 1;
@@ -326,7 +381,7 @@ namespace hCraft {
 	 * already exist.
 	 */
 	void
-	block_physics_manager::queue_physics_once (world *w, int x, int y, int z,
+	physics_manager::queue_physics_once (world *w, int x, int y, int z,
 		int extra, int tick_delay, physics_params *params)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
@@ -338,6 +393,32 @@ namespace hCraft {
 		
 		this->add_block_nolock (w, x, y, z);
 		physics_update u (w, x, y, z, extra, tick_delay,
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
+		if (params)
+			for (int i = 0; i < 8; ++i)
+				{
+					u.params.actions[i] = params->actions[i];
+					if (params->actions[i].type == PA_NONE)
+						break;
+				}
+		
+		this->updates.push (u);
+	}
+	
+	
+	/* 
+	 * Queues an entity update.
+	 */
+	void
+	physics_manager::queue_physics (world *w, entity *e, bool persistent,
+		int tick_delay, physics_params *params)
+	{
+		if (tick_delay == 0) tick_delay = 1;
+		-- tick_delay;
+		
+		std::lock_guard<std::mutex> guard {this->lock};
+		
+		physics_update u (w, e, persistent, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
 		if (params)
 			for (int i = 0; i < 8; ++i)

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "hwprovider.hpp"
+#include "providers/hwprovider.hpp"
 #include "world.hpp"
 #include "chunk.hpp"
 #include <iostream>
@@ -267,6 +267,9 @@ namespace hCraft {
 		if (this->out_path[this->out_path.size () - 1] != '/')
 			this->out_path.push_back ('/');
 		this->out_path.append (hw_provider_naming ().make_name (world_name));
+		
+		for (int i = 0; i < 4096; ++i)
+			this->sblocks[i] = nullptr;
 		
 		// read tables if the world file already exists
 		{

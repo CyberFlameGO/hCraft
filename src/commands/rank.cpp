@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "adminc.hpp"
+#include "commands/adminc.hpp"
 #include "player.hpp"
 #include "server.hpp"
 #include "sqlops.hpp"

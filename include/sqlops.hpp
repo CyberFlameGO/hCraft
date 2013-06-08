@@ -101,9 +101,14 @@ namespace hCraft {
 		 */
 		static void record_kick (sql::connection& conn, const char *target,
 			const char *kicker, const char *reason);
+		
 		static void record_ban (sql::connection& conn, const char *target,
-			const char *kicker, const char *reason);
+			const char *banner, const char *reason);
+		static void record_unban (sql::connection& conn, const char *target,
+			const char *unbanner, const char *reason);
+		
 		static void modify_ban_status (sql::connection& conn, const char *username, bool ban);
+		static bool is_banned (sql::connection& conn, const char *username);
 		
 		
 		/* 
