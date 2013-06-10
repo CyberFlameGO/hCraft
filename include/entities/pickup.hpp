@@ -19,7 +19,7 @@
 #ifndef _hCraft__PICKUP_H_
 #define _hCraft__PICKUP_H_
 
-#include "entity.hpp"
+#include "entities/entity.hpp"
 #include "slot.hpp"
 
 
@@ -28,7 +28,7 @@ namespace hCraft {
 	/* 
 	 * Represents a floating inventory item.
 	 */
-	class pickup_item: public entity
+	class e_pickup: public entity
 	{
 		slot_item data;
 		bool valid;
@@ -37,7 +37,7 @@ namespace hCraft {
 		/* 
 		 * Class constructor.
 		 */
-		pickup_item (int eid, const slot_item& item);
+		e_pickup (int eid, const slot_item& item);
 		
 		/* 
 		 * Returns the type of this entity.

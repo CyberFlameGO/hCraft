@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "entity.hpp"
+#include "entities/entity.hpp"
 #include "player.hpp"
 #include <cstring>
 
@@ -192,7 +192,7 @@ namespace hCraft {
 	
 //----
 
-	living::living (int eid)
+	living_entity::living_entity (int eid)
 		: entity (eid)
 		{ }
 	
@@ -202,7 +202,7 @@ namespace hCraft {
 	 * Modifies the entity's health.
 	 */
 	void
-	living::set_health (int hearts, int hunger, float hunger_saturation)
+	living_entity::set_health (int hearts, int hunger, float hunger_saturation)
 	{
 		this->hearts = hearts;
 		this->hunger = hunger;
@@ -210,7 +210,7 @@ namespace hCraft {
 	}
 	
 	void
-	living::set_hearts (int hearts)
+	living_entity::set_hearts (int hearts)
 	{
 		if (hearts < this->hearts)
 			{
@@ -221,7 +221,7 @@ namespace hCraft {
 	}
 	
 	void
-	living::set_hunger (int hunger)
+	living_entity::set_hunger (int hunger)
 	{
 		if (this->hunger_saturation > hunger)
 			this->hunger_saturation = hunger;
@@ -229,13 +229,13 @@ namespace hCraft {
 	}
 	
 	void
-	living::set_hunger_saturation (float hunger_saturation)
+	living_entity::set_hunger_saturation (float hunger_saturation)
 	{
 		this->set_health (this->hearts, this->hunger, hunger_saturation);
 	}
 	
 	void
-	living::increment_exhaustion (float val)
+	living_entity::increment_exhaustion (float val)
 	{
 		this->exhaustion += val;
 		if (this->exhaustion >= 4.0)

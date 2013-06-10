@@ -136,7 +136,9 @@ namespace hCraft {
 	enum entity_type
 	{
 		ET_PLAYER,
-		ET_MOB,
+		
+		ET_PIG,
+		
 		ET_BOAT,
 		ET_MINECART,
 		ET_ITEM,
@@ -237,7 +239,7 @@ namespace hCraft {
 	/* 
 	 * Anything that has a health bar, basically.
 	 */
-	class living: public entity
+	class living_entity: public entity
 	{
 	protected:
 		int hearts; // 1 = half a heart
@@ -252,7 +254,7 @@ namespace hCraft {
 		inline bool is_dead () { return this->hearts <= 0; }
 		
 	public:
-		living (int eid);
+		living_entity (int eid);
 		
 
 		

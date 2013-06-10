@@ -72,7 +72,8 @@ namespace hCraft {
 		};
 		
 		
-		/* /rank
+		/* 
+	 	 * /rank
 		 * 
 		 * Changes the rank of a specified player.
 		 * 
@@ -118,7 +119,8 @@ namespace hCraft {
 		};
 		
 		
-		/* /kick
+		/*
+		 * /kick
 		 * 
 		 * Kicks a player from the server.
 		 * 
@@ -162,7 +164,8 @@ namespace hCraft {
 		};
 		
 		
-		/* /ban
+		/*
+		 * /ban
 		 * 
 		 * Permanently bans a player from the server.
 		 * 
@@ -184,7 +187,7 @@ namespace hCraft {
 			{ return
 				".TH BAN 1 \"/ban\" \"Revision 1\" \"PLAYER COMMANDS\" "
 				".SH NAME "
-					"kick - Permanently bans a player from the server. "
+					"ban - Permanently bans a player from the server. "
 					".PP "
 				".SH SYNOPSIS "
 					"$g/ban $yPLAYER $G[REASON] .LN "
@@ -206,7 +209,8 @@ namespace hCraft {
 		};
 		
 		
-		/* /unban
+		/*
+		 * /unban
 		 * 
 		 * Revokes a permanent ban from a specified player.
 		 * 
@@ -228,11 +232,11 @@ namespace hCraft {
 			{ return
 				".TH UNBAN 1 \"/unban\" \"Revision 1\" \"PLAYER COMMANDS\" "
 				".SH NAME "
-					"kick - Permanently bans a player from the server. "
+					"unban - Revokes a permanent ban from a specified player. "
 					".PP "
 				".SH SYNOPSIS "
-					"$g/ban $yPLAYER $G[REASON] .LN "
-					"$g/ban $yOPTION "
+					"$g/unban $yPLAYER $G[REASON] .LN "
+					"$g/unban $yOPTION "
 					".PP "
 				".SH DESCRIPTION "
 					"Removes the ban placed on player PLAYER, and logs the optional reason "
@@ -245,6 +249,90 @@ namespace hCraft {
 				;}
 			
 			const char* get_exec_permission () { return "command.admin.unban"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/*
+		 * /mute
+		 * 
+		 * Mutes a player for a specified amount of time.
+		 * 
+		 * Permissions:
+		 *   - command.admin.mute
+		 *       Needed to execute the command.
+		 */
+		class c_mute: public command
+		{
+		public:
+			const char* get_name () { return "mute"; }
+			
+			const char*
+			get_summary ()
+				{ return "Mutes a player for a specified amount of time."; }
+			
+			const char*
+			get_help ()
+			{ return
+				".TH MUTE 1 \"/mute\" \"Revision 1\" \"PLAYER COMMANDS\" "
+				".SH NAME "
+					"mute - Mutes a player for a specified amount of time. "
+					".PP "
+				".SH SYNOPSIS "
+					"$g/mute $yPLAYER TIME $G[REASON] .LN "
+					"$g/mute $yOPTION "
+					".PP "
+				".SH DESCRIPTION "
+					"Mutes the player PLAYER for the given amount of time TIME. The format "
+					"of TIME should consist of a number followed by an appropriate unit "
+					"of time (s - seconds, m - minutes and h - hours) (NOTE: If the time "
+					"unit is omitted, it is assumed to be in minutes). If OPTION is specified, "
+					"then the action taken will be as follows: "
+					".PP "
+					"$G\\\\help \\h $gDisplay help "
+					".PP "
+					"$G\\\\summary \\s $gDisplay a short description "
+					".PP "
+				".SH EXAMPLES "
+					"/mute testdude 10m .LN "
+					"/mute testdude2 25s Stop talking .LN "
+					"/mute testdude3 "
+				;}
+			
+			const char* get_exec_permission () { return "command.admin.mute"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		/*
+		 * /unmute
+		 * 
+		 * Unmutes a player.
+		 * 
+		 * Permissions:
+		 *   - command.admin.unmute
+		 *       Needed to execute the command.
+		 */
+		class c_unmute: public command
+		{
+		public:
+			const char* get_name () { return "unmute"; }
+			
+			const char*
+			get_summary ()
+				{ return "Unmutes a player."; }
+			
+			const char*
+			get_help ()
+			{ return
+				""
+				;}
+			
+			const char* get_exec_permission () { return "command.admin.unmute"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

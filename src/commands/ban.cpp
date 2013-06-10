@@ -38,11 +38,11 @@ namespace hCraft {
 		c_ban::execute (player *pl, command_reader& reader)
 		{
 			if (!pl->perm (this->get_exec_permission ()))
-					return;
+				return;
 			
 			reader.add_option ("message", "m", 1, 1);
 			if (!reader.parse (this, pl))
-					return;
+				return;
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }
 			

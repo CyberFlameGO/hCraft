@@ -60,6 +60,7 @@ namespace hCraft {
 	static command* create_c_world () { return new commands::c_world (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
+	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
@@ -80,6 +81,8 @@ namespace hCraft {
 	static command* create_c_kick () { return new commands::c_kick (); }
 	static command* create_c_ban () { return new commands::c_ban (); }
 	static command* create_c_unban () { return new commands::c_unban (); }
+	static command* create_c_mute () { return new commands::c_mute (); }
+	static command* create_c_unmute () { return new commands::c_unmute (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -116,6 +119,9 @@ namespace hCraft {
 			{ "kick", create_c_kick },
 			{ "ban", create_c_ban },
 			{ "unban", create_c_unban },
+			{ "mute", create_c_mute },
+			{ "wsetspawn", create_c_wsetspawn },
+			{ "unmute", create_c_unmute },
 			};
 		
 		auto itr = creators.find (name);

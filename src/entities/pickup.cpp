@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "pickup.hpp"
+#include "entities/pickup.hpp"
 #include "player.hpp"
 #include "server.hpp"
 #include <vector>
@@ -30,7 +30,7 @@ namespace hCraft {
 	/* 
 	 * Class constructor.
 	 */
-	pickup_item::pickup_item (int eid, const slot_item& item)
+	e_pickup::e_pickup (int eid, const slot_item& item)
 		: entity (eid),
 			data (item)
 	{
@@ -42,7 +42,7 @@ namespace hCraft {
 	 * Constructs metdata records according to the entity's type.
 	 */
 	void
-	pickup_item::build_metadata (entity_metadata& dict) 
+	e_pickup::build_metadata (entity_metadata& dict) 
 	{
 		entity::build_metadata (dict);
 		
@@ -57,7 +57,7 @@ namespace hCraft {
 	 * Spawns the entity to the specified player.
 	 */
 	void
-	pickup_item::spawn_to (player *pl)
+	e_pickup::spawn_to (player *pl)
 	{
 		pl->send (
 			packet::make_spawn_object (this->eid, 2, this->pos.x, this->pos.y,
@@ -76,10 +76,10 @@ namespace hCraft {
 	 * collected by a player. This method checks if enough time has passed.
 	 */
 	bool
-	pickup_item::pickable ()
+	e_pickup::pickable ()
 	{
 		return ((std::chrono::steady_clock::now () - this->spawn_time)
-			>= std::chrono::milliseconds (500));
+			>= std::chrono::milliseconds (500)) && (this->data.amount () > 0);
 	}
 	
 	
@@ -97,7 +97,7 @@ namespace hCraft {
 	 * A return value of true will cause the world to destroy the entity.
 	 */
 	bool
-	pickup_item::tick (world &w)
+	e_pickup::tick (world &w)
 	{
 		if (!valid)
 			return false;
@@ -115,7 +115,7 @@ namespace hCraft {
 		// fetch closest player
 		std::pair<player *, double> closest;
 		int i = 0;
-		pickup_item *me = this;
+		e_pickup *me = this;
 		w.get_players ().all (
 			[&i, me, &closest] (player *pl)
 				{
@@ -140,13 +140,14 @@ namespace hCraft {
 		if (!pl) return false;
 		
 		int r = pl->inv.add (this->data);
-		if (r < this->data.amount ())
+		if (r == 0)
 			{
 				pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
-				pl->send (packet::make_named_sound_effect ("random.pop",
-					this->pos.x, this->pos.y, this->pos.z, 0.2f, 98));
 			}
+		
 		this->data.set_amount (r);
+		pl->send (packet::make_named_sound_effect ("random.pop",
+			this->pos.x, this->pos.y, this->pos.z, 0.2f, 98));
 		
 		if (this->data.empty ())
 			{

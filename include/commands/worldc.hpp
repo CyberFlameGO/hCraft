@@ -268,6 +268,38 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /wsetspawn -
+		 * 
+		 * Changes a world's default spawn position.
+		 * 
+		 * Permissions:
+		 *   - command.world.wsetspawn
+		 *       Needed to execute the command.
+		 */
+		class c_wsetspawn: public command
+		{
+		public:
+			const char* get_name () { return "wsetspawn"; }
+			
+			const char*
+			get_summary ()
+				{ return "Changes a world's default spawn position."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.wsetspawn"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

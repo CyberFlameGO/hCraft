@@ -18,7 +18,7 @@
 
 #include "packet.hpp"
 #include "chunk.hpp"
-#include "entity.hpp"
+#include "entities/entity.hpp"
 #include "utils.hpp"
 #include "nbt.hpp"
 #include "player.hpp"
@@ -987,7 +987,7 @@ namespace hCraft {
 	
 	packet*
 	packet::make_spawn_object (int eid, char type, double x, double y, double z,
-		float yaw, float pitch, int data, short speed_x, short speed_y,
+		float r, float l, int data, short speed_x, short speed_y,
 		short speed_z)
 	{
 		packet* pack = new packet ((data == 0) ? 24 : 30);
@@ -998,8 +998,8 @@ namespace hCraft {
 		pack->put_int ((int)(x * 32.0));
 		pack->put_int ((int)(y * 32.0));
 		pack->put_int ((int)(z * 32.0));
-		pack->put_byte (utils::int_rot (yaw));
-		pack->put_byte (utils::int_rot (pitch));
+		pack->put_byte (utils::int_rot (r));
+		pack->put_byte (utils::int_rot (l));
 		pack->put_int (data);
 		if (data != 0)
 			{
@@ -1007,6 +1007,30 @@ namespace hCraft {
 				pack->put_short (speed_y);
 				pack->put_short (speed_z);
 			}
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_spawn_mob (int eid, char type, double x, double y,
+		double z, float r, float l, float hl, short vx, short vy,
+		short vz, entity_metadata& meta)
+	{
+		packet *pack = new packet (27 + entity_metadata_size (meta));
+		
+		pack->put_byte (0x18);
+		pack->put_int (eid);
+		pack->put_byte (type);
+		pack->put_int ((int)(x * 32.0));
+		pack->put_int ((int)(y * 32.0));
+		pack->put_int ((int)(z * 32.0));
+		pack->put_byte (utils::int_rot (l));
+		pack->put_byte (utils::int_rot (hl));
+		pack->put_byte (utils::int_rot (r));
+		pack->put_short (vx);
+		pack->put_short (vy);
+		pack->put_short (vz);
+		encode_entity_metadata (pack, meta);
 		
 		return pack;
 	}

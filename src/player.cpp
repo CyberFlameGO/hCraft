@@ -23,7 +23,7 @@
 #include "commands/command.hpp"
 #include "utils.hpp"
 #include "sql.hpp"
-#include "pickup.hpp"
+#include "entities/pickup.hpp"
 
 #include <ctime>
 #include <memory>
@@ -44,6 +44,8 @@
 #include <cryptopp/integer.h>
 #include <cryptopp/osrng.h>
 
+#include "entities/pig.hpp" // DEBUG
+
 
 namespace hCraft {
 	
@@ -52,7 +54,7 @@ namespace hCraft {
 	 */
 	player::player (server &srv, struct event_base *evbase, evutil_socket_t sock,
 		const char *ip)
-		: living (srv.next_entity_id ()),
+		: living_entity (srv.next_entity_id ()),
 			srv (srv), log (srv.get_logger ()), sock (sock)
 	{
 		std::strcpy (this->ip, ip);
@@ -1671,7 +1673,7 @@ namespace hCraft {
 					}
 			}
 		
-		living::set_health (hearts, hunger, hunger_saturation);
+		living_entity::set_health (hearts, hunger, hunger_saturation);
 	}
 	
 	
@@ -1729,7 +1731,7 @@ namespace hCraft {
 						slot_item s = this->inv.get (i);
 						if (!s.empty ())
 							{
-								pickup_item *pick = new pickup_item (this->srv.next_entity_id (), s);
+								e_pickup *pick = new e_pickup (this->srv.next_entity_id (), s);
 								pick->pos.set_pos (pos.x + dis (rnd), pos.y + dis (rnd), pos.z + dis (rnd));
 								this->get_world ()->spawn_entity (pick);
 							}
@@ -2111,6 +2113,12 @@ namespace hCraft {
 				return 0;
 			}
 		
+		if (pl->get_server ().is_player_muted (pl->get_username ()) && !pl->is_op ())
+			{
+				pl->message ("§cYou have been muted§4, §cstay quiet§4.");
+				return 0;
+			}
+		
 		// handle chat modes
 		if (msg[0] == '#')
 			{
@@ -2354,7 +2362,7 @@ namespace hCraft {
 						blocki drop = block_info::get_drop ({bd.id, bd.meta});
 						if (drop.id != BT_AIR && drop.valid ())
 							{
-								pickup_item *pick = new pickup_item (pl->srv.next_entity_id (),
+								e_pickup *pick = new e_pickup (pl->srv.next_entity_id (),
 								slot_item (drop.id, drop.meta, 1));
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
 								pl->get_world ()->spawn_entity (pick);
@@ -2462,7 +2470,7 @@ namespace hCraft {
 					pl->get_world ()->get_meta (nx, ny, nz)));
 				return 0;
 			}
-			
+		
 		if (pl->sb_exists (nx, ny, nz))
 			{
 				// modifying a selection block

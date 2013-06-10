@@ -7,7 +7,6 @@ hCraft_sources = Split("""
 		playerlist.cpp 
 		packet.cpp
 		scheduler.cpp
-		entity.cpp
 		position.cpp
 		chunk.cpp
 		world.cpp
@@ -26,12 +25,15 @@ hCraft_sources = Split("""
 		sql.cpp
 		lighting.cpp
 		manual.cpp
-		pickup.cpp
 		crafting.cpp
 		editstage.cpp
 		drawops.cpp
 		sqlops.cpp
 		authentication.cpp
+		
+		entities/entity.cpp
+		entities/pickup.cpp
+		entities/pig.cpp
 		
 		providers/worldprovider.cpp
 		providers/hwprovider.cpp
@@ -72,6 +74,9 @@ hCraft_sources = Split("""
 		commands/kick.cpp
 		commands/ban.cpp
 		commands/unban.cpp
+		commands/mute.cpp
+		commands/wsetspawn.cpp
+		commands/unmute.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

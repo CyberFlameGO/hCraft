@@ -19,7 +19,7 @@
 #ifndef _hCraft__PLAYER_H_
 #define _hCraft__PLAYER_H_
 
-#include "entity.hpp"
+#include "entities/entity.hpp"
 #include "logger.hpp"
 #include "packet.hpp"
 #include "world.hpp"
@@ -97,7 +97,7 @@ namespace hCraft {
 	/* 
 	 * Represents a player.
 	 */
-	class player: public living
+	class player: public living_entity
 	{
 		friend class authenticator;
 		

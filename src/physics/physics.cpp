@@ -20,7 +20,7 @@
 #include "physics/physics.hpp"
 #include "world.hpp"
 #include "utils.hpp"
-#include "entity.hpp"
+#include "entities/entity.hpp"
 #include "player.hpp"
 #include <functional>
 #include <cstring>

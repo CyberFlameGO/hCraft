@@ -438,6 +438,79 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Player muting:
+	 */
+	
+	void
+	server::mute_player (const char* username, int secs)
+	{
+		std::lock_guard<std::mutex> guard {this->mute_lock};
+		
+		for (muted_player& m : this->muted)
+			if (std::strcmp (m.username, username) == 0)
+				return; // already muted
+		
+		muted_player m;
+		std::strcpy (m.username, username);
+		m.seconds = secs;
+		this->muted.push_back (m);
+	}
+
+	void
+	server::unmute_player (const char* username)
+	{
+		std::lock_guard<std::mutex> guard {this->mute_lock};
+		for (auto itr = this->muted.begin (); itr != this->muted.end (); ++itr)
+			if (std::strcmp (itr->username, username) == 0)
+				{
+					this->muted.erase (itr);
+					return;
+				}
+	}
+	
+	bool
+	server::is_player_muted (const char* username)
+	{
+		std::lock_guard<std::mutex> guard {this->mute_lock};
+		for (muted_player& m : this->muted)
+			if (std::strcmp (m.username, username) == 0)
+				return true;
+		return false;
+	}
+	
+	/* 
+	 * Removes players from the muted player list when their time is up.
+	 */
+	void
+	server::handle_muted (scheduler_task& task)
+	{
+		server &srv = *(static_cast<server *> (task.get_context ()));
+		if (!srv.is_running () || srv.is_shutting_down ())
+			return;
+		
+		if (srv.muted.empty ()) return;
+		
+		std::lock_guard<std::mutex> guard {srv.mute_lock};
+		for (auto itr = srv.muted.begin (); itr != srv.muted.end (); )
+			{
+				muted_player& m = *itr;
+				if ((-- m.seconds) <= 0)
+					{
+						player *pl = srv.get_players ().find (m.username);
+						if (pl)
+							pl->message ("§9You are no longer muted§3.");
+						itr = srv.muted.erase (itr);
+					}
+				else
+					{
+						++ itr;
+					}
+			}
+	}
+	
+	
+	
 /*******************************************************************************
 		
 		<init, destroy> pairs:
@@ -804,6 +877,9 @@ namespace hCraft {
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
 			.run_forever (10000);
 		
+		this->get_scheduler ().new_task (hCraft::server::handle_muted, this)
+			.run_forever (1000);
+		
 		// create pooled threads
 		this->tpool.start (6);
 	}
@@ -870,6 +946,9 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "kick");
 		_add_command (this->perms, this->commands, "ban");
 		_add_command (this->perms, this->commands, "unban");
+		_add_command (this->perms, this->commands, "mute");
+		_add_command (this->perms, this->commands, "wsetspawn");
+		_add_command (this->perms, this->commands, "unmute");
 	}
 	
 	void
@@ -940,6 +1019,8 @@ namespace hCraft {
 		grp_moderator->add ("command.misc.ping");
 		grp_moderator->add ("command.info.status.rank");
 		grp_moderator->add ("command.info.status.logins");
+		grp_moderator->add ("command.admin.mute");
+		grp_moderator->add ("command.admin.unmute");
 		
 		group* grp_admin = groups.add (7, "admin");
 		grp_admin->color = '4';
@@ -961,6 +1042,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wload");
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
+		grp_executive->add ("command.world.wsetspawn");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->text_color = '7';

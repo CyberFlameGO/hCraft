@@ -148,8 +148,12 @@ namespace hCraft {
 		static packet* make_collect_item (int collected_eid, int collector_eid);
 		
 		static packet* make_spawn_object (int eid, char type, double x, double y, double z,
-			float yaw, float pitch, int data, short speed_x, short speed_y,
+			float r, float l, int data, short speed_x, short speed_y,
 			short speed_z);
+		
+		static packet* make_spawn_mob (int eid, char type, double x, double y,
+			double z, float r, float l, float hl, short vx, short vy,
+			short vz, entity_metadata& meta);
 		
 		static packet* make_entity_velocity (int eid, short vx, short vy, short vz);
 		

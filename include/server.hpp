@@ -76,6 +76,11 @@ namespace hCraft {
 	};
 	
 	
+	struct muted_player {
+		char username[17];
+		int seconds;
+	};
+	
 	/* 
 	 * 
 	 */
@@ -167,6 +172,10 @@ namespace hCraft {
 		// encryption
 		CryptoPP::RSA::PrivateKey rsa_private;
 		std::string server_id;
+		
+		// muted players
+		std::vector<muted_player> muted;
+		std::mutex mute_lock;
 		
 	public:
 		physics_manager global_physics; // initially shared between all worlds
@@ -271,6 +280,11 @@ namespace hCraft {
 		 */
 		static void cleanup_players (scheduler_task& task);
 		
+		/* 
+		 * Removes players from the muted player list when their time is up.
+		 */
+		static void handle_muted (scheduler_task& task);
+		
 	public:
 		inline bool is_running () { return this->running; }
 		inline bool is_shutting_down () { return this->shutting_down; }
@@ -371,6 +385,15 @@ namespace hCraft {
 		 * destroyed.
 		 */
 		void schedule_destruction (player *pl);
+		
+		
+		
+		/* 
+		 * Player muting:
+		 */
+		void mute_player (const char* username, int secs);
+		void unmute_player (const char* username);
+		bool is_player_muted (const char* username);
 	};
 }
 
