@@ -31,6 +31,7 @@
 #include "rank.hpp"
 #include "sql.hpp"
 #include "authentication.hpp"
+#include "generator.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -180,6 +181,7 @@ namespace hCraft {
 	public:
 		physics_manager global_physics; // initially shared between all worlds
 		authenticator auth;
+		chunk_generator cgen;
 		
 	private:
 		// <init, destroy> functions:

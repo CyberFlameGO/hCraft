@@ -80,7 +80,7 @@ namespace hCraft {
 											this->gen_trees.generate (wr, (cx << 4) | x, y, (cz << 4) | z);
 										}
 								 	else if (dis (rnd) == 1)
-										out->set_id_and_meta (x, y, z, BT_TALL_GRASS, 1);
+										out->set_block (x, y, z, BT_TALL_GRASS, 1);
 								}
 						}
 					else

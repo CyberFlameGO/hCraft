@@ -68,7 +68,7 @@ namespace hCraft {
 		/*   
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) = 0;
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0, unsigned char ex = 0) = 0;
 		virtual blocki get (int x, int y, int z) = 0;
 		virtual void reset (int x, int y, int z) = 0;
 		
@@ -115,6 +115,7 @@ namespace hCraft {
 		// an array of both IDs and meta values packed together in 16-bit shorts.
 		// (id << 12) | meta
 		unsigned short data[512];
+		unsigned char  ex[512];
 		
 	//----
 		des_microchunk ();
@@ -165,7 +166,7 @@ namespace hCraft {
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0, unsigned char ex = 0) override;
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) override;
 		
@@ -205,7 +206,7 @@ namespace hCraft {
 	
 	struct ses_chunk
 	{
-		std::unordered_map<block_pos, unsigned short, block_pos_hash> changes;
+		std::unordered_map<block_pos, unsigned int, block_pos_hash> changes;
 	};
 	
 	
@@ -229,7 +230,7 @@ namespace hCraft {
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0, unsigned char ex = 0) override;
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) override;
 		
@@ -289,7 +290,7 @@ namespace hCraft {
 		/* 
 		 * Block modification \ retrieval:
 		 */
-		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0) override;
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0, unsigned char ex = 0) override;
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) { }
 	};

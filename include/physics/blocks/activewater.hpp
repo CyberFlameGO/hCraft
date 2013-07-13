@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS__LANGTONS_ANT_H_
-#define _hCraft__PHYSICS__LANGTONS_ANT_H_
+#ifndef _hCraft__PHYSICS__ACTIVEWATER_H_
+#define _hCraft__PHYSICS__ACTIVEWATER_H_
 
 #include "physics/blocks/physics_block.hpp"
 
@@ -26,13 +26,13 @@ namespace hCraft {
 	
 	namespace physics {
 		
-		class langtons_ant: public physics_block
+		class active_water: public physics_block
 		{
 		public:
-			virtual int  id () override { return 48; }
-			virtual int  vanilla_id () override { return 48; }
-			virtual const char* name () { return "langtons-ant"; }
-			virtual int  tick_rate () override { return 1; }
+			virtual int  id () override { return 2000; }
+			virtual int  vanilla_id () override { return 9; }
+			virtual const char* name () { return "activewater"; }
+			virtual int  tick_rate () override { return 5; }
 		
 			virtual void tick (world &w, int x, int y, int z, int extra,
 				void *ptr, std::minstd_rand& rnd) override;

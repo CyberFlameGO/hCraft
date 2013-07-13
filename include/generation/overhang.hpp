@@ -37,7 +37,7 @@ namespace hCraft {
 		std::minstd_rand rnd;
 		long gen_seed;
 		
-		noise::module::Perlin pn1, pn2, pn3, pn4, pn5;
+		noise::module::Perlin pn1, pn2, pn3, pn4, pn5, pn6;
 		noise::module::ScalePoint sp1;
 		noise::module::Const co1, co2;
 		noise::module::Multiply mu1;
@@ -46,6 +46,7 @@ namespace hCraft {
 		
 		noise::module::Perlin pn_sand, pn_foliage;
 		dgen::generic_trees gen_oak_trees, gen_birch_trees;
+		dgen::generic_trees gen_pine_trees;
 		dgen::palm_trees gen_palm_trees;
 		
 		/*

@@ -44,7 +44,7 @@
 #include <cryptopp/integer.h>
 #include <cryptopp/osrng.h>
 
-#include "entities/pig.hpp" // DEBUG
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -95,11 +95,16 @@ namespace hCraft {
 		this->last_tick = std::chrono::steady_clock::now ();
 		this->last_heart_regen = this->last_tick;
 		this->heal_delay = std::chrono::milliseconds (4000);
+		this->tick_counter = 0;
 		
+		this->curr_gamemode = GT_SURVIVAL;
 		this->curr_world = nullptr;
+		this->joining_world = false;
 		this->chcurr = chunk_pos (0, 0);
 		this->ping_waiting = false;
 		this->sb_block.set (BT_GLASS);
+		this->need_new_chunks = false;
+		this->streaming_chunks = false;
 		
 		this->curr_sel = nullptr;
 		this->last_ping = std::chrono::system_clock::now ();
@@ -236,6 +241,13 @@ namespace hCraft {
 				
 				tl = pl->total_read;
 				pl->total_read += n;
+				
+				//// DEBUG
+				//if (pl->total_read == 1)
+				//	{
+				//		pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
+				//	}
+				
 				if (pl->encrypted)
 					{
 						// decrypt data.
@@ -264,10 +276,19 @@ namespace hCraft {
 					{
 						if (pl->rdbuf[0] != 0x02 && pl->rdbuf[0] != 0xFE)
 							{
-								pl->log (LT_WARNING) << "Expected handshake from @" << pl->get_ip () << std::endl;
-								pl->reading = false; 
-								pl->disconnect ();
-								return;
+								if (pl->rdbuf[0] == 0xFA)
+									{
+										// plugin messages...
+										// TODO
+										
+									}
+								else
+									{
+										pl->log (LT_WARNING) << "Expected handshake from @" << pl->get_ip () << " (got " << (int)pl->rdbuf[0] << ")" << std::endl;
+										pl->reading = false; 
+										pl->disconnect ();
+										return;
+									}
 							}
 					}
 				
@@ -554,8 +575,12 @@ namespace hCraft {
 		if (this->bad ())
 			return;
 		
-		std::lock_guard<std::mutex> guard {this->join_lock};
-		bool had_prev_world = (this->curr_world != nullptr);
+		std::lock_guard<std::mutex> guard {this->world_lock};
+		bool had_prev_world = ((this->curr_world != w) && this->curr_world);
+		
+		// this is set to false once the player's home chunk is successfully sent,
+		// at stream_chunks ().
+		this->joining_world = true;
 		
 		// this will keep the player safe from fall damage right after spawning
 		this->fall_flag = true;
@@ -563,8 +588,10 @@ namespace hCraft {
 		// selection blocks
 		this->sb_updates.clear ();
 		this->sb_updates.set_world (w, true);
-		if (had_prev_world && (this->curr_world != w))
+		if (had_prev_world)
 			{
+				this->curr_world->get_players ().remove (this);
+				
 				// destroy selections
 				for (auto itr = this->selections.begin (); itr != this->selections.end (); ++itr)
 					{
@@ -572,39 +599,26 @@ namespace hCraft {
 						delete sel;
 					}
 				this->selections.clear ();
-			}
-		
-		/* 
-		 * Unload chunks from previous world.
-		 */
-		world *pw = this->curr_world;
-		if (pw)
-			{
-				// we first stop the player from moving.
-				entity_pos curr_pos = this->pos;
+				
+				// stop player from moving
+				entity_pos epos = destpos;
 				this->send (packet::make_player_pos_and_look (
-					curr_pos.x, curr_pos.y, curr_pos.z, curr_pos.y + 1.65, curr_pos.r,
-					curr_pos.l, true));
-				this->pos = curr_pos;
+					epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
 			}
 		
 		this->curr_world = w;
 		this->pos = destpos;
 		this->curr_world->get_players ().add (this);
-		
 		this->last_ground_height = -128.0;
-		this->stream_chunks (pw);
 		
-		entity_pos epos = destpos;
-		block_pos bpos = epos;
+		block_pos bpos = destpos;
 		this->send (packet::make_spawn_pos (bpos.x, bpos.y, bpos.z));
-		this->send (packet::make_player_pos_and_look (
-			epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
-		this->pos = epos;
+		
+		this->need_new_chunks = true;
 		
 		// start physics
 		this->srv.global_physics.queue_physics (w, this);
-			
+		
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 	}
 	
@@ -612,174 +626,191 @@ namespace hCraft {
 	
 //--
 	
-	namespace {
-		
-		struct chunk_entry {
-			world *w;
-			int x, z;
-			
-			chunk_entry (world *w, int x, int z)
-				: w (w), x (x), z (z)
-				{ }
-			
-			chunk_entry (const chunk_pos cpos)
-				: w (nullptr), x (cpos.x), z (cpos.z)
-				{ }
-				
-			bool
-			operator== (const chunk_entry other) const
-			{
-				//return ((this->w == other.w) && (this->x == other.x) && (this->z == other.z));
-				return (this->x == other.x) && (this->z == other.z);
-			}
-		};
-		
-		class chunk_entry_less
-		{
-			chunk_pos origin;
-		
-		private:
-			double
-			distance (const chunk_entry c1, const chunk_pos o) const
-			{
-				double xd = (double)c1.x - (double)o.x;
-				double zd = (double)c1.z - (double)o.z;
-				return std::sqrt (xd * xd + zd * zd);
-			}
-		
-		public:
-			chunk_entry_less (chunk_pos origin)
-				: origin (origin)
-				{ }
-		
-			// checks whether lhs < rhs.
-			bool
-			operator() (const chunk_entry lhs, const chunk_entry rhs) const
-			{
-				return distance (lhs, origin) < distance (rhs, origin);
-			}
-		};
-	}
-	
 	/* 
 	 * Loads new close chunks to the player and unloads those that are too
 	 * far away.
 	 */
 	void
-	player::stream_chunks (world *prev_world, int radius)
+	player::stream_chunks (int radius)
 	{
+		if (this->streaming_chunks)
+			return;
+		
 		std::lock_guard<std::mutex> wguard {this->world_lock};
+		this->streaming_chunks = true;
 		
-		world &wr = *this->get_world ();
-		chunk_pos cppos {this->pos};
-		int r_half = radius >> 1;
-		chunk_pos center = this->pos;
-		if (&wr == prev_world && center == this->chcurr)
-			return; // nothing to do
+		std::vector<std::pair<known_chunk, bool>> unload_list;
+		world *w = this->curr_world;
 		
-		std::multiset<chunk_entry, chunk_entry_less> to_load { chunk_entry_less (cppos) };
-		std::multiset<chunk_entry, chunk_entry_less> to_unload { chunk_entry_less (cppos) };
-		
-		for (chunk_pos cpos : this->known_chunks)
-			to_unload.insert (chunk_entry (prev_world ? prev_world : &wr, cpos.x, cpos.z));
-		
-		/* 
-		 * Handle previous world.
-		 */
-		std::vector<chunk_pos> old_reload, old_unload;
-		if (prev_world)
+		if (this->need_new_chunks)
 			{
-				for (int cx = (center.x - r_half); cx <= (center.x + r_half); ++cx)
-					for (int cz = (center.z - r_half); cz <= (center.z + r_half); ++cz)
-						{
-							chunk_pos cpos {cx, cz};
-							
-							auto itr = this->known_chunks.find (cpos);
-							if (itr != this->known_chunks.end ())
-								{
-									old_reload.push_back (cpos);
-									this->known_chunks.erase (cpos);
-								}
-						}
+				// compile a list of chunks that we no longer need
+				for (auto itr = this->known_chunks.begin (); itr != this->known_chunks.end (); )
+					{
+						known_chunk kc = *itr;
+						
+						if (!this->can_see_chunk (kc.cx, kc.cz))
+							{
+								unload_list.push_back (std::make_pair (kc, true));
+								itr = this->known_chunks.erase (itr);
+							}
+						else
+							{
+								if (kc.w != w)
+									unload_list.push_back (std::make_pair (kc, false));
+								++ itr;
+							}
+					}
 				
-				for (chunk_pos cpos : this->known_chunks)
-					old_unload.push_back (cpos);
-				
-				this->known_chunks.clear ();
-			//----
-				for (chunk_pos cpos : old_reload)
-					to_load.insert (chunk_entry (prev_world, cpos.x, cpos.z));
-			}
-		
-		/* 
-		 * Determine which chunks must be sent, and which ones are too distant
-		 * from the player.
-		 */
-		for (int cx = (center.x - r_half); cx <= (center.x + r_half); ++cx)
-			for (int cz = (center.z - r_half); cz <= (center.z + r_half); ++cz)
+				// get a sorted list of chunk coordinates.
+				std::vector<chunk_pos> coords;
 				{
-					chunk_pos cpos {cx, cz};
+					player *pl = this;
+					chunk_pos cp = this->pos;
 					
-					auto itr = this->known_chunks.find (cpos);
-					if (itr == this->known_chunks.end ())
-						{
-							to_load.insert (chunk_entry (&wr, cpos.x, cpos.z));
-						}
-					to_unload.erase (cpos);
+					for (int cx = (cp.x - radius); cx <= (cp.x + radius); ++cx)
+						for (int cz = (cp.z - radius); cz <= (cp.z + radius); ++cz)
+							coords.emplace_back (cx, cz);
+					std::sort (coords.begin (), coords.end (),
+						[pl] (const chunk_pos a, const chunk_pos b) -> bool
+							{
+								double a_dx = (a.x * 16.0) - pl->pos.x;
+								double a_dz = (a.z * 16.0) - pl->pos.z;
+								double b_dx = (b.x * 16.0) - pl->pos.x;
+								double b_dz = (b.z * 16.0) - pl->pos.z;
+								
+								return (a_dx*a_dx + a_dz*a_dz) < (b_dx*b_dx + b_dz*b_dz);
+							});
 				}
-		
-		/* 
-		 * Send all chunks gathered in the 'to_load' list.
-		 */
-		for (auto cpos : to_load)
-			{
-				this->known_chunks.emplace (cpos.x, cpos.z);
 				
-				// make sure all 4 adjacent & 4 corner chunks are already loaded
-				// this is done to prevent incompletely-generated chunks to be sent
-				// to the player.
-				for (int x = cpos.x - 1; x <= cpos.x + 1; ++x)
-					for (int z = cpos.z - 1; z <= cpos.z + 1; ++z)
-						if (!(x == cpos.x && z == cpos.z)) 
-							wr.load_chunk (x, z);
+				for (chunk_pos cpos : coords)
+					{
+						int cx = cpos.x, cz = cpos.z;
+						
+						// do we already have this chunk in our known chunk list?
+						bool found = false;
+						for (auto itr = this->known_chunks.begin (); itr != this->known_chunks.end (); ++itr)
+							{
+								known_chunk kc = *itr;
+								if (kc.cx == cx && kc.cz == cz)
+									{
+										if (kc.w != w)
+											this->known_chunks.erase (itr);
+										else
+											found = true;
+										break;
+									}
+							}
 				
-				// send
-				chunk *ch = wr.load_chunk (cpos.x, cpos.z);
-				this->send (packet::make_chunk (cpos.x, cpos.z, ch));
+						if (!found)
+							{
+								bool p_found = false;
+								for (auto itr = this->pending_chunks.begin (); itr != this->pending_chunks.end (); ++itr)
+									{
+										known_chunk c = *itr;
+										if (c.cx == cx && c.cz == cz)
+											{
+												if (c.w == w) 
+													p_found = true;
+												else
+													this->pending_chunks.erase (itr);
+												break;
+											}
+									}
+								
+								if (!p_found)
+									{
+										// fetch all chunks around it first!
+										// to ensure that the world generator doesn't produce any
+										// glitched structures (such as trees cut in half)
+										for (int xx = (cx - 1); xx <= (cx + 1); ++xx)
+											for (int zz = (cz - 1); zz <= (cz + 1); ++zz)
+												if (!(xx == cx && zz == cz))
+													this->srv.cgen.request (w, xx, zz, this, GFL_NODELIVER);
+										
+										this->srv.cgen.request (w, cx, cz, this);
+										this->pending_chunks.push_back ({w, cx, cz});
+									}
+							}
+					}
 				
-				// handle selection blocks / editstages.
-				this->sb_updates.preview_chunk_to (this, cpos.x, cpos.z, false);
-				for (edit_stage *es : this->edstages)
-					if (es->get_world () == this->curr_world)
-						es->preview_chunk_to (this, cpos.x, cpos.z, true);
-				
-				// spawn entities and players to self, and self to players.
-				player *me = this;
-				ch->all_entities (
-					[me] (entity *e)
-						{
-							e->spawn_to (me);
-							if (e->get_type () == ET_PLAYER)
-								{
-									player* pl = dynamic_cast<player *> (e);
-									if (pl == me) return;
-									me->spawn_to (pl);
-								}
-						});
+				this->need_new_chunks = false;
 			}
 		
-		/* 
-		 * Remove the chunks that are too distant from the player.
-		 */
-		for (auto ecpos : to_unload)
+		chunk_pos my_cpos = this->pos;
+		
+		// check if we got any chunks from the generator
+		if (!this->response_chunks.empty ())
 			{
-				chunk_pos cpos = {ecpos.x, ecpos.z};
-				this->known_chunks.erase (cpos);
-				this->send (packet::make_empty_chunk (cpos.x, cpos.z));
+				std::lock_guard<std::mutex> guard {this->response_chunks_lock};
+				while (!this->response_chunks.empty ())
+					{
+						gen_response resp = this->response_chunks.front ();
+						this->response_chunks.pop ();
+					
+						// remove from pending chunk list
+						for (auto itr = this->pending_chunks.begin (); itr != this->pending_chunks.end (); ++itr)
+							if (itr->cx == resp.cx && itr->cz == resp.cz)
+								{ this->pending_chunks.erase (itr); break; }
+						
+						if (!resp.ch || resp.flags == GFL_ABORTED)
+							continue;
+						
+						if (resp.w != w)
+							continue; // wrong world
+					
+						// do we still need this chunk?
+						if (!this->can_see_chunk (resp.cx, resp.cz))
+							continue;
+						
+						this->send (packet::make_chunk (resp.cx, resp.cz, resp.ch));
+						this->known_chunks.push_back ({w, resp.cx, resp.cz});
+						
+						// is this our new home chunk? (When switching between worlds)
+						if (this->joining_world && (my_cpos.x == resp.cx && my_cpos.z == resp.cz))
+							{
+								entity_pos epos = this->pos;
+								this->send (packet::make_player_pos_and_look (
+									epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+								
+								this->update_home_chunk ();
+								
+								this->joining_world = false;
+							}
+					
+						// selection blocks / editstages
+						this->sb_updates.preview_chunk_to (this, resp.cx, resp.cz, false);
+						for (edit_stage *es : this->edstages)
+							if (es->get_world () == w)
+								es->preview_chunk_to (this, resp.cx, resp.cz, true);
+						
+						// spawn entities to self and vice-versa
+						player *me = this;
+						(resp.ch)->all_entities (
+							[me] (entity *e)
+								{
+									e->spawn_to (me);
+									if (e->get_type () == ET_PLAYER)
+										{
+											player* pl = dynamic_cast<player *> (e);
+											if (pl == me) return;
+											me->spawn_to (pl);
+										}
+								});
+					}
+			}
+		
+		// unload chunks
+		for (auto p : unload_list)
+			{
+				known_chunk kc = p.first;
+				bool full_unload = p.second;
 				
-				// despawn entities from self, and self from players.
-				world *w  = ecpos.w;
-				chunk *ch = w->get_chunk (cpos.x, cpos.z);
+				if (full_unload)
+					this->send (packet::make_empty_chunk (kc.cx, kc.cz));
+				
+				// despawn entities from self and vice-versa.
+				chunk *ch = (kc.w)->get_chunk (kc.cx, kc.cz);
 				if (ch)
 					{
 						player *me = this;
@@ -796,18 +827,8 @@ namespace hCraft {
 								});
 					}
 			}
-		
-		/* 
-		 * Add self to new chunk's entity list, and remove self from the old chunk's
-		 * entity list.
-		 */
-		chunk *prev_chunk = wr.get_chunk (this->chcurr.x, this->chcurr.z);
-		if (prev_chunk)
-			prev_chunk->remove_entity (this);
-		
-		chunk *new_chunk = wr.get_chunk (center.x, center.z);
-		new_chunk->add_entity (this);
-		this->chcurr.set (center.x, center.z);
+			
+		this->streaming_chunks = false;
 	}
 	
 	/* 
@@ -817,17 +838,23 @@ namespace hCraft {
 	bool
 	player::can_see_chunk (int x, int z)
 	{
-	/*
-		std::unique_lock<std::mutex> guard {this->world_lock};
-		auto itr = this->known_chunks.find (chunk_pos (x, z));
-		return (itr != this->known_chunks.end ());*/
-		
 		chunk_pos me_pos = this->pos;
-		chunk_pos ch_pos {x, z};
 		return (
-			(utils::iabs (me_pos.x - ch_pos.x) < player::chunk_radius ()) &&
-			(utils::iabs (me_pos.z - ch_pos.z) < player::chunk_radius ()));
+			(utils::iabs (me_pos.x - x) <= player::chunk_radius ()) &&
+			(utils::iabs (me_pos.z - z) <= player::chunk_radius ()));
 	}
+	
+	/* 
+	 * Used by the chunk_generator class to inform the player that a chunk
+	 * has been generated.
+	 */
+	void
+	player::deliver_chunk (world *w, int x, int z, chunk *ch, int flags, int extra)
+	{
+		std::lock_guard<std::mutex> guard {this->response_chunks_lock};
+		this->response_chunks.push ({w, x, z, ch, flags, extra});
+	}
+	
 	
 	
 	/* 
@@ -844,6 +871,23 @@ namespace hCraft {
 //--
 	
 	
+	
+	void
+	player::update_home_chunk ()
+	{
+		chunk_pos curr_cpos = this->pos;
+		
+		chunk *prev_chunk = this->curr_world->get_chunk (this->chcurr.x, this->chcurr.z);
+		if (prev_chunk)
+			prev_chunk->remove_entity (this);
+
+		chunk *new_chunk = this->curr_world->get_chunk (curr_cpos.x, curr_cpos.z);
+		if (new_chunk)
+			{
+				new_chunk->add_entity (this);
+				this->chcurr.set (curr_cpos.x, curr_cpos.z);
+			}
+	}
 	
 	/* 
 	 * Moves the player to the specified position.
@@ -865,7 +909,7 @@ namespace hCraft {
 					else if (dest.z >= w_depth) { dest.z = w_depth - 1; changed = true; }
 				}
 				
-				if (changed)
+				if (changed && !this->joining_world)
 					{
 						this->send (packet::make_player_pos_and_look (
 							dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
@@ -879,11 +923,20 @@ namespace hCraft {
 		chunk_pos prev_cpos = prev_pos;
 		if ((curr_cpos.x != prev_cpos.x) || (curr_cpos.z != prev_cpos.z))
 			{
-				this->stream_chunks ();
+				this->need_new_chunks = true;
 			}
 		
 		if (prev_pos == dest)
 			return;
+		
+	//----
+		// set home chunk
+		if (!(curr_cpos.x == this->chcurr.x && curr_cpos.z == this->chcurr.z))
+			{
+				this->update_home_chunk ();
+			}
+	
+	//----
 		
 		double x_delta = dest.x - prev_pos.x;
 		double y_delta = dest.y - prev_pos.y;
@@ -1284,8 +1337,35 @@ namespace hCraft {
 					this->message ("§c * §4Failed to save player data§c.");
 				}
 			
+			// reload previous position
+			{
+				auto stmt = conn.query ("SELECT * FROM `player-logout-data` WHERE `name`=?");
+				stmt.bind (1, this->get_username (), sql::pass_transient);
+				
+				sql::row row;
+				if (stmt.step (row))
+					{
+						const char *world_name = row.at (1).as_cstr ();
+						entity_pos last_pos = {
+							row.at (2).as_double (),
+							row.at (3).as_double (),
+							row.at (4).as_double (),
+							(float)row.at (5).as_double (),
+							(float)row.at (6).as_double (),
+						};
+						
+						this->curr_world = this->srv.find_world (world_name);
+						if (this->curr_world)
+							{
+								this->pos = last_pos;
+								this->curr_gamemode = (row.at (7).as_int () == 1) ? GT_CREATIVE : GT_SURVIVAL;
+							}
+					}
+			}
+			
 			this->get_server ().sql ().push (conn);
 		}
+		
 		
 		std::string str;
 		str.append ("§");
@@ -1314,6 +1394,48 @@ namespace hCraft {
 			catch (const std::exception& ex)
 				{
 					log (LT_ERROR) << "Failed to save player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
+				}
+			
+			// save current position, world, etc...
+			if (this->logged_in && this->curr_world)
+				{
+					sql::row r;
+					auto stmt = conn.query ("SELECT Count(*) FROM `player-logout-data`");
+					if (stmt.step (r) && (r.at (0).as_int () > 0))
+						{
+							auto stmt = conn.query ("UPDATE `player-logout-data` SET "
+								"`world`=?, `pos_x`=?, `pos_y`=?, `pos_z`=?, `pos_r`=?, `pos_l`=?, "
+								"`gm`=? WHERE `name`=?");
+							
+							stmt.bind (1, this->curr_world->get_name (), sql::pass_transient);
+							stmt.bind (2, this->pos.x);
+							stmt.bind (3, this->pos.y);
+							stmt.bind (4, this->pos.z);
+							stmt.bind (5, this->pos.r);
+							stmt.bind (6, this->pos.l);
+							stmt.bind (7, (this->curr_gamemode == GT_CREATIVE) ? 1 : 0);
+							stmt.bind (8, this->get_username (), sql::pass_transient);
+							
+							while (stmt.step ())
+								;
+						}
+					else
+						{
+							auto stmt = conn.query ("INSERT INTO `player-logout-data` VALUES "
+								"(?, ?, ?, ?, ?, ?, ?, ?)");
+							
+							stmt.bind (1, this->get_username (), sql::pass_transient);
+							stmt.bind (2, this->curr_world->get_name (), sql::pass_transient);
+							stmt.bind (3, this->pos.x);
+							stmt.bind (4, this->pos.y);
+							stmt.bind (5, this->pos.z);
+							stmt.bind (6, this->pos.r);
+							stmt.bind (7, this->pos.l);
+							stmt.bind (8, (this->curr_gamemode == GT_CREATIVE) ? 1 : 0);
+					
+							while (stmt.step ())
+								;
+						}
 				}
 			
 			this->get_server ().sql ().push (conn);
@@ -1797,7 +1919,13 @@ namespace hCraft {
 				this->eating = false;
 			}
 		
+		// stream chunks
+		if (!this->streaming_chunks && (tick_counter % 10 == 0))
+			this->srv.get_thread_pool ().enqueue (
+				[] (void *ptr) { (static_cast<player *> (ptr))->stream_chunks (); }, this);
+		
 		this->last_tick = now;
+		++ tick_counter;
 		return false;
 	}
 	
@@ -1850,7 +1978,6 @@ namespace hCraft {
 		if (this->logged_in)
 			return;
 		
-		this->curr_gamemode = GT_CREATIVE;
 		this->send (packet::make_login (this->get_eid (), "hCraft", this->curr_gamemode,
 			0, 0, (this->get_server ().get_config ().max_players > 64)
 				? 64 : (this->get_server ().get_config ().max_players)));
@@ -1875,12 +2002,22 @@ namespace hCraft {
 				 << " §ehas joined the server§f!";
 			this->get_server ().get_players ().message (ss.str ());
 		}
-		this->join_world (this->get_server ().get_main_world ());
-
+		
 		this->inv.subscribe (this);
-
 		this->inv.add (slot_item (IT_FEATHER, 0, 1));
 		this->inv.add (slot_item (BT_STONE, 0, 1));
+		
+		// make the player move at normal speed
+		{
+			std::vector<entity_property> props;
+			props.push_back ({"generic.movementSpeed", 0.1});
+			this->send (packet::make_entity_properties (this->eid, props));
+		}
+		
+		if (this->curr_world)
+			this->join_world_at (this->curr_world, this->pos);
+		else
+			this->join_world (this->get_server ().get_main_world ());
 
 		slot_item sword (IT_IRON_SWORD, 0, 1);
 		sword.lore.emplace_back ("§7Poison I");
@@ -2194,6 +2331,7 @@ namespace hCraft {
 	{
 		if (!pl->handshake) return -1;
 		if (pl->is_dead ()) return 0;
+		if (pl->joining_world) return 0;
 		
 		bool on_ground;
 		
@@ -2214,6 +2352,7 @@ namespace hCraft {
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
+		if (pl->joining_world) return 0;
 		
 		double x, y, z;
 		bool on_ground;
@@ -2238,6 +2377,7 @@ namespace hCraft {
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
+		if (pl->joining_world) return 0;
 		
 		float r, l;
 		bool on_ground;
@@ -2260,6 +2400,7 @@ namespace hCraft {
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
+		if (pl->joining_world) return 0;
 		
 		double x, y, z;
 		float r, l;
@@ -2323,8 +2464,9 @@ namespace hCraft {
 		/* 
 		 * Handle marking callbacks
 		 */
-		if (pl->mark_block (x, y, z))
-			return 0;
+		if ((pl->curr_gamemode == GT_CREATIVE) || (pl->curr_gamemode == GT_SURVIVAL && status == 2))
+			if (pl->mark_block (x, y, z))
+				return 0;
 		
 		block_data bd = pl->get_world ()->get_block (x, y, z);
 		if (status == 2 || (status == 0 && pl->curr_gamemode == GT_CREATIVE))
@@ -2515,6 +2657,7 @@ namespace hCraft {
 		pl->held_slot = index + 36;
 		pl->get_world ()->get_players ().send_to_all_visible (
 			packet::make_entity_equipment (pl->eid, 0, pl->inv.get (pl->held_slot)), pl);
+		
 		return 0;
 	}
 	
@@ -2954,6 +3097,17 @@ namespace hCraft {
 	}
 	
 	int
+	player::handle_packet_fa (player *pl, packet_reader reader)
+	{
+		char str[1024];
+		reader.read_string (str, 1024);
+		
+		pl->log (LT_DEBUG) << "Plugin Message: " << str << std::endl;
+		
+		return 0;
+	}
+	
+	int
 	player::handle_packet_fc (player *pl, packet_reader reader)
 	{
 		unsigned short ssec_len = reader.read_short ();
@@ -3111,7 +3265,7 @@ namespace hCraft {
 				
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF3
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xFB
+				handle_packet_xx, handle_packet_xx, handle_packet_fa, handle_packet_xx, // 0xFB
 				handle_packet_fc, handle_packet_xx, handle_packet_fe, handle_packet_ff, // 0xFF
 			};
 		

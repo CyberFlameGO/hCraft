@@ -682,7 +682,7 @@ namespace hCraft {
 				subchunk *sub = ch->get_sub (i);
 				if (sub && !sub->all_air ())
 					{
-						data_size += 10240;
+						data_size += 14336;
 						primary_bitmap |= (1 << i);
 						
 						if (sub->has_add ())
@@ -726,6 +726,10 @@ namespace hCraft {
 		for (i = 0; i < 16; ++i)
 			if (add_bitmap & (1 << i))
 				{ std::memcpy (data + n, ch->get_sub (i)->add, 2048); n += 2048; }
+		
+		for (i = 0; i < 16; ++i)
+			if (primary_bitmap & (1 << i))
+				{ std::memcpy (data + n, ch->get_sub (i)->extra, 4096); n += 4096; }
 		
 		std::memcpy (data + n, ch->get_biome_array (), 256);
 		n += 256;
@@ -1182,6 +1186,23 @@ namespace hCraft {
 						sub->add = new unsigned char[2048];
 						std::memcpy (ch->get_sub (i)->add, data + n, 2048); n += 2048;
 					}
+			}
+		for (i = 0; i < 16; ++i)
+			if (primary_bitmap & (1 << i))
+				{ std::memcpy (ch->get_sub (i)->extra, data + n, 4096); n += 4096; }
+		
+		// custom blocks
+		for (i = 0; i < 16; ++i)
+			{
+				subchunk *sub = ch->get_sub (i);
+				if (!sub) continue;
+				
+				for (int i = 0; i < 128; ++i)
+					sub->custom[i] = 0;
+				
+				for (int i = 0; i < 4096; ++i)
+					if (!block_info::is_vanilla_id (sub->ids[i]))
+						sub->custom[i >> 5] |=  (1 << (i & 0x1F));
 			}
 		
 		// biomes

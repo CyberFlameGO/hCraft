@@ -197,6 +197,21 @@ namespace hCraft {
 	
 	
 	
+	// returns the amount of space the specified string will take once it is put
+	// in a packet.
+	static int
+	mc_str_len (const char *str)
+	{
+		return 2 + (std::strlen (str) * 2);
+	}
+	
+	static int
+	mc_str_len (const std::string& str)
+	{
+		return 2 + (str.size () * 2);
+	}
+	
+	
 	int
 	packet::put_string (const char *in, bool sanitize, bool encode_length)
 	{
@@ -443,7 +458,7 @@ namespace hCraft {
 				""           , ""           , "o?"         , "odddd?"     , // 0x0B
 				"off?"       , "oddddff?"   , "obibib"     , "oibibqbbb"  , // 0x0F
 				
-				"os"         , ""           , "oib"        , "oib"        , // 0x13
+				"os"         , ""           , "oib"        , "oibi"       , // 0x13
 				""           , ""           , ""           , ""           , // 0x17
 				""           , ""           , ""           , ""           , // 0x1B
 				""           , ""           , ""           , ""           , // 0x1F
@@ -500,7 +515,7 @@ namespace hCraft {
 				
 				""           , ""           , ""           , ""           , // 0xC3
 				""           , ""           , ""           , ""           , // 0xC7
-				""           , ""           , "obbb"       , "oz"         , // 0xCB
+				""           , ""           , "obff"       , "oz"         , // 0xCB
 				"ozbbb?"     , "ob"         , ""           , ""           , // 0xCF
 				
 				""           , ""           , ""           , ""           , // 0xD3
@@ -738,7 +753,7 @@ namespace hCraft {
 						case EMT_SHORT: size += 2; break;
 						case EMT_FLOAT: case EMT_INT: size += 4; break;
 						case EMT_STRING:
-							size += 2 + (std::strlen (rec.data.str) * 2);
+							size += mc_str_len (rec.data.str);
 							break;
 						case EMT_SLOT: size += 7; break;
 						case EMT_BLOCK: size += 12; break;
@@ -804,7 +819,7 @@ namespace hCraft {
 				if (!item.lore.empty ())
 					{
 						for (const std::string& str : item.lore)
-							size += str.size () * 2 + 3;
+							size += mc_str_len (str) + 1;
 					}
 			}
 		
@@ -828,7 +843,7 @@ namespace hCraft {
 	packet::make_login (int eid, const char *level_type, char game_mode,
 		char dimension, char difficulty, unsigned char max_players)
 	{
-		packet *pack = new packet (12 + (std::strlen (level_type) * 2));
+		packet *pack = new packet (12 + mc_str_len (level_type));
 		
 		pack->put_byte (0x01);
 		pack->put_int (eid);
@@ -842,16 +857,47 @@ namespace hCraft {
 		return pack;
 	}
 	
+	
+	
+	static std::string
+	escape_string (const char *str)
+	{
+		std::string res;
+		res.reserve (std::strlen (str));
+		
+		const char *ptr = str;
+		while (*ptr)
+			{
+				char c = *ptr++;
+				if (c == '"')
+					{
+						res.push_back ('\\');
+						res.push_back ('"');
+					}
+				else
+					res.push_back (c);
+			}
+		
+		return res;
+	}
+	
 	packet*
 	packet::make_message (const char *msg)
 	{
-		packet *pack = new packet (3 + (std::strlen (msg) * 2));
+		// 1.6 messages...
+		std::string s = "{\"text\":\"";
+		s.append (escape_string (msg));
+		s.append ("\"}");
+		
+		packet *pack = new packet (3 + mc_str_len (s));
 		
 		pack->put_byte (0x03);
-		pack->put_string (msg);
+		pack->put_string (s.c_str ());
 		
 		return pack;
 	}
+	
+	
 	
 	packet*
 	packet::make_time_update (long long world_age, long long day_time)
@@ -892,13 +938,13 @@ namespace hCraft {
 	}
 	
 	packet*
-	packet::make_update_health (short hearts, short hunger,
+	packet::make_update_health (float hearts, short hunger,
 		float hunger_saturation)
 	{
 		packet *pack = new packet (9);
 		
 		pack->put_byte (0x08);
-		pack->put_short (hearts);
+		pack->put_float (hearts);
 		pack->put_short (hunger);
 		pack->put_float (hunger_saturation);
 		
@@ -909,7 +955,7 @@ namespace hCraft {
 	packet::make_respawn (int dimension, char difficulty, char game_mode,
 		const char *level_type)
 	{
-		packet *pack = new packet (11 + (std::strlen (level_type) * 2));
+		packet *pack = new packet (11 + mc_str_len (level_type));
 		
 		pack->put_byte (0x09);
 		pack->put_int (dimension);
@@ -956,7 +1002,7 @@ namespace hCraft {
 		double y, double z, float r, float l, short current_item,
 		entity_metadata& meta)
 	{
-		packet* pack = new packet (22 + (std::strlen (name) * 2)
+		packet* pack = new packet (22 + mc_str_len (name)
 			+ entity_metadata_size (meta));
 		
 		pack->put_byte (0x14);
@@ -1158,6 +1204,31 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_entity_properties (int eid,
+		const std::vector<entity_property>& props)
+	{
+		int pack_size = 9;
+		for (entity_property prop : props)
+			pack_size += 12 + mc_str_len (prop.key);
+		
+		packet *pack = new packet (pack_size);
+		
+		pack->put_byte (0x2C);
+		pack->put_int (eid);
+		pack->put_int (props.size ());
+		for (entity_property prop : props)
+			{
+				pack->put_string (prop.key);
+				pack->put_double (prop.value);
+				
+				// list of weird things
+				pack->put_short (0);
+			}
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_chunk (int x, int z, chunk *ch)
 	{
 		int data_size = 0, n = 0, i;
@@ -1173,8 +1244,10 @@ namespace hCraft {
 						primary_bitmap |= (1 << i);
 						data_size += 10240;
 						
-						if (sub->has_add ())
-							{ add_bitmap |= (1 << i); data_size += 2048; }
+						//// NOTE: Do not send add values for now... or else it cause custom
+						//// blocks to screw up.
+						//if (sub->has_add ())
+						//	{ add_bitmap |= (1 << i); data_size += 2048; }
 					}
 			}
 		
@@ -1184,8 +1257,50 @@ namespace hCraft {
 		
 		for (i = 0; i < 16; ++i)
 			if (primary_bitmap & (1 << i))
-				{ std::memcpy (data + n, ch->get_sub (i)->ids, 4096);
-					n += 4096; }
+				{
+					// we take into account that the ID array might contain custom IDs -
+					// ID values that the vanilla client does NOT recognize. So we replace
+					// them with the their suitable equivalents.
+					
+					subchunk *sub = ch->get_sub (i);
+					unsigned char *ids = sub->ids;
+					unsigned int *customs = sub->custom;
+					for (int i = 0; i < 128; ++i)
+						{
+							if (customs[i] == 0)
+								{
+									std::memcpy (data + n, ids + (i << 5), 32);
+									n += 32;
+								}
+							else
+								{
+									int e = (i << 5) + 32; int id;
+									for (int j = (i << 5); j < e; ++j)
+										{
+											// extract full id
+											id = sub->ids[j];
+											if (sub->add)
+												{
+													if (j & 1)
+														id |= (sub->add[j >> 1] >> 4) << 8;
+													else
+														id |= (sub->add[j >> 1] & 0xF) << 8;
+												}
+											
+											if (block_info::is_vanilla_id (id))
+												data[n++] = id & 0xFF;
+											else
+												{
+													physics_block *ph = physics_block::from_id (id);
+													if (ph)
+														data[n++] = ph->vanilla_id () & 0xFF;
+													else
+														data[n++] = 0;
+												}
+										}
+								}
+						}
+				}
 		
 		for (i = 0; i < 16; ++i)
 			if (primary_bitmap & (1 << i))
@@ -1284,10 +1399,20 @@ namespace hCraft {
 				if (sb && sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z))
 					{ -- elems; continue; }
 				
+				int id = rec.id;
+				if (!block_info::is_vanilla_id (id))
+					{
+						physics_block *ph = physics_block::from_id (id);
+						if (ph)
+							id = ph->vanilla_id ();
+						else
+							id = 0;
+					}
+				
 				pack->put_byte ((rec.x << 4) | rec.z);
 				pack->put_byte (rec.y);
-				pack->put_byte (rec.id >> 4);
-				pack->put_byte (((rec.id & 0xF) << 4) | rec.meta);
+				pack->put_byte (id >> 4);
+				pack->put_byte (((id & 0xF) << 4) | rec.meta);
 			}
 		
 		if (sb)
@@ -1307,11 +1432,21 @@ namespace hCraft {
 	{
 		packet* pack = new packet (13);
 		
+		int new_id = id;
+		if (!block_info::is_vanilla_id (new_id))
+			{
+				physics_block *ph = physics_block::from_id (new_id);
+				if (ph)
+					new_id = ph->vanilla_id ();
+				else
+					new_id = 0;
+			}
+		
 		pack->put_byte (0x35);
 		pack->put_int (x);
 		pack->put_byte (y);
 		pack->put_int (z);
-		pack->put_short (id);
+		pack->put_short (new_id);
 		pack->put_byte (meta);
 		
 		return pack;
@@ -1321,7 +1456,7 @@ namespace hCraft {
 	packet::make_named_sound_effect (const char *sound, double x, double y, double z,
 		float volume, unsigned char pitch)
 	{
-		packet* pack = new packet (20 + (std::strlen (sound) * 2));
+		packet* pack = new packet (20 + mc_str_len (sound));
 		
 		pack->put_byte (0x3E);
 		pack->put_string (sound);
@@ -1385,7 +1520,7 @@ namespace hCraft {
 	packet::make_player_list_item (const char *name, bool online,
 		short ping_ms)
 	{
-		packet *pack = new packet (6 + (std::strlen (name) * 2) * 5);
+		packet *pack = new packet (6 + mc_str_len (name));
 		
 		pack->put_byte (0xC9);
 		pack->put_string (name);
@@ -1417,7 +1552,7 @@ namespace hCraft {
 		unsigned char buf[384];
 		size_t keylen = q.Get (buf, sizeof buf);
 		
-		packet *pack = new packet (7 + (sid.length () * 2) + keylen + 4);
+		packet *pack = new packet (7 + mc_str_len (sid) + keylen + 4);
 		
 		pack->put_byte (0xFD);
 		pack->put_string (sid.c_str ());
@@ -1432,7 +1567,7 @@ namespace hCraft {
 	packet*
 	packet::make_kick (const char *str)
 	{
-		packet *pack = new packet (3 + (std::strlen (str) * 2));
+		packet *pack = new packet (3 + mc_str_len (str));
 		
 		pack->put_byte (0xFF);
 		pack->put_string (str);
@@ -1443,7 +1578,7 @@ namespace hCraft {
 	packet*
 	packet::make_ping_kick (const char *motd, int player_count, int max_players)
 	{
-		packet *pack = new packet ((std::strlen (motd) * 2)
+		packet *pack = new packet (mc_str_len (motd)
 			+ ((std::log10 (player_count + 1) + 1) * 2)
 			+ ((std::log10 (max_players + 1) + 1) * 2)
 			+ 64);

@@ -192,13 +192,14 @@ namespace hCraft {
 	{
 		unsigned short id;
 		unsigned char  meta;
+		unsigned char  ex;
 		
-		blocki (unsigned short i, unsigned char m = 0)
-			{ this->set (i, m); }
-		blocki () : blocki (0, 0) { }
+		blocki (unsigned short i, unsigned char m = 0, unsigned char ex = 0)
+			{ this->set (i, m, ex); }
+		blocki () : blocki (0, 0, 0) { }
 		
-		void set (unsigned short i, unsigned char m = 0)
-			{ this->id = i; this->meta = m; }
+		void set (unsigned short i, unsigned char m = 0, unsigned char ex = 0)
+			{ this->id = i; this->meta = m; this->ex = ex; }
 		
 		bool valid ()
 			{ return ((this->id != BT_UNKNOWN) && (this->meta <= 0xF)); }
@@ -208,7 +209,7 @@ namespace hCraft {
 		operator== (const blocki other) const
 		{
 			return (this->id == other.id) && ((other.meta == 0x10 || this->meta == 0x10) ||
-				(this->meta == other.meta));
+				(this->meta == other.meta)) && (this->ex == other.ex);
 		}
 		
 		bool
@@ -264,6 +265,17 @@ namespace hCraft {
 		 * @{bl}.
 		 */
 		static blocki get_drop (blocki bl);
+		
+		
+		/* 
+		 * Checks whether the specified ID value is recognized by the vanilla client
+		 * as a valid block.
+		 */
+		static inline bool
+		is_vanilla_id (unsigned short id)
+		{
+			return ((id <= 0x9F) || (id >= 0xAA && id <= 0xAD));
+		}
 	};
 	
 	
@@ -273,13 +285,15 @@ namespace hCraft {
 		unsigned char meta;
 		char bl; // block light
 		char sl; // sky light
+		unsigned char ex; // extra
 		
-		block_data (unsigned short id = 0, char meta = 0, char bl = 0, char sl = 15)
+		block_data (unsigned short id = 0, char meta = 0, char bl = 0, char sl = 15, unsigned char ex = 0)
 		{
 			this->id = id;
 			this->meta = meta;
 			this->bl = bl;
 			this->sl = sl;
+			this->ex = ex;
 		}
 	};
 	
@@ -297,8 +311,8 @@ namespace hCraft {
 		size_t
 		operator() (const blocki bl) const
 		{
-			// only the id is hashed, and that's done for a reason.
-			return ih (bl.id);
+			// only the id+ex are hashed, and that's done for a reason.
+			return ih (bl.id * ih (bl.ex));
 		}
 	};
 }

@@ -30,6 +30,7 @@
 #include "selection/world_selection.hpp"
 #include "cistring.hpp"
 #include "sqlops.hpp"
+#include "generator.hpp"
 
 #include <atomic>
 #include <queue>
@@ -92,7 +93,38 @@ namespace hCraft {
 	
 	
 	
+//--------
 	
+	struct known_chunk
+	{
+		world *w;
+		int cx, cz;
+		
+	//---
+		bool
+		operator== (const known_chunk other) const
+		{
+			return ((this->w == other.w) && (this->cx == other.cx) && (this->cz == other.cz));
+		}
+	};
+	
+	/*
+	// TODO: remove?
+
+	class known_chunk_hash
+	{
+		std::hash<int> int_hash;
+		
+	public:
+		std::size_t
+		operator() (const known_chunk& kc) const
+		{
+			return int_hash (((long long)kc.w & 0xFFFFFFFF) + ((int_hash (kc.cx) ^ (int_hash (kc.cz) << 5)) << 7));
+		}
+	};
+	*/
+	
+//--------
 	
 	/* 
 	 * Represents a player.
@@ -178,13 +210,21 @@ namespace hCraft {
 		world *curr_world;
 		chunk_pos chcurr;
 		std::mutex world_lock;
-		std::mutex join_lock;
+		bool joining_world;
+		bool streaming_chunks;
+		
 		std::unordered_set<player *> visible_players;
 		std::mutex visible_player_lock;
 		
+		std::vector<known_chunk> pending_chunks;
+		std::queue<gen_response> response_chunks;
+		std::mutex response_chunks_lock;
+		bool need_new_chunks;
+				
 		std::chrono::steady_clock::time_point last_tick;
 		std::chrono::steady_clock::time_point last_heart_regen;
 		std::chrono::milliseconds heal_delay;
+		long long tick_counter;
 		
 		std::ostringstream msgbuf;
 		
@@ -205,7 +245,7 @@ namespace hCraft {
 		blocki sb_block;
 		std::mutex sb_lock;
 		
-		std::unordered_set<chunk_pos, chunk_pos_hash> known_chunks;
+		std::vector<known_chunk> known_chunks;
 		
 		inventory inv;
 		
@@ -252,6 +292,7 @@ namespace hCraft {
 		static int handle_packet_66 (player *pl, packet_reader reader);
 		static int handle_packet_6a (player *pl, packet_reader reader);
 		static int handle_packet_6b (player *pl, packet_reader reader);
+		static int handle_packet_fa (player *pl, packet_reader reader);
 		static int handle_packet_fc (player *pl, packet_reader reader);
 		static int handle_packet_fe (player *pl, packet_reader reader);
 		static int handle_packet_ff (player *pl, packet_reader reader);
@@ -305,6 +346,8 @@ namespace hCraft {
 		 */
 		void move_to (entity_pos dest);
 		
+		void update_home_chunk ();
+		
 	//----
 		
 		/* 
@@ -349,7 +392,7 @@ namespace hCraft {
 		
 		inline world* get_world () { return this->curr_world; }
 		inline std::mutex& get_world_lock () { return this->world_lock; }
-		static constexpr int chunk_radius () { return 10; }
+		static constexpr int chunk_radius () { return 5; }
 		
 		inline slot_item& held_item () { return this->inv.get (this->held_slot); }
 		inline slot_item cursor_item () { return this->cursor_slot; }
@@ -419,13 +462,19 @@ namespace hCraft {
 		 * Loads new close chunks to the player and unloads those that are too
 		 * far away.
 		 */
-		void stream_chunks (world *prev_world = nullptr, int radius = player::chunk_radius ());
+		void stream_chunks (int radius = player::chunk_radius ());
 		
 		/* 
 		 * Checks whether the specified chunk is within the visible chunk range
 		 * of the player.
 		 */
 		bool can_see_chunk (int x, int z);
+		
+		/* 
+		 * Used by the chunk_generator class to inform the player that a chunk
+		 * has been generated.
+		 */
+		void deliver_chunk (world *w, int x, int z, chunk *ch, int flags, int extra);
 		
 		
 		

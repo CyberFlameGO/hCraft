@@ -37,9 +37,13 @@ namespace hCraft {
 				std::memset (this->blight, 0x00, 2048);
 				std::memset (this->slight, 0xFF, 2048);
 				this->add = nullptr;
+				std::memset (this->extra, 0x00, 4096);
 		
 				this->add_count = 0;
 				this->air_count = 4096;
+				
+				for (int i = 0; i < 128; ++i)
+					this->custom[i] = 0;
 			}
 	}
 	
@@ -72,14 +76,14 @@ namespace hCraft {
 		unsigned short prev_id = (prev_hi << 8) | prev_lo;
 		
 		this->ids[index] = lo;
-		if (hi != 0)
+		if (hi != 0 && this->add_count == 0)
 			{
-				if (this->add_count == 0)
-					{
-						this->add = new unsigned char[2048];
-						std::memset (this->add, 0x00, 2048);
-					}
-				
+				this->add = new unsigned char[2048];
+				std::memset (this->add, 0x00, 2048);
+			}
+		
+		if (this->add)
+			{
 				if (index & 1)
 					{ this->add[half] &= 0x0F; this->add[half] |= (hi << 4); }
 				else
@@ -95,12 +99,24 @@ namespace hCraft {
 			-- this->add_count;
 		else if (!prev_hi && hi)
 			++ this->add_count;
+		
+		// custom block stuff
+		if (block_info::is_vanilla_id (id))
+			{
+				this->custom[index >> 5] &= ~(1 << (index & 0x1F));
+			}
+		else
+			{
+				this->custom[index >> 5] |=  (1 << (index & 0x1F));
+			}
+		
+		this->extra[index] = 0; // TODO: modify?
 	}
 	
 	unsigned short
 	subchunk::get_id (int x, int y, int z)
 	{
-		unsigned int index = (y << 8) | (z << 4) | x; 
+		unsigned int index = (y << 8) | (z << 4) | x;
 		
 		unsigned short id = this->ids[index];
 		if (this->add_count > 0)
@@ -112,6 +128,19 @@ namespace hCraft {
 			}
 		
 		return id;
+	}
+	
+	
+	void
+	subchunk::set_extra (int x, int y, int z, unsigned char e)
+	{
+		this->extra[(y << 8) | (z << 4) | x] = e;
+	}
+	
+	unsigned char
+	subchunk::get_extra (int x, int y, int z)
+	{
+		return this->extra[(y << 8) | (z << 4) | x];
 	}
 	
 	
@@ -188,7 +217,7 @@ namespace hCraft {
 	
 	
 	void
-	subchunk::set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta)
+	subchunk::set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		unsigned int index = (y << 8) | (z << 4) | x; 
 		unsigned int half = index >> 1;
@@ -208,14 +237,14 @@ namespace hCraft {
 		unsigned short prev_id = (prev_hi << 8) | prev_lo;
 
 		this->ids[index] = lo;
-		if (hi != 0)
+		if (hi != 0 && this->add_count == 0)
 			{
-				if (this->add_count == 0)
-					{
-						this->add = new unsigned char[2048];
-						std::memset (this->add, 0x00, 2048);
-					}
+				this->add = new unsigned char[2048];
+				std::memset (this->add, 0x00, 2048);
+			}
 		
+		if (add)
+			{
 				if (index & 1)
 					{ this->add[half] &= 0x0F; this->add[half] |= (hi << 4); }
 				else
@@ -231,6 +260,18 @@ namespace hCraft {
 			-- this->add_count;
 		else if (!prev_hi && hi)
 			++ this->add_count;
+		
+		// custom block stuff
+		if (block_info::is_vanilla_id (id))
+			{
+				this->custom[index >> 5] &= ~(1 << (index & 0x1F));
+			}
+		else
+			{
+				this->custom[index >> 5] |=  (1 << (index & 0x1F));
+			}
+		
+		this->extra[index] = ex;
 	}
 	
 	
@@ -248,6 +289,8 @@ namespace hCraft {
 					((index & 1) ? (this->add[half] >> 4) : (this->add[half] & 0xF))
 					<< 8;
 			}
+		
+		data.ex = this->extra[index];
 		
 		if (index & 1)
 			{
@@ -350,6 +393,35 @@ namespace hCraft {
 	
 	
 	void
+	chunk::set_extra (int x, int y, int z, unsigned char e)
+	{
+		int sy = y >> 4;
+		subchunk *sub = this->subs[sy];
+		if (!sub)
+			{
+				if (e == 0)
+					return;
+				else
+					sub = this->subs[sy] = new subchunk ();
+			}
+		
+		this->modified = true;
+		sub->set_extra (x, y & 0xF, z, e);
+	}
+	
+	unsigned char
+	chunk::get_extra (int x, int y, int z)
+	{
+		int sy = y >> 4;
+		subchunk *sub = this->subs[sy];
+		if (!sub)
+			return 0;
+		
+		return sub->get_extra (x, y & 0xF, z);
+	}
+	
+	
+	void
 	chunk::set_meta (int x, int y, int z, unsigned char val)
 	{
 		int sy = y >> 4;
@@ -440,20 +512,20 @@ namespace hCraft {
 	
 	
 	void
-	chunk::set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta)
+	chunk::set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		int sy = y >> 4;
 		subchunk *sub = this->subs[sy];
 		if (!sub)
 			{
-				if (id == 0) // && meta == 0
+				if (id == 0 && ex == 0) // && meta == 0
 					return;
 				else
 					sub = this->subs[sy] = new subchunk ();
 			}
 		
 		this->modified = true;
-		sub->set_id_and_meta (x, y & 0xF, z, id, meta);
+		sub->set_block (x, y & 0xF, z, id, meta, ex);
 	}
 	
 	
@@ -508,7 +580,7 @@ namespace hCraft {
 	{
 		short h;
 		for (h = 255; h >= 0; --h)
-			{
+			{ 
 				block_info *binf = block_info::from_id (this->get_id (x, h, z));
 				if (binf->state == BS_SOLID && binf->opaque)
 					break;
@@ -626,11 +698,11 @@ namespace hCraft {
 	}
 	
 	void
-	chunk_link_map::set (int x, int y, int z, unsigned char id, unsigned char meta)
+	chunk_link_map::set (int x, int y, int z, unsigned char id, unsigned char meta, unsigned char ex)
 	{
 		chunk *ch = this->follow (x >> 4, z >> 4);
 		if (ch)
-			ch->set_id_and_meta (x & 0xF, y, z & 0xF, id, meta);
+			ch->set_block (x & 0xF, y, z & 0xF, id, meta, ex);
 	}
 	 
 	unsigned short
@@ -651,6 +723,15 @@ namespace hCraft {
 		return 0;
 	}
 	
+	unsigned char
+	chunk_link_map::get_extra (int x, int y, int z)
+	{
+		chunk *ch = this->follow (x >> 4, z >> 4);
+		if (ch)
+			return ch->get_extra (x & 0xF, y, z & 0xF);
+		return 0;
+	}
+	
 	blocki
 	chunk_link_map::get (int x, int y, int z)
 	{
@@ -658,7 +739,7 @@ namespace hCraft {
 		if (ch)
 			{
 				block_data bd = ch->get_block (x & 0xF, y, z & 0xF);
-				return {bd.id, bd.meta};
+				return {bd.id, bd.meta, bd.ex};
 			}
 		return {};
 	}

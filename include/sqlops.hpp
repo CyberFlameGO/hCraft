@@ -20,6 +20,7 @@
 #define _hCraft__SQLOPS_H_
 
 #include "rank.hpp"
+#include "position.hpp"
 #include <ctime>
 
 

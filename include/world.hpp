@@ -103,7 +103,6 @@ namespace hCraft {
 		bool th_running;
 		
 		std::deque<block_update> updates;
-		std::vector<std::shared_ptr<physics_block> > phblocks;
 		world_physics_state ph_state;
 		unsigned long long ticks;
 		
@@ -289,13 +288,15 @@ namespace hCraft {
 		void set_sky_light (int x, int y, int z, unsigned char val);
 		unsigned char get_sky_light (int x, int y, int z);
 		
-		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
+		void set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex = 0);
+		
+		void set_extra (int x, int y, int z, unsigned char ex);
+		unsigned char get_extra (int x, int y, int z);
 		
 		block_data get_block (int x, int y, int z);
 		
 		bool has_physics_at (int x, int y, int z);
 		physics_block* get_physics_at (int x, int y, int z);
-		physics_block* get_physics_of (int id);
 		
 		/* 
 		 * Instead of fetching the block from the underlying chunk, and attempt
@@ -321,11 +322,13 @@ namespace hCraft {
 			{ this->lm.enqueue_nolock (x, y, z); }
 		
 		void queue_physics (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr);
+			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr,
+			physics_block_callback cb = nullptr);
 		
 		// does nothing if the block is already queued to be handled.
 		void queue_physics_once (int x, int y, int z, int extra = 0,
-			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr);
+			void *ptr = nullptr, int tick_delay = 20, physics_params *params = nullptr,
+			physics_block_callback cb = nullptr);
 		
 		
 		void start_physics ();

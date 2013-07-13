@@ -19,11 +19,14 @@
 #include "blocks.hpp"
 #include "items.hpp"
 #include "cistring.hpp"
+#include "physics/blocks/physics_block.hpp"
 #include <cstring>
 #include <vector>
 #include <unordered_map>
 #include <sstream>
 #include <cctype>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -332,9 +335,32 @@ namespace hCraft {
 	block_info*
 	block_info::from_id (unsigned short id)
 	{
-		if (id >= block_list.size ())
-			return nullptr;
-		return &block_list[id];
+		block_info *binf = nullptr;
+		if (id < block_list.size ())
+			binf = &block_list[id];
+		
+		// handle physics blocks
+		if (!binf)
+			{
+				static std::vector<block_info> phblock_list;
+				physics_block *ph = physics_block::from_id (id);
+				if (ph)
+					{
+						// add it to our list if it's not already there
+						if (ph->id () >= (int)phblock_list.size ())
+							phblock_list.resize (ph->id () + 1);
+						if (phblock_list[id].id == 0)
+							{
+								// fill in using the associated vanilla block
+								phblock_list[id] = block_list[ph->vanilla_id ()];
+								phblock_list[id].id = id;
+							}
+						
+						return &phblock_list[id];
+					}
+			}
+		
+		return binf;
 	}
 	
 	/* 
@@ -344,10 +370,22 @@ namespace hCraft {
 	block_info*
 	block_info::from_name (const char *name)
 	{
+		int id = -1;
+		
 		auto itr = name_map.find (name);
-		if (itr == name_map.end ())
-			return nullptr;
-		return block_info::from_id (itr->second);
+		if (itr != name_map.end ())
+			id = itr->second;
+		else
+			{
+				// handle physics blocks
+				physics_block *ph = physics_block::from_name (name);
+				if (ph)
+					id = ph->id ();
+			}
+			
+		if (id != -1)
+			return block_info::from_id (id);
+		return nullptr;
 	}
 	
 	/* 

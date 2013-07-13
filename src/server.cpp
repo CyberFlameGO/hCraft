@@ -18,6 +18,7 @@
 
 #include "server.hpp"
 #include "utils.hpp"
+#include "physics/blocks/physics_block.hpp"
 #include <memory>
 #include <fstream>
 #include <cstring>
@@ -819,6 +820,17 @@ namespace hCraft {
 				"`reason` TEXT, "
 				"`unban_time` INTEGER); "
 			
+			"CREATE TABLE IF NOT EXISTS `player-logout-data` ("
+				"`name` TEXT COLLATE NOCASE, "
+				"`world` TEXT, "
+				"`pos_x` DOUBLE, "
+				"`pos_y` DOUBLE, "
+				"`pos_z` DOUBLE, "
+				"`pos_r` DOUBLE, "
+				"`pos_l` DOUBLE, "
+				"`gm` INTEGER); "
+				
+			
 			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
 		
 		
@@ -874,6 +886,8 @@ namespace hCraft {
 		this->players = new playerlist ();
 		this->id_counter = 0;
 		
+		physics_block::init_blocks ();
+		
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
 			.run_forever (10000);
 		
@@ -889,6 +903,7 @@ namespace hCraft {
 	{
 		log (LT_SYSTEM) << "Stopping threading pools and schedulers" << std::endl;
 		this->tpool.stop ();
+		physics_block::destroy_blocks ();
 		this->sched.stop ();
 		this->auth.stop ();
 		
@@ -1588,12 +1603,18 @@ namespace hCraft {
 		
 		// start physics
 		this->global_physics.set_thread_count (1);
+		
+		// start the generator
+		this->cgen.start ();
 	}
 	
 	void
 	server::destroy_worlds ()
 	{
 		log (LT_SYSTEM) << "Saving worlds..." << std::endl;
+		
+		// generator
+		this->cgen.stop ();
 		
 		// clear worlds
 		{

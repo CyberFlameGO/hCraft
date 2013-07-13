@@ -72,8 +72,13 @@ namespace hCraft {
 		unsigned char blight[2048];
 		unsigned char slight[2048];
 		unsigned char *add;
+		unsigned char extra[4096];
 		int add_count;
 		int air_count;
+		
+		// an array of 4096 bits which keeps track of custom blocks (i.e. have an 
+		// ID value which is not recognized by vanilla Minecraft).
+		unsigned int custom[128];
 		
 	//----
 	
@@ -109,7 +114,10 @@ namespace hCraft {
 		void set_sky_light (int x, int y, int z, unsigned char val);
 		unsigned char get_sky_light (int x, int y, int z);
 		
-		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
+		void set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex = 0);
+		
+		void set_extra (int x, int y, int z, unsigned char e);
+		unsigned char get_extra (int x, int y, int z);
 		
 		block_data get_block (int x, int y, int z);
 	};
@@ -188,7 +196,10 @@ namespace hCraft {
 		void set_sky_light (int x, int y, int z, unsigned char val);
 		unsigned char get_sky_light (int x, int y, int z);
 		
-		void set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta);
+		void set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex = 0);
+		
+		void set_extra (int x, int y, int z, unsigned char e);
+		unsigned char get_extra (int x, int y, int z);
 		
 		block_data get_block (int x, int y, int z);
 		
@@ -244,12 +255,11 @@ namespace hCraft {
 	public:
 		chunk_link_map (world &wr, chunk *center, int cx, int cz);
 		
-		void set (int x, int y, int z, unsigned char id, unsigned char meta = 0);
-		
-		// get methods might be unnecessary...
+		void set (int x, int y, int z, unsigned char id, unsigned char meta = 0, unsigned char ex = 0);
 		
 		unsigned short get_id (int x, int y, int z);
 		unsigned char get_meta (int x, int y, int z);
+		unsigned char get_extra (int x, int y, int z);
 		blocki get (int x, int y, int z);
 	};
 }

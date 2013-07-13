@@ -30,6 +30,7 @@ hCraft_sources = Split("""
 		drawops.cpp
 		sqlops.cpp
 		authentication.cpp
+		generator.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -83,10 +84,13 @@ hCraft_sources = Split("""
 		selection/sphere_selection.cpp
 		
 		physics/physics.cpp
+		physics/blocks/physics_block.cpp
 		physics/blocks/sand.cpp
 		physics/blocks/langtons_ant.cpp
 		physics/blocks/water.cpp
 		physics/blocks/snow.cpp
+		physics/blocks/activewater.cpp
+		physics/blocks/sponge.cpp
 		""")
 
 hCraft_libs = Split("""

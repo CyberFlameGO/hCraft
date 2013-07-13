@@ -30,12 +30,6 @@
 
 #include <iostream> // DEBUG
 
-// physics:
-#include "physics/blocks/sand.hpp"
-#include "physics/blocks/langtons_ant.hpp"
-#include "physics/blocks/water.hpp"
-#include "physics/blocks/snow.hpp"
-
 
 namespace hCraft {
 	
@@ -73,19 +67,6 @@ namespace hCraft {
 		this->auto_lighting = true;
 		this->ticks = 0;
 		
-		// physics blocks
-		{
-#define REGISTER_PHYSICS(B)  \
-	{ B *a = new B ();        \
-		if (a->id () >= (int)this->phblocks.size ()) \
-			this->phblocks.resize (a->id () + 1); \
-		this->phblocks[a->id ()].reset (a); }
-			REGISTER_PHYSICS (physics::sand)
-			REGISTER_PHYSICS (physics::langtons_ant)
-			REGISTER_PHYSICS (physics::water)
-			REGISTER_PHYSICS (physics::snow)
-#undef REGISTER_PHYSICS
-		}
 		this->ph_state = PHY_ON;
 		//this->physics.set_thread_count (0);
 	}
@@ -201,6 +182,7 @@ namespace hCraft {
 							
 							std::vector<player *> pl_vc;
 							this->get_players ().populate (pl_vc);
+							std::cout << "[" << pl_vc.size () << "p]" << std::endl;
 							
 							update_count = 0;
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
@@ -218,10 +200,7 @@ namespace hCraft {
 									block_info *old_inf = block_info::from_id (old_bd.id);
 									block_info *new_inf = block_info::from_id (u.id);
 							
-									physics_block *ph = nullptr; {
-										if (u.id < this->phblocks.size ())
-											ph = this->phblocks[u.id].get ();
-									}
+									physics_block *ph = physics_block::from_id (u.id);
 									
 									if (((this->width > 0) && ((u.x >= this->width) || (u.x < 0))) ||
 										((this->depth > 0) && ((u.z >= this->depth) || (u.z < 0))) ||
@@ -240,7 +219,7 @@ namespace hCraft {
 									
 									unsigned short old_id = this->get_id (u.x, u.y, u.z);
 									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
-									this->set_id_and_meta (u.x, u.y, u.z, u.id, u.meta);
+									this->set_block (u.x, u.y, u.z, u.id, u.meta);
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
@@ -261,7 +240,7 @@ namespace hCraft {
 												{
 													if (old_id != u.id || old_meta != u.meta)
 														{
-															physics_block *old_ph = this->get_physics_of (old_id);
+															physics_block *old_ph = physics_block::from_id (old_id);
 															if (old_ph)
 																old_ph->on_modified (*this, u.x, u.y, u.z);
 														}
@@ -870,10 +849,27 @@ namespace hCraft {
 	
 	
 	void
-	world::set_id_and_meta (int x, int y, int z, unsigned short id, unsigned char meta)
+	world::set_block (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		chunk *ch = this->load_chunk (x >> 4, z >> 4);
-		ch->set_id_and_meta (x & 0xF, y, z & 0xF, id, meta);
+		ch->set_block (x & 0xF, y, z & 0xF, id, meta, ex);
+	}
+	
+	
+	void
+	world::set_extra (int x, int y, int z, unsigned char ex)
+	{
+		chunk *ch = this->load_chunk (x >> 4, z >> 4);
+		ch->set_extra (x & 0xF, y, z & 0xF, ex);
+	}
+	
+	unsigned char
+	world::get_extra (int x, int y, int z)
+	{
+		chunk *ch = this->get_chunk (x >> 4, z >> 4);
+		if (!ch)
+			return 0;
+		return ch->get_extra (x & 0xF, y, z & 0xF);
 	}
 	
 	
@@ -890,24 +886,13 @@ namespace hCraft {
 	bool
 	world::has_physics_at (int x, int y, int z)
 	{
-		unsigned short id = this->get_id (x, y, z);
-		if (id >= this->phblocks.size ())
-			return false;
-		return (this->phblocks[id].get () != nullptr);
+		return (this->get_physics_at (x, y, z) != nullptr);
 	}
 	
 	physics_block*
 	world::get_physics_at (int x, int y, int z)
 	{
-		return this->get_physics_of (this->get_id (x, y, z));
-	}
-	
-	physics_block*
-	world::get_physics_of (int id)
-	{
-		if (id >= (int)this->phblocks.size ())
-			return nullptr;
-		return this->phblocks[id].get ();
+		return physics_block::from_id (this->get_id (x, y, z));
 	}
 	
 	
@@ -945,28 +930,28 @@ namespace hCraft {
 	
 	void
 	world::queue_physics (int x, int y, int z, int extra, void *ptr,
-		int tick_delay, physics_params *params)
+		int tick_delay, physics_params *params, physics_block_callback cb)
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
 		if (this->physics.get_thread_count () == 0)
-			this->srv.global_physics.queue_physics (this, x, y, z, extra, tick_delay, params);
+			this->srv.global_physics.queue_physics (this, x, y, z, extra, tick_delay, params, cb);
 		else
-			this->physics.queue_physics (this, x, y, z, extra, tick_delay, params);
+			this->physics.queue_physics (this, x, y, z, extra, tick_delay, params, cb);
 	}
 	
 	void
 	world::queue_physics_once (int x, int y, int z, int extra, void *ptr,
-		int tick_delay, physics_params *params)
+		int tick_delay, physics_params *params, physics_block_callback cb)
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
 		
 		if (this->physics.get_thread_count () == 0)
-			this->srv.global_physics.queue_physics_once (this, x, y, z, extra, tick_delay, params);
+			this->srv.global_physics.queue_physics_once (this, x, y, z, extra, tick_delay, params, cb);
 		else
-			this->physics.queue_physics_once (this, x, y, z, extra, tick_delay, params);
+			this->physics.queue_physics_once (this, x, y, z, extra, tick_delay, params, cb);
 	}
 	
 	

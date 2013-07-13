@@ -20,6 +20,7 @@
 #include "world.hpp"
 #include "player.hpp"
 #include "playerlist.hpp"
+#include "physics/blocks/physics_block.hpp"
 #include <cstring>
 #include <mutex>
 
@@ -111,7 +112,7 @@ namespace hCraft {
 	 */
 	
 	void
-	dense_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta)
+	dense_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		int cx = x >> 4;
 		int cz = z >> 4;
@@ -142,6 +143,7 @@ namespace hCraft {
 		}
 			
 		micro->data[b_index] = (id << 4) | (meta & 0xF);
+		micro->ex[b_index]    = ex;
 	}
 	
 	blocki
@@ -182,13 +184,14 @@ namespace hCraft {
 		int b_index = ((y & 0x7) << 6) | ((z & 0x7) << 3) | ((x & 0x7));
 		unsigned short val = micro->data[b_index];
 		unsigned short id  = val >> 4;
+		unsigned char  ex  = micro->ex[b_index];
 		if (id == ES_NONE || id == ES_REM)
 			{
 				block_data bd = this->w->get_block (x, y, z);
 				return {bd.id, bd.meta};
 			}
 		
-		return {id, (unsigned char)(val & 0xF)};
+		return {id, (unsigned char)(val & 0xF), ex};
 	}
 	
 	void
@@ -211,7 +214,7 @@ namespace hCraft {
 		for (auto itr = players.begin (); itr != players.end (); )
 			{
 				player *pl = *itr;
-				if (pl->can_see_chunk (cx, cz))
+				if ((pl->get_world () == this->w) && pl->can_see_chunk (cx, cz))
 					++ itr;
 				else
 					itr = players.erase (itr);
@@ -259,7 +262,8 @@ namespace hCraft {
 			}
 		
 		for (player *pl : players)
-			pl->send (packet::make_multi_block_change (cx, cz, records, pl));
+			if (pl->get_world () == this->w)
+				pl->send (packet::make_multi_block_change (cx, cz, records, pl));
 	}
 	
 	
@@ -319,13 +323,14 @@ namespace hCraft {
 		
 		std::vector<player *> affected_players;
 		auto& chunks_ref = this->chunks;
+		world *w = this->w;
 		this->w->get_players ().all (
-			[&affected_players, &chunks_ref] (player *pl)
+			[&affected_players, &chunks_ref, w] (player *pl)
 				{
 					bool found_common_chunk = false;
 					for (auto itr = chunks_ref.begin (); itr != chunks_ref.end (); ++itr)
 						{
-							if (pl->can_see_chunk (itr->first.x, itr->first.z))
+							if ((pl->get_world () == w) && pl->can_see_chunk (itr->first.x, itr->first.z))
 								{
 									found_common_chunk = true;
 									break;
@@ -356,6 +361,7 @@ namespace hCraft {
 				
 				unsigned short id;
 				unsigned char meta;
+				unsigned ex;
 				int rx, ry, rz;
 				
 				for (int sy = 0; sy < 16; ++sy)
@@ -393,6 +399,7 @@ namespace hCraft {
 														int wz = (cz << 4) | rz;
 														
 														meta = micro->data[index] & 0xF;
+														ex   = micro->ex[index];
 														if (id == ES_REM)
 															{
 																block_data bd = this->w->get_block (wx, wy, wz);
@@ -412,7 +419,7 @@ namespace hCraft {
 															}
 												
 														
-														this->w->estage.set (wx, wy, wz, ES_NONE, 0xF);
+														this->w->estage.set (wx, wy, wz, ES_NONE, 0xF, 0);
 														
 														// update boundaries
 														if (wx < bound_min.x) bound_min.x = wx;
@@ -422,7 +429,7 @@ namespace hCraft {
 														if (wz < bound_min.z) bound_min.z = wz;
 														if (wz > bound_max.z) bound_max.z = wz;
 										
-														wch->set_id_and_meta (rx, wy, rz, id, meta);
+														wch->set_block (rx, wy, rz, id, meta, ex);
 														
 														//if (this->w->auto_lighting)
 														// NOTE: we already acquired the lighting manager's lock,
@@ -431,7 +438,7 @@ namespace hCraft {
 														
 														if (physics)
 															{
-																physics_block *ph = this->w->get_physics_of (id);
+																physics_block *ph = physics_block::from_id (id);
 																if (ph)
 																	this->w->queue_physics (wx, wy, wz, 0, nullptr, ph->tick_rate ());
 															}
@@ -452,7 +459,7 @@ namespace hCraft {
 					{
 						for (player *pl : affected_players)
 							{
-								if (pl->can_see_chunk (cx, cz))
+								if ((pl->get_world () == this->w) &&pl->can_see_chunk (cx, cz))
 									pl->send (packet::make_chunk (cx, cz, wch));
 							}
 					}
@@ -467,7 +474,8 @@ namespace hCraft {
 								delete cp;
 								for (player *pl : affected_players)
 									{
-										pl->send (new packet (*mbcp));
+										if (pl->get_world () == this->w)
+											pl->send (new packet (*mbcp));
 									}
 								delete mbcp;
 							}
@@ -476,7 +484,7 @@ namespace hCraft {
 								delete mbcp;
 								for (player *pl : affected_players)
 									{
-										if (pl->can_see_chunk (cx, cz))
+										if ((pl->get_world () == this->w) && pl->can_see_chunk (cx, cz))
 											pl->send (new packet (*cp));
 									}
 								delete cp;
@@ -487,7 +495,8 @@ namespace hCraft {
 						packet *pack = packet::make_multi_block_change (cx, cz, records);
 						for (player *pl : affected_players)
 							{
-								pl->send (new packet (*pack));
+								if (pl->get_world () == this->w)
+									pl->send (new packet (*pack));
 							}
 						delete pack;
 					}
@@ -496,6 +505,9 @@ namespace hCraft {
 		// update player selections
 		for (player *pl : affected_players)
 			{
+				if (pl->get_world () != this->w)
+					continue;
+				
 				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
 					{
 						world_selection *sel = itr->second;
@@ -541,7 +553,7 @@ namespace hCraft {
 	 * Block modification \ retrieval:
 	 */
 	void
-	sparse_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta)
+	sparse_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		int cx = x >> 4;
 		int cz = z >> 4;
@@ -549,7 +561,7 @@ namespace hCraft {
 		unsigned char bz = z & 15;
 		
 		ses_chunk& ch = this->chunks[{cx, cz}];
-		ch.changes[{bx, y, bz}] = (id << 4) | (meta & 0xF);
+		ch.changes[{bx, y, bz}] = (unsigned int)(ex << 12) | (id << 4) | (meta & 0xF);
 	}
 	
 	
@@ -577,14 +589,15 @@ namespace hCraft {
 				return {bd.id, bd.meta};
 			}
 		
-		unsigned short id = bitr->second >> 4;
+		unsigned short id = (bitr->second >> 4) & 0xFF;
+		unsigned char  ex = bitr->second >> 12;
 		if (id == ES_REM)
 			{
 				block_data bd = this->w->get_block (x, y, z);
 				return {bd.id, bd.meta};
 			}
 			
-		return {id, (unsigned char)((bitr->second) & 0xF)};
+		return {id, (unsigned char)((bitr->second) & 0xF), ex};
 	}
 	
 	
@@ -638,7 +651,7 @@ namespace hCraft {
 		for (auto itr = players.begin (); itr != players.end (); )
 			{
 				player *pl = *itr;
-				if (pl->can_see_chunk (cx, cz))
+				if ((pl->get_world () == this->w) && pl->can_see_chunk (cx, cz))
 					++ itr;
 				else
 					itr = players.erase (itr);
@@ -655,7 +668,7 @@ namespace hCraft {
 				// selection blocks
 				if (update_sbs)
 					for (player *pl : players)
-						if (pl->sb_exists ((cx << 4) | x, y, (cz << 4) | z))
+						if ((pl->get_world () == this->w) && pl->sb_exists ((cx << 4) | x, y, (cz << 4) | z))
 							corrections.emplace_back (pl, (cx << 4) | x, y, (cz << 4) | z);
 				
 				if (restore || (((bitr->second) >> 4) == ES_REM))
@@ -670,14 +683,16 @@ namespace hCraft {
 		
 		if (players.size () == 1)
 			{
-				players[0]->send
-					(packet::make_multi_block_change (cx, cz, records));
+				if (players[0]->get_world () == this->w)
+					players[0]->send
+						(packet::make_multi_block_change (cx, cz, records));
 			}
 		else
 			{
 				packet *pack = packet::make_multi_block_change (cx, cz, records);
 				for (player *pl : players)
-					pl->send (new packet (*pack));
+					if (pl->get_world () == this->w)
+						pl->send (new packet (*pack));
 				delete pack;
 			}
 		
@@ -758,6 +773,7 @@ namespace hCraft {
 		int wx, wz;
 		unsigned short id;
 		unsigned char meta;
+		unsigned char ex;
 		std::vector<sb_correction> corrections;
 		
 		std::lock_guard<std::mutex> u_guard ((this->w->update_lock));
@@ -781,8 +797,9 @@ namespace hCraft {
 						x = bitr->first.x;
 						y = bitr->first.y;
 						z = bitr->first.z;
-						id = (bitr->second) >> 4;
+						id = ((bitr->second) >> 4) & 0xFF;
 						meta = (bitr->second) & 0xF;
+						ex = (bitr->second) >> 12;
 						
 						wx = (cx << 4) | x;
 						wz = (cz << 4) | z;
@@ -810,7 +827,7 @@ namespace hCraft {
 						records.push_back (rec);
 						
 						// update world
-						wch->set_id_and_meta (x, y, z, id, meta);
+						wch->set_block (x, y, z, id, meta, ex);
 						
 						//if (this->w->auto_lighting)
 						// NOTE: we already acquired the lighting manager's lock,
@@ -819,7 +836,7 @@ namespace hCraft {
 						
 						if (physics)
 							{
-								physics_block *ph = this->w->get_physics_of (id);
+								physics_block *ph = physics_block::from_id (id);
 								if (ph)
 									this->w->queue_physics (wx, y, wz, 0, nullptr, ph->tick_rate ());
 							}
@@ -877,12 +894,14 @@ namespace hCraft {
 	 */
 	
 	void
-	direct_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta)
+	direct_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
 	{
 		if (this->queue_updates)
 			this->w->queue_update (x, y, z, id, meta);
 		else
-			this->w->set_id_and_meta (x, y, z, id, meta);
+			{
+				this->w->set_block (x, y, z, id, meta, ex);
+			}
 	}
 	
 	blocki

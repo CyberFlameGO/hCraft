@@ -36,6 +36,7 @@ namespace hCraft {
 	public:
 		virtual int  id () = 0;
 		virtual int  vanilla_id () { return 0; }
+		virtual const char* name () = 0;
 		
 		/* 
 		 * The amount of ticks to wait between calls to tick().
@@ -66,6 +67,23 @@ namespace hCraft {
 		 * Called when the block gets modified (changed\destroyed).
 		 */
 		virtual void on_modified (world &w, int x, int y, int z) { }
+		
+		
+		
+	//------
+	
+		/*  
+		 * Initialization/Destruction of the global physics block list.
+		 */
+		static void init_blocks ();
+		static void destroy_blocks ();
+		
+		/* 
+		 * Lookup:
+		 */
+		static physics_block* from_id (int id);
+		static physics_block* from_name (const char *name);
+		static physics_block* from_id_or_name (const char *str);
 	};
 }
 

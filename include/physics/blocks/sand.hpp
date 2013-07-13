@@ -32,6 +32,7 @@ namespace hCraft {
 			virtual int  id () override { return 12; }
 			virtual int  vanilla_id () override { return 12; }
 			virtual int  tick_rate () override { return 3; }
+			virtual const char* name () { return "sand"; }
 			virtual bool affected_by_neighbours () { return true; }
 		
 			virtual void tick (world &w, int x, int y, int z, int extra,

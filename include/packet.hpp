@@ -41,13 +41,20 @@ namespace hCraft {
 	};
 	
 	
+	struct entity_property
+	{
+		const char *key;
+		double value;
+	};
+	
+	
 	/* 
 	 * A byte array wrapper that provides methods to encode binary data into it.
 	 */
 	struct packet
 	{
-		static const int protocol_version = 61;
-		static constexpr const char* game_version = "1.5.2";
+		static const int protocol_version = 74;
+		static constexpr const char* game_version = "1.6.2";
 	//----
 		
 		unsigned char *data;
@@ -130,7 +137,7 @@ namespace hCraft {
 		
 		static packet* make_spawn_pos (int x, int y, int z);
 		
-		static packet* make_update_health (short hearts, short hunger,
+		static packet* make_update_health (float hearts, short hunger,
 			float hunger_saturation);
 		
 		static packet* make_respawn (int dimension, char difficulty, char game_mode,
@@ -174,6 +181,9 @@ namespace hCraft {
 		static packet* make_entity_status (int eid, char status);
 		
 		static packet* make_entity_metadata (int eid, entity_metadata& meta);
+		
+		static packet* make_entity_properties (int eid,
+			const std::vector<entity_property>& props);
 		
 		static packet* make_chunk (int x, int z, chunk *ch);
 		

@@ -63,7 +63,7 @@ namespace hCraft {
 					out->set_id (x, y++, z, BT_GRASS);
 					
 					if (dis (rnd) == 1)
-						out->set_id_and_meta (x, y, z, BT_TALL_GRASS, 1);
+						out->set_block (x, y, z, BT_TALL_GRASS, 1);
 					out->set_biome (x, z, BI_FOREST);
 				}
 	}

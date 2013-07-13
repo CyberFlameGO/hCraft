@@ -27,12 +27,14 @@ namespace hCraft {
 	 * Constructs a new overhang world generator.
 	 */
 	overhang_world_generator::overhang_world_generator (long seed)
-		: gen_birch_trees (5, {BT_TRUNK, 2}, {BT_LEAVES, 2})
+		: gen_birch_trees (5, {BT_TRUNK, 2}, {BT_LEAVES, 2}),
+			gen_pine_trees (8, {BT_TRUNK, 1}, {BT_LEAVES, 1})
 	{
 		this->gen_seed = seed;
-		this->gen_oak_trees.seed (seed);
-		this->gen_birch_trees.seed (seed);
-		this->gen_palm_trees.seed (seed);
+		this->gen_oak_trees.seed (seed + 1);
+		this->gen_birch_trees.seed (seed + 2);
+		this->gen_palm_trees.seed (seed + 3);
+		this->gen_pine_trees.seed (seed + 4);
 		
 		// REV #03
 		this->pn1.SetSeed (seed & 0x7FFFFFFF);
@@ -64,6 +66,12 @@ namespace hCraft {
 		this->pn5.SetFrequency (0.0009);
 		this->pn5.SetPersistence (0.02);
 		this->pn5.SetLacunarity (0.452);
+		
+		this->pn6.SetSeed ((seed + 5) & 0x7FFFFFFF);
+		this->pn6.SetNoiseQuality (noise::QUALITY_FAST);
+		this->pn6.SetFrequency (0.0009);
+		this->pn6.SetPersistence (0.02);
+		this->pn6.SetLacunarity (0.452);
 		
 		this->bl1.SetSourceModule (0, this->mu1);
 		this->bl1.SetSourceModule (1, this->co2);
@@ -208,6 +216,7 @@ namespace hCraft {
 				ST_AIR,
 				ST_DIRT,
 				ST_STONE,
+				ST_WATER,
 			} state =	ST_AIR;
 		
 		unsigned int xz_hash = std::hash<long> () (((long)cz << 32) | cx) & 0xFFFFFFFF;
@@ -226,6 +235,8 @@ namespace hCraft {
 		for (x = 0; x < 16; ++x)
 			for (z = 0; z < 16; ++z)
 				{
+					bool snow = this->pn6.GetValue ((cx << 4) | x, 1400, (cz << 4) | z) > 0.4;
+					
 					// biome from foliage
 					f = this->pn_foliage.GetValue ((cx << 4) | x, 0, (cz << 4) | z);
 					if (f > 0.89)
@@ -247,6 +258,9 @@ namespace hCraft {
 							id = out->get_id (x, y, z);
 							if (id == BT_STONE)
 								{
+									if (state == ST_WATER)
+										state = ST_AIR;
+									
 									if (utils::iabs (WATER_LEVEL - y) <= 3)
 										{
 											v = pn_sand.GetValue ((cx << 4) | x, 0, (cz << 4) | z);
@@ -265,7 +279,7 @@ namespace hCraft {
 													
 													continue;
 												}
-											else if (v < -0.5)
+											else if ((v < -0.5) && !snow)
 												{ state = ST_DIRT; out->set_id (x, y, z, BT_GRAVEL); continue; }
 										}
 									
@@ -276,7 +290,13 @@ namespace hCraft {
 													first = false;
 													
 													// determine biome
-													if (!biomes[(z << 4) | x])
+													
+													if (snow)
+														{
+															out->set_biome (x, z, BI_TAIGA);
+															biomes[(z << 4) | x] = true;
+														}
+													else if (!biomes[(z << 4) | x])
 														{
 															if (y == WATER_LEVEL)
 																{
@@ -299,20 +319,29 @@ namespace hCraft {
 											if (f >= -0.88 && (y - WATER_LEVEL) >= 1)
 												{
 													r = dis (rnd);
-													if (r > 90)
-														out->set_id_and_meta (x, y + 1, z, BT_TALL_GRASS, 1);
-													else if (r < 8)
+													
+													if (r > 90 && !snow)
+														out->set_block (x, y + 1, z, BT_TALL_GRASS, 1);
+													else if (r < 8 && !snow)
 														out->set_id (x, y + 1, z, (dis (rnd) & 1) ? BT_DANDELION : BT_ROSE);
 													else if (r > 10 && r < 15 && ((y - WATER_LEVEL) > 4))
 														{
-															if (dis (rnd) > 160)
-																this->gen_birch_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+															if (snow)
+																{
+																	if ((f >= -0.2) && (dis (rnd) > 100))
+																		this->gen_pine_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+																}
 															else
-																this->gen_oak_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+																{
+																	if (dis (rnd) > 160)
+																		this->gen_birch_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+																	else
+																		this->gen_oak_trees.generate (wr, (cx << 4) | x, y + 1, (cz << 4) | z);
+																}
 														}
 													else
 														{
-															if (dis (rnd) > 50)
+															if (!snow && dis (rnd) > 50)
 																{
 																	if (!biomes[(z << 4) | x])
 																		{
@@ -324,6 +353,9 @@ namespace hCraft {
 												}
 											
 											out->set_id (x, y, z, BT_GRASS);
+											if (snow && out->get_id (x, y + 1, z) != BT_TRUNK)
+												out->set_id (x, y + 1, z, BT_SNOW_COVER);
+											
 											state = ST_DIRT;
 										}
 									else if (state == ST_DIRT)
@@ -332,6 +364,14 @@ namespace hCraft {
 												out->set_id (x, y, z, BT_DIRT);
 											else
 												state = ST_STONE;
+										}
+								}
+							else if (id == BT_WATER)
+								{
+									if (snow && state == ST_AIR)
+										{
+											out->set_id (x, y, z, BT_ICE);
+											state = ST_WATER;
 										}
 								}
 							else

@@ -197,8 +197,7 @@ namespace hCraft {
 				
 				char brightest = _max (sle, _max (slw, _max (slu, _max (sld, _max (sls, _max (sln, 0))))));
 				nl = brightest;
-				if (this_info->opacity > 0)
-					nl -= this_info->opacity - 1;
+				nl -= this_info->opacity + 1;
 				if (nl < 0) nl = 0;
 			}
 		

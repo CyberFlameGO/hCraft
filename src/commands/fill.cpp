@@ -24,12 +24,114 @@
 #include <sstream>
 #include <mutex>
 #include <random>
+#include <stack>
 
 #include <iostream> // DEBUG
 
 
 namespace hCraft {
 	namespace commands {
+		
+	//----
+		namespace {
+			struct ff_data {
+				blocki bl;
+				int max;
+			};
+			
+			struct ff_node {
+				int x, y, z;
+			};
+		}
+		
+		static bool
+		ff_on_blocks_marked (player *pl, block_pos marked[], int markedc)
+		{
+			ff_data *data = static_cast<ff_data *> (pl->get_data ("flood-fill"));
+			if (!data) return true; // shouldn't happen
+			
+			world *w = pl->get_world ();
+			dense_edit_stage es (w);
+			chunk_link_map cmap {*w, w->get_chunk_at (marked[0].x, marked[0].z),
+				marked[0].x >> 4, marked[0].z >> 4};
+			
+			block_data target = w->get_block (marked[0].x, marked[0].y, marked[0].z);
+			blocki     replace = data->bl;
+			
+			int count = 0;
+			
+			std::stack<ff_node> q;
+			q.push ({marked[0].x, marked[0].y, marked[0].z});
+			while (!q.empty ())
+				{
+					if (data->max > 0 && count == data->max)
+						break;
+					
+					ff_node n = q.top ();
+					q.pop ();
+					
+					if (cmap.get_id (n.x, n.y, n.z) == target.id &&
+							cmap.get_meta (n.x, n.y, n.z) == target.meta)
+						{
+							cmap.set (n.x, n.y, n.z, replace.id, replace.meta);
+							es.set (n.x, n.y, n.z, replace.id, replace.meta);
+							++ count;
+							
+							q.push ({n.x - 1, n.y, n.z});
+							q.push ({n.x + 1, n.y, n.z});
+							if (n.y > 0) q.push ({n.x, n.y - 1, n.z});
+							if (n.y < 255) q.push ({n.x, n.y + 1, n.z});
+							q.push ({n.x, n.y, n.z - 1});
+							q.push ({n.x, n.y, n.z + 1});
+							
+						}
+				}
+			
+			es.commit ();
+			
+			pl->delete_data ("flood-fill");
+			
+			std::ostringstream ss;
+			if (!q.empty ())
+				ss << "§cPartial §3flood fill complete";
+			else
+				ss << "§3Flood fill complete";
+			ss << " (§b" << count << " §3blocks)";
+			pl->message (ss.str ());
+			return true;
+		}
+		
+		static void
+		flood_fill (player *pl, command_reader &reader, blocki bd, int max)
+		{
+			if (reader.arg_count () != 1)
+				{
+					pl->message ("§c * §7Usage§f: §e/fill \\f §cblock");
+					return;
+				}
+			
+			ff_data *data = new ff_data {bd, max};
+			pl->create_data ("flood-fill", data,
+				[] (void *ptr) { delete static_cast<ff_data *> (ptr); });
+			pl->get_nth_marking_callback (1) += ff_on_blocks_marked;
+			
+			block_info *binf = block_info::from_id (bd.id);
+			std::ostringstream ss;
+			
+			ss << "§8Flood fill §7(§8Block§7: §b";
+			if (binf)
+				ss << binf->name;
+			else
+				ss << bd.id;
+			ss << "§7):";
+			
+			pl->message (ss.str ());
+			pl->message ("§8 * §7Please mark §b1 §7block§7.");
+		}
+		
+	//----
+		
+		
 		
 		/* 
 		 * /fill -
@@ -48,7 +150,8 @@ namespace hCraft {
 			
 			reader.add_option ("no-physics", "p");
 			reader.add_option ("hollow", "o");
-			reader.add_option ("random", "r", true, true);
+			reader.add_option ("flood", "f", 0, 1);
+			reader.add_option ("random", "r", 1, 1);
 			if (!reader.parse (this, pl))
 					return;
 			if (reader.no_args () || reader.arg_count () > 2)
@@ -77,11 +180,11 @@ namespace hCraft {
 			blocki bd_out, bd_in;
 			
 			bd_out = sutils::to_block (reader.arg (0));
-			/*if (!bd_out.valid ())
+			if (!bd_out.valid ())
 				{
 					pl->message ("§c * §7Invalid block§f: §c" + reader.arg (0));
 					return;
-				}*/
+				}
 			
 			if (reader.arg_count () == 2)
 				{
@@ -95,6 +198,20 @@ namespace hCraft {
 				}
 			else
 				{ bd_in.id = 0xFFFF; bd_in.meta = 0; }
+			
+			// flood fill?
+			auto f_opt = reader.opt ("flood");
+			if (f_opt->found ())
+				{
+					int max = 50000;
+					if (f_opt->got_args ())
+						{
+							max = f_opt->arg (0).as_int ();
+						}
+					
+					flood_fill (pl, reader, bd_out, max);
+					return;
+				}
 			
 			int block_counter = 0;
 			int selection_counter = 0;
