@@ -207,18 +207,20 @@ namespace hCraft {
 	  int cx, int cz, des_chunk& ch, bool restore, bool update_sbs)
 	{
 		std::vector<player *> players (_players);
-		if (_players.empty ())
-			return;
 		
 		// don't send to players that are too far away
 		for (auto itr = players.begin (); itr != players.end (); )
 			{
 				player *pl = *itr;
+				
 				if ((pl->get_world () == this->w) && pl->can_see_chunk (cx, cz))
 					++ itr;
 				else
 					itr = players.erase (itr);
 			}
+		
+		if (players.empty ())
+			return;
 		
 		block_data bd;
 		unsigned short id;

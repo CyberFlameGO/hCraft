@@ -164,7 +164,7 @@ namespace hCraft {
 		const static int light_update_cap = 10000; // per tick
 		
 		int update_count;
-		dense_edit_stage pl_tr;
+		dense_edit_stage pl_tr {this};
 		
 		this->ticks = 0;
 		while (this->th_running)
@@ -182,7 +182,6 @@ namespace hCraft {
 							
 							std::vector<player *> pl_vc;
 							this->get_players ().populate (pl_vc);
-							std::cout << "[" << pl_vc.size () << "p]" << std::endl;
 							
 							update_count = 0;
 							while (!this->updates.empty () && (update_count++ < block_update_cap))
