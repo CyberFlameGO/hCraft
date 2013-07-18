@@ -431,10 +431,11 @@ namespace hCraft {
 		this->get_server ().get_players ().remove (this);
 		if (this->curr_world)
 			{
-				this->curr_world->get_players ().remove (this);
-				
 				if (!this->get_server ().is_shutting_down ())
 					{
+						this->curr_world->get_players ().remove (this);
+						this->remove_from_tab_list (false);
+				
 						if (this->handshake && !silent)
 							{
 								std::ostringstream ss;
@@ -624,6 +625,8 @@ namespace hCraft {
 		this->sb_updates.set_world (w, true);
 		if (had_prev_world)
 			{
+				this->clear_tab_list ();
+				this->remove_from_tab_list (false);
 				this->curr_world->get_players ().remove (this);
 				
 				// destroy selections
@@ -643,6 +646,8 @@ namespace hCraft {
 		this->curr_world = w;
 		this->pos = destpos;
 		this->curr_world->get_players ().add (this);
+		this->load_tab_list ();
+		this->add_to_tab_list (false);
 		this->last_ground_height = -128.0;
 		
 		block_pos bpos = destpos;
@@ -1068,21 +1073,6 @@ namespace hCraft {
 	
 //----
 	
-	static void
-	get_ping_name (char col, const char *username, char *out)
-	{
-		std::string str;
-		str.append ("§");
-		str.push_back (col);
-		str.append (username);
-		if (str.size () > 16)
-			{
-				str.resize (13);
-				str.append ("...");
-			}
-		std::strcpy (out, str.c_str ());
-	}
-	
 	/* 
 	 * Sends a ping packet to the player and waits for a response.
 	 */
@@ -1128,16 +1118,12 @@ namespace hCraft {
 	void
 	player::spawn_to (player *pl)
 	{
-		if (pl == this || (this->bad () || pl->bad ()))
+		if (pl == this || (this->bad () || pl->bad ()) || !this->curr_world)
 			return;
 		
 		std::string col_name;
 		col_name.append ("§");
 		col_name.append (this->get_colored_username ());
-		
-		char ping_name[24];
-		get_ping_name (this->get_rank ().main_group->color, this->get_username (),
-			ping_name);
 		
 		entity_pos me_pos = this->pos;
 		entity_metadata me_meta;
@@ -1147,7 +1133,6 @@ namespace hCraft {
 			me_pos.x, me_pos.y, me_pos.z, me_pos.r, me_pos.l, 0, me_meta));
 		pl->send (packet::make_entity_head_look (this->get_eid (), me_pos.r));
 		pl->send (packet::make_entity_equipment (this->eid, 0, this->inv.get (this->held_slot)));
-		//pl->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
 		
 		{
 			std::lock_guard<std::mutex> guard {pl->visible_player_lock};
@@ -1159,26 +1144,119 @@ namespace hCraft {
 		}
 	}
 	
+	void
+	player::spawn_to_all ()
+	{
+		if (this->bad () || !this->curr_world)
+			return;
+		
+		player *me = this;
+		chunk_pos me_pos = me->pos;
+		
+		this->get_world ()->get_players ().all (
+			[me, me_pos] (player *pl)
+				{
+					if ((pl != me) && pl->can_see_chunk (me_pos.x, me_pos.z))
+						{
+							me->spawn_to (pl);
+						}
+				});
+	}
+	
 	/* 
 	 * Despawns self from the specified player.
 	 */
 	bool
 	player::despawn_from (player *pl)
 	{
-		if (pl->bad ())
+		if (pl->bad () || !this->curr_world)
 			return false;
 		
 		if (!entity::despawn_from (pl))
 			return false;
 		
-		//char ping_name[24];
-		//get_ping_name (this->get_rank ().main_group->get_color (), this->get_username (),
-		//	ping_name);
-		//pl->send (packet::make_player_list_item (ping_name, false, 0));
-		
 		std::lock_guard<std::mutex> guard {pl->visible_player_lock};
 		pl->visible_players.erase (this);
 		return true;
+	}
+	
+	void
+	player::despawn_from_all ()
+	{
+		if (this->bad () || !this->curr_world)
+			return;
+		
+		player *me = this;
+		chunk_pos me_pos = me->pos;
+		
+		this->get_world ()->get_players ().all (
+			[me, me_pos] (player *pl)
+				{
+					if ((pl != me) && pl->can_see_chunk (me_pos.x, me_pos.z))
+						{
+							me->despawn_from (pl);
+						}
+				});
+	}
+	
+	
+	
+	void
+	player::add_to_tab_list (bool self)
+	{
+		if (this->bad () || !this->curr_world)
+			return;
+		
+		player *me = this;
+		this->get_world ()->get_players ().all (
+			[self, me] (player *pl)
+				{
+					if (self || (me != pl))
+						pl->send (packet::make_player_list_item (me->get_colored_username (), true, me->ping_time_ms));
+				});
+	}
+	
+	void
+	player::remove_from_tab_list (bool self)
+	{
+		if (!this->curr_world)
+			return;
+		
+		player *me = this;
+		this->get_world ()->get_players ().all (
+			[self, me] (player *pl)
+				{
+					if (self || (me != pl))
+						pl->send (packet::make_player_list_item (me->get_colored_username (), false, me->ping_time_ms));
+				});
+	}
+	
+	void
+	player::clear_tab_list ()
+	{
+		if (this->bad () || !this->curr_world)
+			return;
+		
+		player *me = this;
+		this->get_world ()->get_players ().all (
+			[me] (player *pl)
+				{
+					me->send (packet::make_player_list_item (pl->get_colored_username (), false, me->ping_time_ms));
+				});
+	}
+	
+	void
+	player::load_tab_list ()
+	{
+		if (this->bad () || !this->curr_world)
+			return;
+		
+		player *me = this;
+		this->get_world ()->get_players ().all (
+			[me] (player *pl)
+				{
+					me->send (packet::make_player_list_item (pl->get_colored_username (), true, me->ping_time_ms));
+				});
 	}
 	
 	
@@ -1512,6 +1590,9 @@ namespace hCraft {
 	void
 	player::set_rank (const rank& rnk)
 	{
+		this->remove_from_tab_list ();
+		this->despawn_from_all ();
+	
 		this->rnk = rnk;
 		
 		// update colored names
@@ -1527,6 +1608,9 @@ namespace hCraft {
 		str.push_back (this->rnk.main ()->color);
 		str.append (this->username);
 		std::strcpy (this->colored_username, str.c_str ());
+		
+		this->add_to_tab_list ();
+		this->spawn_to_all ();
 	}
 	
 	
@@ -2022,14 +2106,6 @@ namespace hCraft {
 				return;
 			}
 
-		// insert self into player list ping
-		{
-			char ping_name[128];
-			get_ping_name (this->get_rank ().main_group->color, this->get_username (),
-				ping_name);
-			this->send (packet::make_player_list_item (ping_name, true, this->ping_time_ms));
-		}
-
 		{
 			std::ostringstream ss;
 			ss << "§e[§a+§e] " << this->get_colored_nickname ()
@@ -2097,22 +2173,18 @@ namespace hCraft {
 		
 		if ((pl->keep_alives_received++ % 5) == 0)
 			{
+				/*
 				// update self
-				char ping_name[24];
-				get_ping_name (pl->get_rank ().main_group->color, pl->get_username (),
-					ping_name);
-				pl->send (packet::make_player_list_item (ping_name, true, pl->ping_time_ms));
+				pl->send (packet::make_player_list_item (pl->get_colored_username (), true, pl->ping_time_ms));
 	
 				// update other players
 				player *me = pl;
 				pl->get_world ()->get_players ().all (
 					[me] (player *pl)
 						{
-							char ping_name[24];
-							get_ping_name (me->get_rank ().main_group->color, me->get_username (),
-								ping_name);
-							pl->send (packet::make_player_list_item (ping_name, true, me->ping_time_ms));
+							pl->send (packet::make_player_list_item (me->get_colored_username (), true, me->ping_time_ms));
 						});
+				*/
 			}
 		
 		return 0;

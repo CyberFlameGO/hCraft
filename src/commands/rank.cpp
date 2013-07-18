@@ -166,7 +166,7 @@ namespace hCraft {
 								pl->message ("§c * §7You cannot change your own rank§c.");
 								return;
 							}
-						else if (pinf.rnk <= pl->get_rank ())
+						else if (pinf.rnk >= pl->get_rank ())
 							{
 								pl->message ("§c * §7You cannot change the rank of someone higher than you§c.");
 								return;

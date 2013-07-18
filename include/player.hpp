@@ -501,11 +501,19 @@ namespace hCraft {
 		 * Spawns self to the specified player.
 		 */
 		virtual void spawn_to (player *pl) override;
+		void spawn_to_all ();
 		
 		/* 
 		 * Despawns self from the specified player.
 		 */
 		virtual bool despawn_from (player *pl) override;
+		void despawn_from_all ();
+		
+		
+		void add_to_tab_list (bool self = true);
+		void remove_from_tab_list (bool self = true);
+		void clear_tab_list ();
+		void load_tab_list ();
 		
 		
 		

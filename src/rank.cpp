@@ -122,10 +122,10 @@ namespace hCraft {
 	{
 		if (this->no_perms)
 			return false;
+		else if (this->all_perms)
+			return true;
 		if (!perm.valid ())
 			{
-				if (this->all_perms)
-					return true;
 				return false;
 			}
 		
@@ -840,6 +840,16 @@ namespace hCraft {
 					cfg::group *curr = new cfg::group ();
 					
 					curr->add_integer ("power", grp->power);
+					
+					// inheritance
+					if (!grp->parents.empty ())
+						{
+							cfg::array *arr = new cfg::array ();
+							for (group *parent : grp->parents)
+								arr->add_string (parent->name);
+							curr->add ("inheritance", arr);
+						}
+					
 					if (grp->color != 'f')
 						curr->add_string ("color", std::string (1, grp->color));
 					if (grp->text_color != 'f')
