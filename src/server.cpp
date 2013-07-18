@@ -19,10 +19,10 @@
 #include "server.hpp"
 #include "utils.hpp"
 #include "physics/blocks/physics_block.hpp"
+#include "config.hpp"
 #include <memory>
 #include <fstream>
 #include <cstring>
-#include <libconfig.h++>
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <algorithm>
@@ -537,47 +537,56 @@ namespace hCraft {
 		
 		std::strcpy (out.ip, "0.0.0.0");
 		out.port = 25565;
+		
+		out.self_highlight_color = 'a';
+		out.name_highlight_color = 'd';
 	}
 	
 	static void
-	write_config (logger& log, libconfig::Config& cfg, const server_config& in)
+	write_config (logger& log, const server_config& in)
 	{
-		libconfig::Setting& grp_server = cfg.getRoot ().add ("server",
-			libconfig::Setting::TypeGroup);
+		cfg::group root {1};
 		
-		/* 'general' group */
 		{
-			libconfig::Setting& grp_general = grp_server.add ("general",
-				libconfig::Setting::TypeGroup);
+			cfg::group *grp_general = new cfg::group ();
 			
-			grp_general.add ("server-name", libconfig::Setting::TypeString)
-				= in.srv_name;
-			grp_general.add ("server-motd", libconfig::Setting::TypeString)
-				= in.srv_motd;
-			grp_general.add ("online-mode", libconfig::Setting::TypeBoolean)
-				= in.online_mode;
-			grp_general.add ("max-players", libconfig::Setting::TypeInt)
-				= in.max_players;
-			grp_general.add ("main-world", libconfig::Setting::TypeString)
-				= in.main_world;
+			grp_general->add_string ("server-name", in.srv_name);
+			grp_general->add_string ("server-motd", in.srv_motd);
+			grp_general->add_boolean ("online-mode", in.online_mode);
+			grp_general->add_integer ("max-players", in.max_players);
+			grp_general->add_string ("main-world", in.main_world);
+			
+			root.add ("general", grp_general);
 		}
 		
-		/* 'network' group */
 		{
-			libconfig::Setting& grp_network = grp_server.add ("network",
-				libconfig::Setting::TypeGroup);
+			cfg::group *grp_network = new cfg::group ();
 			
-			grp_network.add ("ip-address", libconfig::Setting::TypeString)
-				= in.ip;
-			grp_network.add ("port", libconfig::Setting::TypeInt)
-				= in.port;
+			grp_network->add_string ("ip-address", in.ip);
+			grp_network->add_integer ("port", in.port);
+			
+			root.add ("network", grp_network);
+		}
+		
+		{
+			cfg::group *grp_chat = new cfg::group ();
+			
+			grp_chat->add_string ("self-highlight-color",
+				(in.self_highlight_color == 0) ? "" : std::string (1, in.self_highlight_color));
+			grp_chat->add_string ("name-highlight-color",
+				(in.name_highlight_color == 0) ? "" : std::string (1, in.name_highlight_color));
+			
+			root.add ("chat",grp_chat);
 		}
 		
 		try
 			{
-				cfg.writeFile ("data/config.cfg");
+				std::ofstream fs {"data/config.cfg"};
+				if (!fs) throw server_error ("failed to save configuration file");
+				root.write_to (fs);
+				fs.close ();
 			}
-		catch (const libconfig::FileIOException& ex)
+		catch (const std::exception&)
 			{
 				log (LT_ERROR) << "Failed to save configuration file to \"data/config.cfg\"" << std::endl;
 			}
@@ -585,15 +594,15 @@ namespace hCraft {
 	
 	
 	static void
-	_cfg_read_general_grp (logger& log, libconfig::Setting& grp_general, server_config& out)
+	_cfg_read_general_grp (logger& log, cfg::group *grp_general, server_config& out)
 	{
 		std::string str;
-		int num;
+		long long num;
 		bool error = false;
 		bool bl;
 		
 		// server name
-		if (grp_general.lookupValue ("server-name", str))
+		if (grp_general->try_get_string ("server-name", str))
 			{
 				if (str.size () > 0 && str.size() <= 80)
 					std::strcpy (out.srv_name, str.c_str ());
@@ -608,8 +617,7 @@ namespace hCraft {
 			}
 		
 		// server motd
-		str.clear ();
-		if (grp_general.lookupValue ("server-motd", str))
+		if (grp_general->try_get_string ("server-motd", str))
 			{
 				if (str.size() <= 80)
 					std::strcpy (out.srv_motd, str.c_str ());
@@ -623,13 +631,13 @@ namespace hCraft {
 			}
 		
 		// online mode
-		grp_general.lookupValue ("online-mode", bl);
-		out.online_mode = bl;
+		if (grp_general->try_get_boolean ("online-mode", bl))
+			out.online_mode = bl;
 		if (!out.online_mode)
 			log (LT_INFO) << "The server is running in offline mode! (Authentication/encryption will not take place)" << std::endl;
 		
 		// max players
-		if (grp_general.lookupValue ("max-players", num))
+		if (grp_general->try_get_integer ("max-players", num))
 			{
 				if (num > 0 && num <= 1024)
 					out.max_players = num;
@@ -637,14 +645,13 @@ namespace hCraft {
 					{
 						if (!error)
 							log (LT_ERROR) << "Config: at group \"server.general\":" << std::endl;
-						log (LT_INFO) << " - \"max_players\" must be in the range of 1-1024." << std::endl;
+						log (LT_INFO) << " - \"max-players\" must be in the range of 1-1024." << std::endl;
 						error = true;
 					}
 			}
 		
 		// main world
-		str.clear ();
-		if (grp_general.lookupValue ("main-world", str))
+		if (grp_general->try_get_string ("main-world", str))
 			{
 				if (world::is_valid_name (str.c_str ()))
 					std::strcpy (out.main_world, str.c_str ());
@@ -659,14 +666,14 @@ namespace hCraft {
 	}
 	
 	static void
-	_cfg_read_network_grp (logger& log, libconfig::Setting& grp_network, server_config& out)
+	_cfg_read_network_grp (logger& log, cfg::group *grp_network, server_config& out)
 	{
 		std::string str;
-		int num;
+		long long num;
 		bool error = false;
 		
 		// ip address
-		if (grp_network.lookupValue ("ip-address", str))
+		if (grp_network->try_get_string ("ip-address", str))
 			{
 				if (str.size () == 0)
 					std::strcpy (out.ip, "0.0.0.0");
@@ -686,7 +693,7 @@ namespace hCraft {
 			}
 		
 		// port
-		if (grp_network.lookupValue ("port", num))
+		if (grp_network->try_get_integer ("port", num))
 			{
 				if (num >= 0 && num <= 65535)
 					out.port = num;
@@ -701,11 +708,76 @@ namespace hCraft {
 	}
 	
 	static void
-	_cfg_read_server_grp (logger& log, libconfig::Setting& grp_server, server_config& out)
+	_cfg_read_chat_grp (logger& log, cfg::group *grp_chat, server_config& out)
+	{
+		std::string str;
+		bool error = false;
+		
+		// self-highlight-color
+		if (grp_chat->try_get_string ("self-highlight-color", str))
+			{
+				if (str.empty ())
+					out.self_highlight_color = 0;
+				else if (str.size() == 1)
+					{
+						int code = str[0];
+						if (!std::isxdigit (code))
+							throw server_error ("");
+						out.self_highlight_color = code;
+					}
+				else
+					{
+						if (!error)
+							log (LT_ERROR) << "Config: at group \"server.chat\":" << std::endl;
+						log (LT_INFO) << " - \"self-highlight-color\" must be a hexadecimal color code." << std::endl;
+						error = true;
+					}
+			}
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"server.chat\":" << std::endl;
+				log (LT_INFO) << " - \"self-highlight-color\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		
+		// name-highlight-color
+		if (grp_chat->try_get_string ("name-highlight-color", str))
+			{
+				if (str.empty ())
+					out.name_highlight_color = 0;
+				else if (str.size() == 1)
+					{
+						int code = str[0];
+						if (!std::isxdigit (code))
+							throw server_error ("");
+						out.name_highlight_color = code;
+					}
+				else
+					{
+						if (!error)
+							log (LT_ERROR) << "Config: at group \"server.chat\":" << std::endl;
+						log (LT_INFO) << " - \"name-highlight-color\" must be a hexadecimal color code." << std::endl;
+						error = true;
+					}
+			}
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"server.chat\":" << std::endl;
+				log (LT_INFO) << " - \"name-highlight-color\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+	}
+	
+	static void
+	_cfg_read_root_grp (logger& log, cfg::group *root, server_config& out)
 	{
 		try
 			{
-				libconfig::Setting& grp_general = grp_server["general"];
+				cfg::group *grp_general = root->find_group ("general");
+				if (!grp_general) throw server_error ("not found");
 				_cfg_read_general_grp (log, grp_general, out);
 			}
 		catch (const std::exception& ex)
@@ -715,23 +787,34 @@ namespace hCraft {
 		
 		try
 			{
-				libconfig::Setting& grp_network = grp_server["network"];
+				cfg::group *grp_network = root->find_group ("network");
+				if (!grp_network) throw server_error ("not found");
 				_cfg_read_network_grp (log, grp_network, out);
 			}
 		catch (const std::exception& ex)
 			{
 				log (LT_WARNING) << "Config: Group \"server.network\" not found, using defaults" << std::endl;
 			}
+		
+		try
+			{
+				cfg::group *grp_chat = root->find_group ("chat");
+				if (!grp_chat) throw server_error ("not found");
+				_cfg_read_chat_grp (log, grp_chat, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"server.chat\" not found, using defaults" << std::endl;
+			}
 	}
 	
 	static void
-	read_config (logger& log, libconfig::Config& cfg, server_config& out)
+	read_config (logger& log, std::ifstream& fs, server_config& out)
 	{
-		libconfig::Setting& root = cfg.getRoot ();
 		try
 			{
-				libconfig::Setting& grp_server = root["server"];
-				_cfg_read_server_grp (log, grp_server, out);
+				cfg::group *root = cfg::group::read_from (fs);
+				_cfg_read_root_grp (log, root, out);
 			}
 		catch (const std::exception& ex)
 			{
@@ -746,22 +829,20 @@ namespace hCraft {
 		default_config (this->cfg);
 		
 		log () << "Loading configuration from \"data/config.cfg\"" << std::endl;
-		libconfig::Config cfg;
 		
 		// check if the file exists
 		{
 			std::ifstream strm ("data/config.cfg");
 			if (strm.is_open ())
 				{
+					read_config (this->log, strm, this->cfg);
 					strm.close ();
-					cfg.readFile ("data/config.cfg");
-					read_config (this->log, cfg, this->cfg);
 					return;
 				}
 		}
 		
 		log () << "Configuration file does not exist, creating one with default settings." << std::endl;
-		write_config (this->log, cfg, this->cfg);
+		write_config (this->log, this->cfg);
 	}
 	
 	void
@@ -964,6 +1045,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "mute");
 		_add_command (this->perms, this->commands, "wsetspawn");
 		_add_command (this->perms, this->commands, "unmute");
+		_add_command (this->perms, this->commands, "say");
 	}
 	
 	void
@@ -988,10 +1070,12 @@ namespace hCraft {
 		grp_spectator->color = '8';
 		grp_spectator->can_build = false;
 		grp_spectator->add ("command.info.help");
+		grp_spectator->msuffix = "§f:";
 		
 		group* grp_guest = groups.add (1, "guest");
 		grp_guest->color = '7';
 		grp_guest->add ("command.info.help");
+		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "member");
 		grp_member->color = 'a';
@@ -1002,6 +1086,7 @@ namespace hCraft {
 		grp_member->add ("command.info.status.balance");
 		grp_member->add ("command.info.money");
 		grp_member->add ("command.info.money.pay");
+		grp_member->msuffix = "§f:";
 		
 		group* grp_builder = groups.add (3, "builder");
 		grp_builder->color = '2';
@@ -1010,6 +1095,7 @@ namespace hCraft {
 		grp_builder->add ("command.world.tp");
 		grp_builder->add ("command.draw.cuboid");
 		grp_builder->add ("command.draw.aid");
+		grp_builder->msuffix = "§f:";
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->color = 'b';
@@ -1017,6 +1103,7 @@ namespace hCraft {
 		grp_designer->add ("command.draw.select");
 		grp_designer->add ("command.draw.fill");
 		grp_designer->add ("command.draw.sphere");
+		grp_designer->msuffix = "§f:";
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->color = '3';
@@ -1027,6 +1114,7 @@ namespace hCraft {
 		grp_architect->add ("command.draw.ellipse");
 		grp_architect->add ("command.draw.polygon");
 		grp_architect->add ("command.draw.curve");
+		grp_architect->msuffix = "§f:";
 		
 		group* grp_moderator = groups.add (6, "moderator");
 		grp_moderator->color = 'c';
@@ -1036,6 +1124,7 @@ namespace hCraft {
 		grp_moderator->add ("command.info.status.logins");
 		grp_moderator->add ("command.admin.mute");
 		grp_moderator->add ("command.admin.unmute");
+		grp_moderator->msuffix = "§f:";
 		
 		group* grp_admin = groups.add (7, "admin");
 		grp_admin->color = '4';
@@ -1048,7 +1137,10 @@ namespace hCraft {
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
+		grp_admin->add ("command.chat.say.*");
 		grp_admin->text_color = 'c';
+		grp_admin->msuffix = "§f:";
+		grp_admin->color_codes = true;
 		
 		group* grp_executive = groups.add (8, "executive");
 		grp_executive->color = 'e';
@@ -1060,12 +1152,16 @@ namespace hCraft {
 		grp_executive->add ("command.world.wsetspawn");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
-		grp_executive->text_color = '7';
+		grp_executive->text_color = 'c';
+		grp_executive->msuffix = "§f:";
+		grp_executive->color_codes = true;
 		
 		group* grp_owner = groups.add (9, "owner");
 		grp_owner->color = '6';
-		grp_owner->text_color = '7';
+		grp_owner->text_color = 'b';
 		grp_owner->add ("*");
+		grp_owner->msuffix = "§f:";
+		grp_owner->color_codes = true;
 		
 		// ladders
 		group_ladder *ld_normal = groups.add_ladder ("normal");
@@ -1089,375 +1185,13 @@ namespace hCraft {
 	static void
 	write_ranks (logger& log, group_manager& groups)
 	{
-		std::ofstream strm ("data/ranks.cfg");
-		
-		strm <<
-			"// The rank that is automatically assigned to new players.\n"
-			"default-rank = \"@guest[normal]\";\n"
-			"\n"
-			"// The group ladders are used to determine which groups come after others.\n"
-			"// For example, a player who has the \"builder\" rank in the [normal]\n"
-			"// ladder will be set to \"designer\" on promotion, since \"designer\"\n"
-			"// comes right after the \"builder\" rank in the [normal] group ladder.\n"
-			"ladders :\n"
-			"{\n"
-			"  normal = [ \"spectator\", \"guest\", \"member\", \"builder\", \"designer\", \"architect\" ];\n"
-			"  staff  = [ \"moderator\", \"admin\", \"executive\", \"owner\" ];\n"
-			"}\n"
-			"\n"
-			"// The list of all defined groups:\n"
-			"groups :\n"
-			"{\n"
-			
-			"  spectator :\n"
-			"  {\n"
-			"    power = 0;\n"
-			"    color = \"8\";\n"
-			"    text-color = \"f\";\n"
-			"    can-build = false;\n"
-			"    @include \"perms/spectator.txt\"\n"
-			"  };\n"
-			
-			"  guest :\n"
-			"  {\n"
-			"    power = 1;\n"
-			"    color = \"7\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/guest.txt\"\n"
-			"  };\n"
-			
-			"  member :\n"
-			"  {\n"
-			"    inheritance = [ \"guest\" ];\n"
-			"    power = 2;\n"
-			"    color = \"a\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/member.txt\"\n"
-			"  };\n"
-			
-			"  builder :\n"
-			"  {\n"
-			"    inheritance = [ \"member\" ];\n"
-			"    power = 3;\n"
-			"    color = \"2\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/builder.txt\"\n"
-			"  };\n"
-			
-			"  designer :\n"
-			"  {\n"
-			"    inheritance = [ \"builder\" ];\n"
-			"    power = 4;\n"
-			"    color = \"b\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/designer.txt\"\n"
-			"  };\n"
-			
-			"  architect :\n"
-			"  {\n"
-			"    inheritance = [ \"designer\" ];\n"
-			"    power = 5;\n"
-			"    color = \"3\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/architect.txt\"\n"
-			"  };\n"
-			
-			"  moderator :\n"
-			"  {\n"
-			"    inheritance = [ \"designer\" ];\n"
-			"    power = 6;\n"
-			"    color = \"c\";\n"
-			"    text-color = \"f\";\n"
-			"    @include \"perms/moderator.txt\"\n"
-			"  };\n"
-			
-			"  admin :\n"
-			"  {\n"
-			"    inheritance = [ \"moderator\", \"architect\" ];\n"
-			"    power = 7;\n"
-			"    color = \"4\";\n"
-			"    text-color = \"c\";\n"
-			"    @include \"perms/admin.txt\"\n"
-			"  };\n"
-			
-			"  executive :\n"
-			"  {\n"
-			"    inheritance = [ \"admin\" ];\n"
-			"    power = 8;\n"
-			"    color = \"e\";\n"
-			"    text-color = \"7\";\n"
-			"    @include \"perms/executive.txt\"\n"
-			"  };\n"
-			
-			"  owner :\n"
-			"  {\n"
-			"    power = 9;\n"
-			"    color = \"6\";\n"
-			"    text-color = \"7\";\n"
-			"    @include \"perms/owner.txt\"\n"
-			"  };\n"
-			
-			"};\n\n";
-		
-		strm.flush ();
-		strm.close ();
-		
-		/* 
-		 * Create permission files
-		 */
-		
-		auto& perm_man = groups.get_permission_manager ();
-		for (auto itr = groups.begin (); itr != groups.end (); ++itr)
-			{
-				group *grp = itr->second;
-				strm.open ("data/perms/" + itr->first + ".txt");
-				
-				// sort permission list
-				std::vector<permission> perms (grp->perms.begin (), grp->perms.end ());
-				std::sort (perms.begin (), perms.end (),
-					[&perm_man] (const permission& a, const permission& b) -> bool
-						{ return (std::strcmp (perm_man.to_string (a).c_str (),
-								perm_man.to_string (b).c_str ()) < 0); });
-				
-				strm << "permissions = [\n";
-				for (size_t i = 0; i < perms.size (); ++i)
-					{
-						strm << "  \"" << perm_man.to_string (perms[i]) << "\"";
-						if (i != (perms.size () - 1))
-							strm << ",";
-						strm << "\n";
-					}
-				strm << "];\n\n";
-				
-				strm.flush ();
-				strm.close ();
-			}
-	}
-	
-	
-	using group_inheritance_map
-		= std::unordered_map<std::string, std::vector<std::string>>;
-	
-	static void
-	_ranks_read_group (logger& log, libconfig::Setting& grp_set,
-		const std::string& group_name, group_manager& groups,
-		group_inheritance_map& ihmap)
-	{
-		int grp_power;
-		char grp_color;
-		char grp_text_color;
-		std::string grp_prefix;
-		std::string grp_mprefix;
-		std::string grp_suffix;
-		std::string grp_msuffix;
-		bool grp_can_build;
-		bool grp_can_move;
-		bool grp_can_chat;
-		std::vector<std::string> perms;
-		
-		// inheritance
-		try
-			{
-				libconfig::Setting& arr_inh = grp_set["inheritance"];
-				if (arr_inh.getType () == libconfig::Setting::TypeArray)
-					{
-						for (int i = 0; i < arr_inh.getLength (); ++i)
-							{
-								std::string parent = arr_inh[i];
-								auto itr = ihmap.find (group_name);
-								std::vector<std::string>* seq;
-								if (itr == ihmap.end ())
-									{
-										ihmap[group_name] = std::vector<std::string> ();
-										seq = &ihmap[group_name];
-									}
-								else
-									seq = &itr->second;
-								seq->push_back (std::move (parent));
-							}
-					}
-			}
-		catch (const std::exception&) { }
-		
-		// power
-		try
-			{ grp_power = grp_set["power"]; }
-		catch (const std::exception&)
-			{ throw server_error ("in \"data/ranks.cfg\": group \"power\" field not found."); }
-		
-		// color
-		try
-			{ grp_color = ((const char *)grp_set["color"])[0]; }
-		catch (const std::exception&)
-			{ grp_color = 'f'; }
-		
-		// text-color
-		try
-			{ grp_text_color = ((const char *)grp_set["text-color"])[0]; }
-		catch (const std::exception&)
-			{ grp_text_color = 'f'; }
-		
-		// prefix
-		try
-			{
-				grp_prefix.assign (grp_set["prefix"].c_str ());
-				if (grp_prefix.size () > 32)
-					grp_prefix.resize (32);
-			}
-		catch (const std::exception&) { }
-		
-		// mprefix
-		try
-			{
-				grp_mprefix.assign (grp_set["mprefix"].c_str ());
-				if (grp_mprefix.size () > 32)
-					grp_mprefix.resize (32);
-			}
-		catch (const std::exception&) { }
-		
-		// suffix
-		try
-			{
-				grp_suffix.assign (grp_set["suffix"].c_str ());
-				if (grp_suffix.size () > 32)
-					grp_suffix.resize (32);
-			}
-		catch (const std::exception&) { }
-		
-		// msuffix
-		try
-			{
-				grp_msuffix.assign (grp_set["msuffix"].c_str ());
-				if (grp_msuffix.size () > 32)
-					grp_msuffix.resize (32);
-			}
-		catch (const std::exception&) { }
-		
-		// can-build
-		try
-			{ grp_can_build = grp_set["can-build"]; }
-		catch (const std::exception&)
-			{ grp_can_build = true; }
-		
-		// can-move
-		try
-			{ grp_can_move = grp_set["can-move"]; }
-		catch (const std::exception&)
-			{ grp_can_move = true; }
-		
-		// can-chat
-		try
-			{ grp_can_chat = grp_set["can-chat"]; }
-		catch (const std::exception&)
-			{ grp_can_chat = true; }
-		
-		// permissions
-		try
-			{
-				libconfig::Setting& arr_perms = grp_set["permissions"];
-				if (arr_perms.getType () == libconfig::Setting::TypeArray)
-					{
-						for (int i = 0; i < arr_perms.getLength (); ++i)
-							{
-								std::string perm = arr_perms[i];
-								perms.push_back (std::move (perm));
-							}
-					}
-			}
-		catch (const std::exception&) { }
-		
-		// create the group and add it to the list.
-		group *grp = groups.add (grp_power, group_name.c_str ());
-		grp->color = grp_color;
-		grp->text_color =  grp_text_color;
-		grp->prefix = grp_prefix;
-		grp->mprefix = grp_mprefix;
-		grp->suffix = grp_suffix;
-		grp->msuffix = grp_msuffix;
-		grp->can_build = grp_can_build;
-		grp->can_move = grp_can_move;
-		grp->can_chat = grp_can_chat;
-		for (auto& perm : perms)
-			{ 
-				grp->add (perm.c_str ());
-			}
+		groups.save ("data/ranks.cfg");
 	}
 	
 	static void
-	_ranks_read_groups_grp (logger& log, libconfig::Setting& grp_groups,
-		group_manager& groups)
+	read_ranks (logger& log, group_manager& groups)
 	{
-		group_inheritance_map ihmap;
-		for (int i = 0; i < grp_groups.getLength (); ++i)
-			{
-				libconfig::Setting& grp_set = grp_groups[i];
-				std::string group_name ((grp_set.getName ()));
-				_ranks_read_group (log, grp_set, group_name, groups, ihmap);
-			}
-		
-		// resolve inheritance
-		for (auto itr = ihmap.begin (); itr != ihmap.end (); ++itr)
-			{
-				std::string name = itr->first;
-				std::vector<std::string>& parents = itr->second;
-				
-				group *child = groups.find (name.c_str ());
-				for (auto& parent : parents)
-					{
-						group *grp = groups.find (parent.c_str ());
-						if (grp)
-							{
-								child->inherit (grp);
-							}
-					}
-			}
-	}
-	
-	static void
-	_ranks_read_ladders_grp (logger &log, libconfig::Setting& grp_ladders,
-		group_manager &groups)
-	{
-		for (int i = 0; i < grp_ladders.getLength (); ++i)
-			{
-				libconfig::Setting& arr_ladder = grp_ladders[i];
-				if (!arr_ladder.isArray ())
-					throw server_error ("in \"data/ranks.cfg\": invalid group ladders");
-				
-				group_ladder *ladder = groups.add_ladder (arr_ladder.getName ());
-				for (int j = 0; j < arr_ladder.getLength (); ++j)
-					{
-						libconfig::Setting& lad_grp = arr_ladder[j];
-						if (lad_grp.getType () != libconfig::Setting::TypeString)
-							throw server_error ("in \"data/ranks.cfg\": invalid group in ladder");
-						
-						group *grp = groups.find (lad_grp);
-						if (!grp)
-							throw server_error ("in \"data/ranks.cfg\": unknown group in ladder");
-						ladder->insert (grp);
-					}
-			}
-	}
-	
-	static void
-	read_ranks (logger& log, libconfig::Config& cfg, group_manager& groups)
-	{
-		libconfig::Setting& root = cfg.getRoot ();
-		
-		std::string def_rank;
-		if (!root.lookupValue ("default-rank", def_rank))
-			throw server_error ("in \"data/ranks.cfg\": \"default-rank\" not found or invalid");
-		
-		libconfig::Setting& grp_groups = root["groups"];
-		_ranks_read_groups_grp (log, grp_groups, groups);
-		
-		// ladders
-		if (root.exists ("ladders"))
-			{
-				libconfig::Setting& grp_ladders = root["ladders"];
-				_ranks_read_ladders_grp (log, grp_ladders, groups);
-			}
-		
-		groups.default_rank.set (def_rank.c_str (), groups);
+		groups.load ("data/ranks.cfg");
 	}
 	
 	
@@ -1467,14 +1201,10 @@ namespace hCraft {
 		std::ifstream istrm ("data/ranks.cfg");
 		if (istrm)
 			{
-				libconfig::Config cfg;
-				
 				istrm.close ();
 				
 				log () << "Loading ranks from \"data/ranks.cfg\"" << std::endl;
-				cfg.setIncludeDir ("data");
-				cfg.readFile ("data/ranks.cfg");
-				read_ranks (this->log, cfg, this->groups);
+				read_ranks (this->log, this->groups);
 				log (LT_INFO) << " - Loaded " << this->groups.size () << " groups." << std::endl;
 				return;
 			}

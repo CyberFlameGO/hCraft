@@ -229,10 +229,12 @@ namespace hCraft {
 						{
 							if (std::isalpha (c))
 								++ alpha_count;
+								/*
 							else if (std::isdigit (c))
 								++ digit_count;
 							if (alpha_count > 0 && digit_count > 0)
 								return false;
+								*/
 						}
 				}
 		

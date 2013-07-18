@@ -74,6 +74,9 @@ namespace hCraft {
 		
 		char ip[16];
 		int  port;
+		
+		char self_highlight_color;
+		char name_highlight_color;
 	};
 	
 	

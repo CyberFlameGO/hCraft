@@ -97,6 +97,8 @@ namespace hCraft {
 		int word_length = 0;
 		int space_count = 0, prev_space_count = 0;
 		
+		bool is_color = false;
+		
 		while ((c = (int)(*in++)))
 			{
 				if (c == ' ')
@@ -113,8 +115,17 @@ namespace hCraft {
 								word_length = space_count = 0;
 							}
 						
+						// we ignore color codes when computing length
 						word << (char)c;
-						++ word_length;
+						if (c == 0xC2 && ((int)((unsigned char)*in) == 0xA7))
+							{
+								is_color = true;
+								++ in;
+							}
+						else if (is_color)
+							is_color = false;
+						else
+							++ word_length;
 					}
 			}
 		

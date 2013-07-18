@@ -510,13 +510,47 @@ namespace hCraft {
 	
 	
 	
+	// returns true if the packet can be disposed of, without being sent.
+	static bool
+	_redundancy_test (player *pl, packet *pack)
+	{
+		packet_reader reader {pack->data};
+		
+		switch (reader.read_byte ())
+			{
+				// multi block change
+				case 0x34:
+					{
+						int cx = reader.read_int ();
+						int cz = reader.read_int ();
+						if (!pl->can_see_chunk (cx, cz))
+							return true;
+					}
+					break;
+				
+				// block change
+				case 0x35:
+					{
+						int x = reader.read_int ();
+						reader.read_byte (); // y
+						int z = reader.read_int ();
+						
+						if (!pl->can_see_chunk (x >> 4, z >> 4))
+							return true;
+					}
+					break;
+			}
+		
+		return false;
+	}
+	
 	/* 
 	 * Inserts the specified packet into the player's queue of outgoing packets.
 	 */
 	void
 	player::send (packet *pack)
 	{
-		if (this->bad ())
+		if (this->bad () || _redundancy_test (this, pack))
 			{ delete pack; return; }
 		
 		std::lock_guard<std::mutex> guard {this->out_lock};
@@ -2188,6 +2222,58 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	
+	static void
+	handle_message (player *pl, std::string& msg)
+	{
+		if (pl->get_rank ().main ()->color_codes || pl->is_op ())
+			{
+				// convert color codes from &X to §X
+				
+				std::string str;
+				str.reserve (msg.size ());
+				
+				for (size_t i = 0; i < msg.size (); ++i)
+					{
+						if ((msg[i] == '&') && ((i + 1) < msg.size ()) && is_chat_code (msg[i + 1]))
+							{
+								str.push_back (0xC2);
+								str.push_back (0xA7);
+								
+								++ i;
+								str.push_back (msg[i]);
+							}
+						else
+							str.push_back (msg[i]);
+					}
+				
+				msg.assign (str);
+			}
+	}
+	
+	static std::string
+	build_message (const std::string& nick, const rank& rnk, const std::string& msg,
+		bool global, char text_color = 0)
+	{
+		std::ostringstream ss;
+		
+		if (global)
+			ss << "§c# ";
+		
+		group *mgrp = rnk.main ();
+		ss << mgrp->mprefix;
+		for (group *grp : rnk.groups)
+			ss << grp->prefix;
+		ss << "§" << mgrp->color << nick;
+		ss << mgrp->msuffix;
+		for (group *grp : rnk.groups)
+			ss << grp->suffix;
+		ss << " §" << ((text_color == 0) ? mgrp->text_color : text_color) << msg;
+		
+		return ss.str ();
+	}
+	
 	int
 	player::handle_packet_03 (player *pl, packet_reader reader)
 	{
@@ -2205,6 +2291,7 @@ namespace hCraft {
 			}
 		
 		std::string msg {text};
+		
 		
 		if (msg[msg.size () - 1] == '\\')
 			{
@@ -2224,6 +2311,8 @@ namespace hCraft {
 				pl->msgbuf.str (std::string ());
 				pl->msgbuf.clear ();
 			}
+		
+		handle_message (pl, msg);
 		
 		// handle commands
 		if (msg[0] == '/')
@@ -2278,22 +2367,8 @@ namespace hCraft {
 		if (!pl->rnk.main ()->can_chat)
 			return 0;
 		
-		std::ostringstream ss;
-		
-		if (is_global_message)
-			ss << "§c# ";
-		
-		group *mgrp = pl->get_rank ().main ();
-		ss << mgrp->mprefix;
-		for (group *grp : pl->get_rank ().groups)
-			ss << grp->prefix;
-		ss << pl->get_colored_nickname ();
-		ss << mgrp->msuffix;
-		for (group *grp : pl->get_rank ().groups)
-			ss << grp->suffix;
-		ss << "§f: " << "§" << mgrp->text_color << msg;
-		
-		std::string out = ss.str ();
+		std::string out = build_message (pl->get_nickname (), pl->get_rank (), msg,
+			is_global_message);
 		
 		playerlist *target;
 		if (is_global_message)
@@ -2310,11 +2385,17 @@ namespace hCraft {
 		target->all (
 			[&out] (player *pl)
 				{
-					pl->message_wrapped (out.c_str ());
-				});
+					pl->message (out.c_str ());
+				}, pl);
+		
+		// highlight message to self
+		pl->message (build_message (pl->get_nickname (), pl->get_rank (), msg,
+			is_global_message, pl->get_server ().get_config ().self_highlight_color));
 		
 		return 0;
 	}
+	
+	
 	
 	int
 	player::handle_packet_07 (player *pl, packet_reader reader)
@@ -2670,7 +2751,14 @@ namespace hCraft {
 		reader.read_int (); // entity ID
 		char animation = reader.read_byte ();
 		
-		pl->inv.update ();
+		// DEBUG
+		{
+			std::vector<block_change_record> records;
+			records.push_back({15, 70, 15, 20, 0});
+			pl->send (packet::make_multi_block_change (500, 200, records));
+		}
+		
+		//pl->inv.update ();
 		
 		if (animation == 1)
 			{

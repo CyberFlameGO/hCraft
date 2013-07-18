@@ -1396,7 +1396,7 @@ namespace hCraft {
 		for (int i = 0; i < srec; ++i)
 			{
 				block_change_record rec = records[i];
-				if (sb && sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z))
+				if (sb && (sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z)))
 					{ -- elems; continue; }
 				
 				int id = rec.id;

@@ -17,10 +17,16 @@
  */
 
 #include "rank.hpp"
+#include "config.hpp"
 #include <cstring>
 #include <sstream>
 #include <string>
 #include <stdexcept>
+#include <fstream>
+#include <algorithm>
+#include <memory>
+#include <vector>
+#include <unordered_map>
 
 
 namespace hCraft {
@@ -41,6 +47,7 @@ namespace hCraft {
 		this->all_perms = false;
 		this->no_perms = false;
 		this->ladder = nullptr;
+		this->color_codes = false;
 	}
 	
 	
@@ -772,6 +779,340 @@ namespace hCraft {
 			if (grp == g)
 				return true;
 		return false;
+	}
+	
+	
+	
+//-----
+	/* 
+	 * Saves all rank information into the specified file.
+	 */
+	void
+	group_manager::save (const char *file_name)
+	{
+		cfg::group root {2};
+		
+		// default-rank
+		{
+			std::string def_rank;
+			this->default_rank.get_string (def_rank);
+			root.add_string ("default-rank", def_rank);
+		}
+		
+		// ladders
+		{
+			cfg::group *grp_ladders = new cfg::group ();
+			for (auto itr = this->ladders.begin (); itr != this->ladders.end (); ++itr)
+				{
+					cfg::array *arr = new cfg::array ();
+					group_ladder& lad = itr->second;
+					
+					// start with the lowest and go upwards
+					group *g = lad.lowest ();
+					while (g)
+						{
+							arr->add_string (g->name);
+							g = lad.successor (g);
+						}
+					
+					grp_ladders->add (itr->first, arr);
+				}
+			
+			root.add ("ladders", grp_ladders);
+		}
+		
+		// groups
+		{
+			cfg::group *grp_groups = new cfg::group ();
+			
+			// create a sorted list of groups (in ascending values of power)
+			std::vector<group *> group_list;
+			for (auto itr = this->groups.begin (); itr != this->groups.end (); ++itr)
+				group_list.push_back (itr->second);
+			std::sort (group_list.begin (), group_list.end (),
+				[] (const group *a, const group *b) -> bool
+					{
+						return (*a) < (*b);
+					});
+			
+			for (group *grp : group_list)
+				{
+					cfg::group *curr = new cfg::group ();
+					
+					curr->add_integer ("power", grp->power);
+					if (grp->color != 'f')
+						curr->add_string ("color", std::string (1, grp->color));
+					if (grp->text_color != 'f')
+						curr->add_string ("text-color", std::string (1, grp->text_color));
+					
+					if (!grp->mprefix.empty ())
+						curr->add_string ("mprefix", grp->mprefix);
+					if (!grp->msuffix.empty ())
+						curr->add_string ("msuffix", grp->msuffix);
+					if (!grp->prefix.empty ())
+						curr->add_string ("prefix", grp->prefix);
+					if (!grp->suffix.empty ())
+						curr->add_string ("suffix", grp->suffix);
+					
+					if (!grp->can_chat)
+						curr->add_boolean ("can-chat", grp->can_chat);
+					if (!grp->can_build)
+						curr->add_boolean ("can-build", grp->can_build);
+					if (!grp->can_move)
+						curr->add_boolean ("can-move", grp->can_move);
+					if (grp->color_codes)
+						if (!grp->can_chat)
+						curr->add_boolean ("color-codes", grp->color_codes);
+					
+					// permissions
+					{
+						// sort permission list
+						auto& perm_man = this->get_permission_manager ();
+						std::vector<permission> perms (grp->perms.begin (), grp->perms.end ());
+						perms.insert (perms.end (), grp->neg_perms.begin (), grp->neg_perms.end ());
+						std::sort (perms.begin (), perms.end (),
+							[&perm_man] (const permission& a, const permission& b) -> bool
+								{ return (std::strcmp (perm_man.to_string (a).c_str (),
+										perm_man.to_string (b).c_str ()) < 0); });
+						
+						cfg::array *arr = new cfg::array {1, 0};
+						for (size_t i = 0; i < perms.size (); ++i)
+							arr->add_string (perm_man.to_string (perms[i]));
+						curr->add ("permissions", arr);
+					}
+					
+					grp_groups->add (grp->name, curr);
+				}
+			
+			root.add ("groups", grp_groups);
+		}
+		
+		
+		std::ofstream fs {file_name};
+		root.write_to (fs);
+		fs << std::endl;
+		fs.close ();
+	}
+	
+	
+	
+	using group_inh_map =
+		std::unordered_map<std::string, std::vector<std::string>>;
+	
+	static void
+	_load_group (const std::string& g_name, cfg::group& cg, group_manager& gman,
+		group_inh_map& inh_map)
+	{
+		int g_power;
+		try {
+			g_power = cg.get_integer ("power");
+		} catch (const std::exception&) {
+			throw rank_load_error ("in group \"" + g_name
+				+ "\": \"power\" not found, or is of an incorrect type");
+		}
+		
+		char g_color;
+		try {
+			g_color = cg.get_string ("color").at (0);
+		} catch (const std::exception&) {
+			g_color = 'f';
+		}
+		
+		char g_text_color;
+		try {
+			g_text_color = cg.get_string ("text-color").at (0);
+		} catch (const std::exception&) {
+			g_text_color = 'f';
+		}
+		
+		std::string g_prefix;
+		try {
+			g_prefix = cg.get_string ("prefix");
+		} catch (const std::exception&) {
+			g_prefix = "";
+		}
+		
+		std::string g_mprefix;
+		try {
+			g_mprefix = cg.get_string ("mprefix");
+		} catch (const std::exception&) {
+			g_mprefix = "";
+		}
+		
+		std::string g_suffix;
+		try {
+			g_suffix = cg.get_string ("suffix");
+		} catch (const std::exception&) {
+			g_suffix = "";
+		}
+		
+		std::string g_msuffix;
+		try {
+			g_msuffix = cg.get_string ("msuffix");
+		} catch (const std::exception&) {
+			g_msuffix = "";
+		}
+		
+		bool g_can_build;
+		try {
+			g_can_build = cg.get_boolean ("can-build");
+		} catch (const std::exception&) {
+			g_can_build = true;
+		}
+		
+		bool g_can_chat;
+		try {
+			g_can_chat = cg.get_boolean ("can-chat");
+		} catch (const std::exception&) {
+			g_can_chat = true;
+		}
+		
+		bool g_can_move;
+		try {
+			g_can_move = cg.get_boolean ("can-move");
+		} catch (const std::exception&) {
+			g_can_move = true;
+		}
+		
+		bool g_color_codes;
+		try {
+			g_color_codes = cg.get_boolean ("color-codes");
+		} catch (const std::exception&) {
+			g_color_codes = true;
+		}
+		
+		std::vector<std::string> perms;
+		try {
+			auto arr = cg.find_array ("permissions");
+			if (arr)
+				{
+					for (cfg::value *v : *arr)
+						{
+							if (v->type () != cfg::CFG_STRING)
+								throw rank_load_error ("invalid permissions");
+							perms.push_back (((cfg::string *)v)->val ());
+						}
+				}
+		} catch (const rank_load_error& ex) {
+			throw;
+		} catch (const std::exception&) {
+			;
+		}
+		
+		// inheritance
+		try {
+			auto arr = cg.find_array ("inheritance");
+			if (arr)
+				{
+					for (cfg::value *v : *arr)
+						{
+							if (v->type () != cfg::CFG_STRING)
+								throw rank_load_error ("invalid permissions");
+								
+							std::string& parent = ((cfg::string *)v)->val ();
+							inh_map[g_name].push_back (parent);
+						}
+				}
+		} catch (const rank_load_error& ex) {
+			throw;
+		} catch (const std::exception& ex) {
+			;
+		}
+		
+		group *grp = gman.add (g_power, g_name.c_str ());
+		grp->color = g_color;
+		grp->text_color =  g_text_color;
+		grp->prefix = g_prefix;
+		grp->mprefix = g_mprefix;
+		grp->suffix = g_suffix;
+		grp->msuffix = g_msuffix;
+		grp->can_build = g_can_build;
+		grp->can_move = g_can_move;
+		grp->can_chat = g_can_chat;
+		grp->color_codes = g_color_codes;
+		for (std::string& perm : perms)
+			grp->add (perm.c_str ());
+	}
+	
+	/* 
+	 * Loads rank information from the specified file.
+	 */		
+	void
+	group_manager::load (const char *file_name)
+	{
+		std::ifstream fs {file_name};
+		if (!fs)
+			throw rank_load_error (std::string ("failed to open \"") + file_name + "\"");
+		
+		std::unique_ptr<cfg::group> root {cfg::group::read_from (fs)};
+		fs.close ();
+		
+		// load groups
+		{
+			cfg::group *grp_groups = root->find_group ("groups");
+			if (!grp_groups)
+				throw rank_load_error ("\"groups\" group not found");
+			
+			group_inh_map inh_map {};
+			for (auto sett : *grp_groups)
+				{
+					if (sett.val->type () != cfg::CFG_GROUP)
+						throw rank_load_error ("\"groups\" group has a non-group element");
+					_load_group (sett.name, *dynamic_cast<cfg::group *> (sett.val), *this, inh_map);
+				}
+			
+			// resolve inheritance
+			for (auto itr = inh_map.begin (); itr != inh_map.end (); ++itr)
+				{
+					group *child = this->find (itr->first.c_str ());
+					for (std::string& s_par : itr->second)
+						{
+							group *parent = this->find (s_par.c_str ());
+							if (!parent)
+								throw rank_load_error ("in group \"" + child->name
+									+ "\": parent group \"" + parent->name + "\" does not exist");
+							
+							child->inherit (parent);
+						}
+				}
+		}
+		
+		// load ladders
+		{
+			cfg::group *grp_ladders = root->find_group ("ladders");
+			if (grp_ladders)
+				{
+					for (auto sett : *grp_ladders)
+						{
+							if (sett.val->type () != cfg::CFG_ARRAY)
+								throw rank_load_error ("invalid ladder \"" + sett.name + "\"");
+							cfg::array *arr = (cfg::array *)sett.val;
+							
+							group_ladder *lad = this->add_ladder (sett.name.c_str ());
+							
+							for (cfg::value *v : *arr)
+								{
+									if (v->type () != cfg::CFG_STRING)
+										throw rank_load_error ("invalid ladder \"" + sett.name + "\"");
+									cfg::string *str = (cfg::string *)v;
+									
+									group *grp = this->find (str->val ().c_str ());
+									if (!grp)
+										throw rank_load_error ("in ladder \"" + sett.name
+											+ "\": group \"" + grp->name + "\" does not exist.");
+									lad->insert (grp);
+								}
+						}
+				}
+		}
+		
+		// load default-rank
+		try {
+			std::string def_rank = root->get_string ("default-rank");
+			this->default_rank.set (def_rank.c_str (), *this);
+		} catch (const std::exception&) {
+			throw rank_load_error ("\"default-rank\" is either invalid or does not exist");
+		}
 	}
 }
 

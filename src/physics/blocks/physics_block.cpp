@@ -31,6 +31,7 @@
 #include "physics/blocks/snow.hpp"
 #include "physics/blocks/activewater.hpp"
 #include "physics/blocks/sponge.hpp"
+#include "physics/blocks/c235.hpp"
 
 
 namespace hCraft {
@@ -68,6 +69,7 @@ namespace hCraft {
 			_register_physics_block (new physics::active_water ());
 			_register_physics_block (new physics::water_sponge ());
 			_register_physics_block (new physics::water_sponge_agent ());
+			_register_physics_block (new physics::c235 ());
 		}
 		
 		_physics_blocks_initialized = true;

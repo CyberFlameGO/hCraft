@@ -118,6 +118,37 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		/* 
+		 * /say -
+		 * 
+		 * Broadcasts a message onto global chat.
+		 * 
+		 * Permissions:
+		 *   - command.chat.say
+		 *       Needed to execute the command.
+		 *   - command.chat.say.imitate
+		 *       Needed to imitate other players.
+		 */
+		class c_say: public command
+		{
+		public:
+			const char* get_name () { return "say"; }
+			
+			const char*
+			get_summary ()
+				{ return "Broadcasts a message onto global chat."; }
+			
+			const char*
+			get_help ()
+			{ return ""; }
+			
+			const char* get_exec_permission () { return "command.chat.say"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

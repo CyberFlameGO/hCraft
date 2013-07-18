@@ -31,6 +31,7 @@ hCraft_sources = Split("""
 		sqlops.cpp
 		authentication.cpp
 		generator.cpp
+		config.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -78,6 +79,7 @@ hCraft_sources = Split("""
 		commands/mute.cpp
 		commands/wsetspawn.cpp
 		commands/unmute.cpp
+		commands/say.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp
@@ -91,6 +93,7 @@ hCraft_sources = Split("""
 		physics/blocks/snow.cpp
 		physics/blocks/activewater.cpp
 		physics/blocks/sponge.cpp
+		physics/blocks/c235.cpp
 		""")
 
 hCraft_libs = Split("""
@@ -98,7 +101,6 @@ hCraft_libs = Split("""
 		event
 		event_pthreads
 		m
-		config++
 		z
 		sqlite3
 		noise

@@ -83,6 +83,7 @@ namespace hCraft {
 	static command* create_c_unban () { return new commands::c_unban (); }
 	static command* create_c_mute () { return new commands::c_mute (); }
 	static command* create_c_unmute () { return new commands::c_unmute (); }
+	static command* create_c_say () { return new commands::c_say (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -122,6 +123,7 @@ namespace hCraft {
 			{ "mute", create_c_mute },
 			{ "wsetspawn", create_c_wsetspawn },
 			{ "unmute", create_c_unmute },
+			{ "say", create_c_say },
 			};
 		
 		auto itr = creators.find (name);

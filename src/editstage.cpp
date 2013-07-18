@@ -264,7 +264,7 @@ namespace hCraft {
 			}
 		
 		for (player *pl : players)
-			if (pl->get_world () == this->w)
+			if (pl->get_world () == this->w && pl->can_see_chunk (cx, cz))
 				pl->send (packet::make_multi_block_change (cx, cz, records, pl));
 	}
 	

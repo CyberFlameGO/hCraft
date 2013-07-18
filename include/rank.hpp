@@ -24,9 +24,25 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <stdexcept>
 
 
 namespace hCraft {
+	
+	class rank_error: public std::runtime_error {
+	public:
+		rank_error (const std::string& what)
+			: std::runtime_error (what)
+			{ }
+	};
+	
+	class rank_load_error: public std::runtime_error {
+	public:
+		rank_load_error (const std::string& what)
+			: std::runtime_error (what)
+			{ }
+	};
+	
 	
 	struct group_ladder;
 	
@@ -49,6 +65,8 @@ namespace hCraft {
 		bool can_chat;       // if players of this group can send chat messages.
 		bool can_build;      // whether players of this group can modify blocks.
 		bool can_move;       // whether the players can move.
+		
+		bool color_codes;
 		
 		bool all_perms; // true if this group has the '*' perm.
 		bool no_perms;  // opposite
@@ -361,6 +379,18 @@ namespace hCraft {
 		 * Creates and return a new group ladder.
 		 */
 		group_ladder* add_ladder (const char *name);
+		
+		
+		
+		/* 
+		 * Saves all rank information into the specified file.
+		 */
+		void save (const char *file_name);
+
+		/* 
+		 * Loads rank information from the specified file.
+		 */		
+		void load (const char *file_name);
 	};
 }
 
