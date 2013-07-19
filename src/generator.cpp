@@ -20,10 +20,9 @@
 #include "world.hpp"
 #include "chunk.hpp"
 #include "player.hpp"
+#include "server.hpp"
 #include <functional>
 #include <chrono>
-
-#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -65,6 +64,8 @@ namespace hCraft {
 			return;
 		
 		this->_running = false;
+		if (this->th->joinable ())
+			this->th->join ();
 	}
 	
 	
@@ -103,9 +104,11 @@ namespace hCraft {
 							++ req_counter;
 						}
 						
-						player *pl = req.pl;
 						world *w = req.w;
 						int flags = req.flags;
+						
+						player *pl = w->get_server ().player_by_id (req.pid);
+						if (!pl) continue;
 						
 						if (!(flags & GFL_NOABORT) && (pl->get_world () != w || !pl->can_see_chunk (req.cx, req.cz)))
 							{
@@ -140,10 +143,10 @@ namespace hCraft {
 	 * The specified player is then informed when it's ready.
 	 */
 	void
-	chunk_generator::request (world *w, int cx, int cz, player *pl, int flags, int extra)
+	chunk_generator::request (world *w, int cx, int cz, int pid, int flags, int extra)
 	{
 		std::lock_guard<std::mutex> guard {this->request_mutex};
-		this->requests.push ({pl, w, cx, cz, flags, extra});
+		this->requests.push ({pid, w, cx, cz, flags, extra});
 	}
 }
 

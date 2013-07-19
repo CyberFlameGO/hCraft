@@ -652,7 +652,7 @@ namespace hCraft {
 		e->spawn_time = std::chrono::steady_clock::now ();
 		
 		// physics
-		this->srv.global_physics.queue_physics (this, e);
+		this->srv.global_physics.queue_physics (this, e->get_eid ());
 		
 		// spawn entity to players
 		chunk_pos cpos = e->pos;

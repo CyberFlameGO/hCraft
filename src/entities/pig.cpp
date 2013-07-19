@@ -22,8 +22,8 @@
 
 namespace hCraft {
 	
-	e_pig::e_pig (int eid)
-		: living_entity (eid)
+	e_pig::e_pig (server &srv)
+		: living_entity (srv)
 		{ }
 	
 	

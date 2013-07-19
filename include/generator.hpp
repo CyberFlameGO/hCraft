@@ -26,15 +26,13 @@
 
 namespace hCraft {
 	
-	// forward decs:
-	class player;
 	class world;
 	class chunk;
 	
 	
 	struct gen_request
 	{
-		player *pl;
+		int pid;
 		world *w;
 		int cx, cz; // chunk coordinates.
 		int flags;
@@ -110,7 +108,7 @@ namespace hCraft {
 		 * Requests the chunk located at the given coordinates to be generated.
 		 * The specified player is then informed when it's ready.
 		 */
-		void request (world *w, int cx, int cz, player *pl, int flags = 0, int extra = 0);
+		void request (world *w, int cx, int cz, int pid, int flags = 0, int extra = 0);
 	};
 }
 

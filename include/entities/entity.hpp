@@ -28,6 +28,7 @@ namespace hCraft {
 	
 	class world;
 	class player;
+	class server;
 	
 	
 		
@@ -163,6 +164,7 @@ namespace hCraft {
 	class entity
 	{
 	protected:
+		server &srv;
 		int eid;
 		
 		bool on_fire;
@@ -189,9 +191,9 @@ namespace hCraft {
 		
 	public:
 		/* 
-		 * Constructs a new entity with the specified identification number.
+		 * Constructs a new entity.
 		 */
-		entity (int eid);
+		entity (server &srv);
 		
 		// copy constructor.
 		entity (const entity&) = delete;
@@ -254,7 +256,7 @@ namespace hCraft {
 		inline bool is_dead () { return this->hearts <= 0; }
 		
 	public:
-		living_entity (int eid);
+		living_entity (server &srv);
 		
 
 		

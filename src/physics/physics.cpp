@@ -20,6 +20,7 @@
 #include "physics/physics.hpp"
 #include "world.hpp"
 #include "utils.hpp"
+#include "server.hpp"
 #include "entities/entity.hpp"
 #include "player.hpp"
 #include <functional>
@@ -45,14 +46,14 @@ namespace hCraft {
 		this->tick = tick;
 	}
 	
-	physics_update::physics_update (world *w, entity *e, bool persistent,
+	physics_update::physics_update (world *w, int eid, bool persistent,
 		int tick, std::chrono::steady_clock::time_point nt)
 		: params (), nt (nt)
 	{
 		this->type = PU_ENTITY;
 		
 		this->w = w;
-		this->data.ent.e = e;
+		this->data.ent.eid = eid;
 		this->data.ent.persistent = persistent;
 		this->tick = tick;
 	}
@@ -97,8 +98,14 @@ namespace hCraft {
 	
 	physics_manager::~physics_manager ()
 	{
-		this->updates.clear ();
+		this->stop ();
+	}
+	
+	void
+	physics_manager::stop ()
+	{
 		this->workers.clear ();
+		this->updates.clear ();
 	}
 	
 	
@@ -225,15 +232,17 @@ namespace hCraft {
 						else if (u.type == PU_ENTITY)
 							{
 								auto ent = u.data.ent;
+								entity *e = (u.w)->get_server ().entity_by_id (ent.eid);
+								if (!e) continue;
 								
-								if (ent.e->get_type () == ET_PLAYER)
+								if (e->get_type () == ET_PLAYER)
 									{
-										player *pl = dynamic_cast<player *> (ent.e);
+										player *pl = dynamic_cast<player *> (e);
 										if (pl->get_world () != u.w)
 											continue;
 									}
 								
-								if (!ent.e->tick (*u.w) && ent.persistent)
+								if (!e->tick (*u.w) && ent.persistent)
 									{
 										// requeue
 										physics_update nu = u;
@@ -425,7 +434,7 @@ namespace hCraft {
 	 * Queues an entity update.
 	 */
 	void
-	physics_manager::queue_physics (world *w, entity *e, bool persistent,
+	physics_manager::queue_physics (world *w, int eid, bool persistent,
 		int tick_delay, physics_params *params)
 	{
 		if (tick_delay == 0) tick_delay = 1;
@@ -433,7 +442,7 @@ namespace hCraft {
 		
 		std::lock_guard<std::mutex> guard {this->lock};
 		
-		physics_update u (w, e, persistent, tick_delay,
+		physics_update u (w, eid, persistent, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
 		if (params)
 			for (int i = 0; i < 8; ++i)

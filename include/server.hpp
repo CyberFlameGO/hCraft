@@ -161,8 +161,10 @@ namespace hCraft {
 		std::unordered_set<player *> connecting;
 		std::unordered_set<player *> to_destroy;
 		std::mutex player_lock;
+		
 		int id_counter;
 		std::mutex id_lock;
+		std::unordered_map<int, entity *> entity_map;
 		
 		scheduler sched;
 		thread_pool tpool;
@@ -374,7 +376,21 @@ namespace hCraft {
 		/* 
 		 * Returns a unique number that can be used for entity identification.
 		 */
-		int next_entity_id ();
+		int register_entity (entity *e);
+		
+		/* 
+		 * Removes an entity from the entity\id map.
+		 */
+		void deregister_entity (entity *e);
+		void deregister_entity (int eid);
+		
+		/* 
+		 * Returns the player\entity associated with the given ID.
+		 */
+		entity* entity_by_id (int id);
+		player* player_by_id (int id);
+		
+		
 		
 		/* 
 		 * Removes the specified player from the "connecting" list, and then inserts

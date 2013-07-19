@@ -37,7 +37,7 @@ namespace hCraft {
 		/* 
 		 * Class constructor.
 		 */
-		e_pickup (int eid, const slot_item& item);
+		e_pickup (server &srv, const slot_item& item);
 		
 		/* 
 		 * Returns the type of this entity.

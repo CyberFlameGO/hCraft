@@ -132,6 +132,7 @@ namespace hCraft {
 		std::mutex update_lock;
 		
 	public:
+		inline server& get_server () { return this->srv; }
 		inline const char* get_name () { return this->name; }
 		inline playerlist& get_players () { return *this->players; }
 		

@@ -30,7 +30,7 @@ namespace hCraft {
 	class e_pig: public living_entity
 	{
 	public:
-		e_pig (int eid);
+		e_pig (server &srv);
 		
 		
 		/* 

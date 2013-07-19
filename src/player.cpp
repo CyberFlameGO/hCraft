@@ -54,8 +54,7 @@ namespace hCraft {
 	 */
 	player::player (server &srv, struct event_base *evbase, evutil_socket_t sock,
 		const char *ip)
-		: living_entity (srv.next_entity_id ()),
-			srv (srv), log (srv.get_logger ()), sock (sock)
+		: living_entity (srv), log (srv.get_logger ()), sock (sock)
 	{
 		std::strcpy (this->ip, ip);
 		
@@ -408,6 +407,8 @@ namespace hCraft {
 	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
+		this->srv.deregister_entity (this);
+		
 		this->fail_time = std::chrono::system_clock::now ();
 		this->fail = true;
 		this->disconnecting = true;
@@ -656,7 +657,7 @@ namespace hCraft {
 		this->need_new_chunks = true;
 		
 		// start physics
-		this->srv.global_physics.queue_physics (w, this);
+		this->srv.global_physics.queue_physics (w, this->eid);
 		
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 	}
@@ -765,9 +766,9 @@ namespace hCraft {
 										for (int xx = (cx - 1); xx <= (cx + 1); ++xx)
 											for (int zz = (cz - 1); zz <= (cz + 1); ++zz)
 												if (!(xx == cx && zz == cz))
-													this->srv.cgen.request (w, xx, zz, this, GFL_NODELIVER);
+													this->srv.cgen.request (w, xx, zz, this->eid, GFL_NODELIVER);
 										
-										this->srv.cgen.request (w, cx, cz, this);
+										this->srv.cgen.request (w, cx, cz, this->eid);
 										this->pending_chunks.push_back ({w, cx, cz});
 									}
 							}
@@ -1971,7 +1972,7 @@ namespace hCraft {
 						slot_item s = this->inv.get (i);
 						if (!s.empty ())
 							{
-								e_pickup *pick = new e_pickup (this->srv.next_entity_id (), s);
+								e_pickup *pick = new e_pickup (this->srv, s);
 								pick->pos.set_pos (pos.x + dis (rnd), pos.y + dis (rnd), pos.z + dis (rnd));
 								this->get_world ()->spawn_entity (pick);
 							}
@@ -2657,7 +2658,7 @@ namespace hCraft {
 						blocki drop = block_info::get_drop ({bd.id, bd.meta});
 						if (drop.id != BT_AIR && drop.valid ())
 							{
-								e_pickup *pick = new e_pickup (pl->srv.next_entity_id (),
+								e_pickup *pick = new e_pickup (pl->srv,
 								slot_item (drop.id, drop.meta, 1));
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
 								pl->get_world ()->spawn_entity (pick);

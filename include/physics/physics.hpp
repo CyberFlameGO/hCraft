@@ -84,7 +84,7 @@ namespace hCraft {
 				
 				struct
 					{
-						entity *e;
+						int eid;
 						bool persistent;
 					}	ent;
 			} data;
@@ -98,7 +98,7 @@ namespace hCraft {
 		physics_update () { }
 		physics_update (world *w, int x, int y, int z, int extra, int tick,
 			std::chrono::steady_clock::time_point nt, physics_block_callback cb = nullptr);
-		physics_update (world *w, entity *e, bool persistent, int tick,
+		physics_update (world *w, int eid, bool persistent, int tick,
 			std::chrono::steady_clock::time_point nt);
 	};
 	
@@ -200,6 +200,8 @@ namespace hCraft {
 	public:
 		~physics_manager ();
 		
+		void stop ();
+		
 		
 		/* 
 		 * Changes the number of worker threads to utilize.
@@ -228,7 +230,7 @@ namespace hCraft {
 		/* 
 		 * Queues an entity update.
 		 */
-		void queue_physics (world *w, entity *e, bool persistent = true,
+		void queue_physics (world *w, int eid, bool persistent = true,
 			int tick_delay = 1, physics_params *params = nullptr);
 	};
 }

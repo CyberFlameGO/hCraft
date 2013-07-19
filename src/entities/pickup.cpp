@@ -30,8 +30,8 @@ namespace hCraft {
 	/* 
 	 * Class constructor.
 	 */
-	e_pickup::e_pickup (int eid, const slot_item& item)
-		: entity (eid),
+	e_pickup::e_pickup (server &srv, const slot_item& item)
+		: entity (srv),
 			data (item)
 	{
 		this->valid = true;

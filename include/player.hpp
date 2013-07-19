@@ -133,7 +133,6 @@ namespace hCraft {
 	{
 		friend class authenticator;
 		
-		server& srv;
 		logger& log;
 		
 		struct event_base *evbase;

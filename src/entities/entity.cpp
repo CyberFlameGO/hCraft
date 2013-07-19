@@ -18,6 +18,7 @@
 
 #include "entities/entity.hpp"
 #include "player.hpp"
+#include "server.hpp"
 #include <cstring>
 
 
@@ -113,11 +114,12 @@ namespace hCraft {
 //----
 	
 	/* 
-	 * Constructs a new entity with the specified identification number.
+	 * Constructs a new entity.
 	 */
-	entity::entity (int eid)
+	entity::entity (server &srv)
+		: srv (srv)
 	{
-		this->eid = eid;
+		this->eid = srv.register_entity (this);
 		
 		this->pos.set (0.0, 0.0, 0.0, 0.0f, 0.0f, true);
 		this->on_fire = false;
@@ -192,8 +194,8 @@ namespace hCraft {
 	
 //----
 
-	living_entity::living_entity (int eid)
-		: entity (eid)
+	living_entity::living_entity (server &srv)
+		: entity (srv)
 		{ }
 	
 	

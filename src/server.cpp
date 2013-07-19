@@ -227,12 +227,15 @@ namespace hCraft {
 		if (!srv.is_running () || srv.is_shutting_down ())
 			return;
 		
+		/*
+		//// not necessary?
 		// check list of logged-in players.
 		srv.get_players ().remove_if (
 			[] (player *pl) -> bool
 				{
 					return pl->bad ();
 				});
+		*/
 		
 		// destroy all players that have been idle (no I/O) for over a minute.
 		std::lock_guard<std::mutex> guard {srv.player_lock};
@@ -386,14 +389,57 @@ namespace hCraft {
 	 * Returns a unique number that can be used for entity identification.
 	 */
 	int
-	server::next_entity_id ()
+	server::register_entity (entity *e)
 	{
 		std::lock_guard<std::mutex> guard {this->id_lock};
 		int id = this->id_counter ++;
 		if (this->id_counter < 0)
 			this->id_counter = 0; // overflow.
+		this->entity_map[id] = e;
 		return id;
 	}
+	
+	/* 
+	 * Removes an entity from the entity\id map.
+	 */
+	void
+	server::deregister_entity (entity *e)
+	{
+		this->deregister_entity (e->get_eid ());
+	}
+	
+	void
+	server::deregister_entity (int eid)
+	{
+		std::lock_guard<std::mutex> guard {this->id_lock};
+		auto itr = this->entity_map.find (eid);
+		if (itr != this->entity_map.end ())
+			this->entity_map.erase (itr);
+	}
+	
+	
+	/* 
+	 * Returns the player\entity associated with the given ID.
+	 */
+	entity*
+	server::entity_by_id (int id)
+	{
+		auto itr = this->entity_map.find (id);
+		if (itr == this->entity_map.end ())
+			return nullptr;
+		return itr->second;
+	}
+	
+	player*
+	server::player_by_id (int id)
+	{
+		entity *e = this->entity_by_id (id);
+		if (e->get_type () != ET_PLAYER)
+			return nullptr;
+		return (player *)e;
+	}
+	
+	
 	
 	/* 
 	 * Removes the specified player from the "connecting" list, and then inserts
@@ -1343,9 +1389,6 @@ namespace hCraft {
 	{
 		log (LT_SYSTEM) << "Saving worlds..." << std::endl;
 		
-		// generator
-		this->cgen.stop ();
-		
 		// clear worlds
 		{
 			std::lock_guard<std::mutex> guard {this->world_lock};
@@ -1470,6 +1513,12 @@ namespace hCraft {
 	void
 	server::initial_cleanup ()
 	{
+		// we need to stop some things before we dispose of any players, or it
+		// could cause some nasty segfaults.
+		this->cgen.stop ();
+		this->global_physics.stop ();
+		
+		
 		/* 
 		 * Kick all connected players.
 		 */
