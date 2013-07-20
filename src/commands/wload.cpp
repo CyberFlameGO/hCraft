@@ -108,7 +108,7 @@ namespace hCraft {
 				}
 			
 			pl->get_logger () () << "Loading world \"" << world_name << "\"" << std::endl;
-			world *wr = new world (pl->get_server (), world_name.c_str (),
+			world *wr = new world (WT_NORMAL, pl->get_server (), world_name.c_str (),
 				pl->get_logger (), gen, prov);
 			wr->set_size (winf.width, winf.depth);
 			

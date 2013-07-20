@@ -20,6 +20,7 @@
 #include "server.hpp"
 #include "player.hpp"
 #include "world.hpp"
+#include "stringutils.hpp"
 #include "providers/worldprovider.hpp"
 #include "generation/worldgenerator.hpp"
 #include <chrono>
@@ -46,6 +47,7 @@ namespace hCraft {
 				return;
 			
 			reader.add_option ("load", "l");
+			reader.add_option ("type", "t", true, true);
 			reader.add_option ("width", "w", true, true);
 			reader.add_option ("depth", "d", true, true);
 			reader.add_option ("provider", "p", true, true);
@@ -66,10 +68,28 @@ namespace hCraft {
 			std::string& world_name = reader.arg (0);
 			if (!world::is_valid_name (world_name.c_str ()))
 				{
-					pl->message ("§c * §eWorld names must be under §a32 §echaracters long and "
-											 "may only contain alpha§f-§enumeric characters§f, §edots§f, "
-											 "§ehyphens and underscores§f.");
+					pl->message ("§c * §7World names must be under §a32 §7characters long and "
+											 "may only contain alpha§f-§7numeric characters§f, §7dots§f, "
+											 "§7hyphens and underscores§f.");
 					return;
+				}
+			
+			// world type
+			world_type wtyp;
+			auto opt_type = reader.opt ("type");
+			if (opt_type->found ())
+				{
+					auto& arg = opt_type->arg (0);
+					std::string styp = arg.as_str ();
+					if (sutils::iequals (styp, "normal"))
+						wtyp = WT_NORMAL;
+					else if (sutils::iequals (styp, "light"))
+						wtyp = WT_LIGHT;
+					else
+						{
+							pl->message ("§c * §7Invalid world type§f: §c" + styp);
+							return;
+						}
 				}
 			
 			// world width
@@ -167,6 +187,10 @@ namespace hCraft {
 				std::ostringstream ss;
 				
 				pl->message ("§eCreating a new world with the name of §a" + world_name + "§f:");
+				ss << "§eWorld type§f: §9" << ((wtyp == WT_NORMAL) ? "normal" : "light");
+				pl->message (ss.str ());
+				
+				ss.str (std::string ());
 				ss << "§eWorld dimensions§f: §c";
 				if (world_width == 0)
 					ss << "§binf";
@@ -203,7 +227,7 @@ namespace hCraft {
 				pl->message (ss.str ());
 			}
 			
-			world *wr = new world (pl->get_server (), world_name.c_str (),
+			world *wr = new world (wtyp, pl->get_server (), world_name.c_str (),
 				pl->get_logger (), gen, prov);
 			wr->set_width (world_width);
 			wr->set_depth (world_depth);

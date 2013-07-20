@@ -1291,7 +1291,7 @@ namespace hCraft {
 			{
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
-				main_world = new world (*this, this->get_config ().main_world, this->log, 
+				main_world = new world (WT_NORMAL, *this, this->get_config ().main_world, this->log, 
 					world_generator::create ("overhang"),
 					world_provider::create ("hw", "data/worlds", this->get_config ().main_world));
 				main_world->set_size (192, 192);
@@ -1314,7 +1314,7 @@ namespace hCraft {
 						throw server_error ("failed to load main world (invalid generator)");
 					}
 				
-				main_world = new world (*this, this->get_config ().main_world, this->log, gen, prov);
+				main_world = new world (WT_NORMAL, *this, this->get_config ().main_world, this->log, gen, prov);
 				main_world->set_size (winf.width, winf.depth);
 				main_world->set_spawn (winf.spawn_pos);
 				main_world->prepare_spawn (10, false);
@@ -1363,7 +1363,7 @@ namespace hCraft {
 					}
 				
 				log () << " - Loading \"" << wname << "\"" << std::endl;
-				world *wr = new world (*this, wname.c_str (), this->log, gen, prov);
+				world *wr = new world (WT_NORMAL, *this, wname.c_str (), this->log, gen, prov);
 				wr->set_size (winf.width, winf.depth);
 				
 				wr->set_spawn (winf.spawn_pos);

@@ -20,6 +20,7 @@
 #define _hCraft__PHYSICS_BLOCK_H_
 
 #include <random>
+#include "blocks.hpp"
 
 
 namespace hCraft {
@@ -34,8 +35,8 @@ namespace hCraft {
 	class physics_block
 	{
 	public:
-		virtual int  id () = 0;
-		virtual int  vanilla_id () { return 0; }
+		virtual int id () = 0;
+		virtual blocki vanilla_block () { return 0; }
 		virtual const char* name () = 0;
 		
 		/* 
@@ -43,11 +44,18 @@ namespace hCraft {
 		 */
 		virtual int  tick_rate () { return 5; }
 		
+		
+		
 		/* 
 		 * Whether on_neighbour_modified () should be called in case any neighbouring
 		 * blocks are modified.
 		 */
 		virtual bool affected_by_neighbours () { return false; }
+		
+		/* 
+		 * Whether the player can destroy this block.
+		 */
+		virtual bool breakable () { return true; }
 		
 		
 		
@@ -55,7 +63,7 @@ namespace hCraft {
 		 * Called every "tick_rate ()" milliseconds by the world's physics loop.
 		 */
 		virtual void tick (world &w, int x, int y, int z, int extra,
-				void *ptr, std::minstd_rand& rnd) = 0;
+				void *ptr, std::minstd_rand& rnd) { }
 		
 		/* 
 		 * Called when a neighbouring block is destroyed\changed.
@@ -67,6 +75,11 @@ namespace hCraft {
 		 * Called when the block gets modified (changed\destroyed).
 		 */
 		virtual void on_modified (world &w, int x, int y, int z) { }
+		
+		/* 
+		 * Called on unbreakable () blocks.
+		 */
+		virtual void on_break_attempt (world &w, int x, int y, int z) { }
 		
 		
 		

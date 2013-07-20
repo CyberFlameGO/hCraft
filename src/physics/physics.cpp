@@ -201,6 +201,7 @@ namespace hCraft {
 								continue;
 							}
 						
+						if (u.tick < 0) continue;
 						if (u.nt > std::chrono::steady_clock::now ())
 							{
 								this->man.updates.push (u);
@@ -385,7 +386,7 @@ namespace hCraft {
 		this->add_block_nolock (w, x, y, z);
 		
 		physics_update u (w, x, y, z, extra, tick_delay,
-			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay),
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
 			for (int i = 0; i < 8; ++i)
@@ -416,7 +417,7 @@ namespace hCraft {
 		
 		this->add_block_nolock (w, x, y, z);
 		physics_update u (w, x, y, z, extra, tick_delay,
-			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay),
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
 			for (int i = 0; i < 8; ++i)
@@ -443,7 +444,7 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->lock};
 		
 		physics_update u (w, eid, persistent, tick_delay,
-			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * tick_delay));
+			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)));
 		if (params)
 			for (int i = 0; i < 8; ++i)
 				{

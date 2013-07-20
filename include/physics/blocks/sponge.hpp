@@ -30,7 +30,7 @@ namespace hCraft {
 		{
 		public:
 			virtual int  id () override { return 2001; }
-			virtual int  vanilla_id () override { return 19; }
+			virtual blocki vanilla_block () override { return BT_SPONGE; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "water-sponge"; }
 		
@@ -42,7 +42,7 @@ namespace hCraft {
 		{
 		public:
 			virtual int  id () override { return 2002; }
-			virtual int  vanilla_id () override { return 0; }
+			virtual blocki vanilla_block () override { return BT_AIR; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "water-sponge-agent"; }
 		

@@ -30,7 +30,7 @@ namespace hCraft {
 		{
 		public:
 			virtual int  id () override { return 8; }
-			virtual int  vanilla_id () override { return 8; }
+			virtual blocki vanilla_block () override { return BT_WATER; }
 			virtual const char* name () { return "water"; }
 			virtual int  tick_rate () override { return 5; }
 		

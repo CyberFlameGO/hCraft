@@ -94,6 +94,7 @@ hCraft_sources = Split("""
 		physics/blocks/activewater.cpp
 		physics/blocks/sponge.cpp
 		physics/blocks/c235.cpp
+		physics/blocks/firework.cpp
 		""")
 
 hCraft_libs = Split("""

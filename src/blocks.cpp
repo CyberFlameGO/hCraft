@@ -352,7 +352,7 @@ namespace hCraft {
 						if (phblock_list[id].id == 0)
 							{
 								// fill in using the associated vanilla block
-								phblock_list[id] = block_list[ph->vanilla_id ()];
+								phblock_list[id] = block_list[ph->vanilla_block ().id];
 								phblock_list[id].id = id;
 							}
 						

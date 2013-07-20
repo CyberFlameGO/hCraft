@@ -87,6 +87,18 @@ namespace hCraft {
 	
 	
 	
+	enum world_type
+	{
+		// 
+		WT_NORMAL = 0,
+		
+		// Worlds of this type do not keep any chunks in memory, and only load them
+		// to commit accumulated changes every once in while.
+		WT_LIGHT,
+	};
+	
+	
+	
 	/* 
 	 * The world provides methods to easily retreive or modify chunks, and
 	 * get/set individual blocks within those chunks. In addition to that,
@@ -94,6 +106,8 @@ namespace hCraft {
 	 */
 	class world
 	{
+		world_type typ;
+		
 		server &srv;
 		logger &log;
 		char name[33]; // 32 chars max
@@ -133,6 +147,7 @@ namespace hCraft {
 		
 	public:
 		inline server& get_server () { return this->srv; }
+		inline world_type get_type () { return this->typ; }
 		inline const char* get_name () { return this->name; }
 		inline playerlist& get_players () { return *this->players; }
 		
@@ -170,7 +185,8 @@ namespace hCraft {
 		/* 
 		 * Constructs a new empty world.
 		 */
-		world (server &srv, const char *name, logger &log, world_generator *gen,
+		world (world_type typ, server &srv, const char *name, logger &log,
+			world_generator *gen,
 			world_provider *provider);
 		
 		/* 
@@ -311,7 +327,12 @@ namespace hCraft {
 		 * Enqueues an update that should be made to a block in this world
 		 * and sent to nearby players.
 		 */
+		
 		void queue_update (int x, int y, int z, unsigned short id,
+			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
+			player *pl = nullptr, bool physics = true);
+		
+		void queue_update_nolock (int x, int y, int z, unsigned short id,
 			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
 			player *pl = nullptr, bool physics = true);
 		

@@ -47,12 +47,14 @@ namespace hCraft {
 	/* 
 	 * Constructs a new empty world.
 	 */
-	world::world (server &srv, const char *name, logger &log, world_generator *gen,
-		world_provider *provider)
+	world::world (world_type typ, server &srv, const char *name, logger &log,
+		world_generator *gen, world_provider *provider)
 		: srv (srv), log (log), lm (log, this), estage (this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
+		
+		this->typ = typ;
 		
 		this->gen = gen;
 		this->width = 0;
@@ -67,7 +69,7 @@ namespace hCraft {
 		this->auto_lighting = true;
 		this->ticks = 0;
 		
-		this->ph_state = PHY_ON;
+		this->ph_state = PHY_OFF;
 		//this->physics.set_thread_count (0);
 	}
 	
@@ -127,9 +129,12 @@ namespace hCraft {
 	void
 	world::start ()
 	{
+		if (this->typ == WT_LIGHT)
+			return;
 		if (this->th_running)
 			return;
 		
+		this->start_physics ();
 		this->th_running = true;
 		this->th.reset (new std::thread (
 			std::bind (std::mem_fn (&hCraft::world::worker), this)));
@@ -209,15 +214,23 @@ namespace hCraft {
 											continue;
 										}
 									
-									if ((this->get_id (u.x, u.y, u.z) == u.id) &&
-											(this->get_meta (u.x, u.y, u.z) == u.meta))
+									unsigned short old_id = this->get_id (u.x, u.y, u.z);
+									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
+									physics_block *old_ph = physics_block::from_id (old_id);
+									if (old_ph && (!old_ph->breakable () && (u.id == 0)))
+										{
+											old_ph->on_break_attempt (*this, u.x, u.y, u.z);
+											(u.pl)->send (packet::make_block_change (u.x, u.y, u.z, old_id, old_meta));
+											this->updates.pop_front ();
+											continue;
+										}
+									
+									if ((old_id == u.id) && (old_meta == u.meta))
 										{
 											this->updates.pop_front ();
 											continue;
 										}
 									
-									unsigned short old_id = this->get_id (u.x, u.y, u.z);
-									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
 									this->set_block (u.x, u.y, u.z, u.id, u.meta);
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
@@ -225,7 +238,9 @@ namespace hCraft {
 										ch->recalc_heightmap (u.x & 0xF, u.z & 0xF);
 									
 									// update players
-									pl_tr.set (u.x, u.y, u.z, ph ? ph->vanilla_id () : u.id, u.meta);
+									pl_tr.set (u.x, u.y, u.z,
+										ph ? ph->vanilla_block ().id : u.id, 
+										ph ? ph->vanilla_block ().meta : u.meta);
 									
 									if (ch)
 										{
@@ -235,15 +250,13 @@ namespace hCraft {
 												}
 											
 											// physics
-											if (u.physics && ph)
+											if (old_id != u.id || old_meta != u.meta)
 												{
-													if (old_id != u.id || old_meta != u.meta)
-														{
-															physics_block *old_ph = physics_block::from_id (old_id);
-															if (old_ph)
-																old_ph->on_modified (*this, u.x, u.y, u.z);
-														}
-													
+													if (old_ph)
+														old_ph->on_modified (*this, u.x, u.y, u.z);
+												}
+											if (ph && u.physics)
+												{
 													this->queue_physics (u.x, u.y, u.z, u.extra, u.ptr,
 														ph->tick_rate ());
 												}
@@ -920,7 +933,47 @@ namespace hCraft {
 		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
 	{
 		if (!this->in_bounds (x, y, z)) return;
+		if (this->typ == WT_LIGHT)
+			{
+				this->set_block (x, y, z, id, meta);
+				this->lm.enqueue (x, y, z);
+				
+				// update players
+				this->get_players ().all (
+					[x, y, z, id, meta] (player *pl)
+						{
+							pl->send (packet::make_block_change (x, y, z, id, meta));
+						});
+				
+				return;
+			}
+		
 		std::lock_guard<std::mutex> guard {this->update_lock};
+		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
+		
+		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
+		this->estage.set (x, y, z, id, meta);
+	}
+	
+	void
+	world::queue_update_nolock (int x, int y, int z, unsigned short id,
+		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
+	{
+		if (!this->in_bounds (x, y, z)) return;
+		if (this->typ == WT_LIGHT)
+			{
+				this->set_block (x, y, z, id, meta);
+				this->lm.enqueue (x, y, z);
+				
+				// update players
+				this->get_players ().all (
+					[x, y, z, id, meta] (player *pl)
+						{
+							pl->send (packet::make_block_change (x, y, z, id, meta));
+						});
+				return;
+			}
+		
 		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
 		
 		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
@@ -933,6 +986,7 @@ namespace hCraft {
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
+		if (this->typ == WT_LIGHT) return;
 		
 		if (this->physics.get_thread_count () == 0)
 			this->srv.global_physics.queue_physics (this, x, y, z, extra, tick_delay, params, cb);
@@ -946,6 +1000,7 @@ namespace hCraft {
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->ph_state == PHY_OFF) return;
+		if (this->typ == WT_LIGHT) return;
 		
 		if (this->physics.get_thread_count () == 0)
 			this->srv.global_physics.queue_physics_once (this, x, y, z, extra, tick_delay, params, cb);
@@ -957,6 +1012,7 @@ namespace hCraft {
 	void
 	world::start_physics ()
 	{
+		if (this->typ == WT_LIGHT) return;
 		this->ph_state = PHY_ON;
 	}
 	
@@ -972,6 +1028,7 @@ namespace hCraft {
 	void
 	world::pause_physics ()
 	{
+		if (this->typ == WT_LIGHT) return;
 		if (this->ph_state == PHY_PAUSED) return;
 		this->ph_state = PHY_PAUSED;
 	}

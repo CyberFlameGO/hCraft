@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS__ACTIVEWATER_H_
-#define _hCraft__PHYSICS__ACTIVEWATER_H_
+#ifndef _hCraft__PHYSICS__FIREWORK_H_
+#define _hCraft__PHYSICS__FIREWORK_H_
 
 #include "physics/blocks/physics_block.hpp"
 
@@ -26,16 +26,32 @@ namespace hCraft {
 	
 	namespace physics {
 		
-		class active_water: public physics_block
+		class firework: public physics_block
 		{
 		public:
-			virtual int  id () override { return 2000; }
-			virtual blocki vanilla_block () override { return BT_STILL_WATER; }
-			virtual const char* name () { return "activewater"; }
-			virtual int  tick_rate () override { return 5; }
+			virtual int  id () override { return 2003; }
+			virtual blocki vanilla_block () override { return BT_IRON_BLOCK; }
+			virtual int  tick_rate () override { return -1; }
+			virtual const char* name () { return "firework"; }
+			
+			virtual bool breakable () override { return false; }
+			
+			
+			virtual void on_break_attempt (world &w, int x, int y, int z) override;
+		};
 		
+		class firework_rocket: public physics_block
+		{
+		public:
+			virtual int  id () override { return 2004; }
+			virtual blocki vanilla_block () override { return BT_IRON_BLOCK; }
+			virtual int  tick_rate () override { return 3; }
+			virtual const char* name () { return "firework-rocket"; }
+			
+			
 			virtual void tick (world &w, int x, int y, int z, int extra,
 				void *ptr, std::minstd_rand& rnd) override;
+			virtual void on_modified (world &w, int x, int y, int z) override;
 		};
 	}
 }

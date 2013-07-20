@@ -1233,6 +1233,7 @@ namespace hCraft {
 	{
 		int data_size = 0, n = 0, i;
 		unsigned short primary_bitmap = 0, add_bitmap = 0;
+		int primary_count = 0;
 		
 		// create bitmaps and calculate the size of the uncompressed data array.
 		data_size += 256; // biome array
@@ -1242,6 +1243,7 @@ namespace hCraft {
 				if (sub && !sub->all_air ())
 					{
 						primary_bitmap |= (1 << i);
+						++ primary_count;
 						data_size += 10240;
 						
 						//// NOTE: Do not send add values for now... or else it cause custom
@@ -1255,6 +1257,10 @@ namespace hCraft {
 		
 		// fill the array.
 		
+		/* 
+		 * We do IDs and metadata values at the same time.
+		 */
+		int ind, hlf;
 		for (i = 0; i < 16; ++i)
 			if (primary_bitmap & (1 << i))
 				{
@@ -1264,12 +1270,14 @@ namespace hCraft {
 					
 					subchunk *sub = ch->get_sub (i);
 					unsigned char *ids = sub->ids;
+					unsigned char *metas = sub->meta;
 					unsigned int *customs = sub->custom;
 					for (int i = 0; i < 128; ++i)
 						{
 							if (customs[i] == 0)
 								{
 									std::memcpy (data + n, ids + (i << 5), 32);
+									std::memcpy (data + (primary_count << 12) + (n >> 1), metas + (i << 4), 16);
 									n += 32;
 								}
 							else
@@ -1287,25 +1295,46 @@ namespace hCraft {
 														id |= (sub->add[j >> 1] & 0xF) << 8;
 												}
 											
+											ind = n;
+											hlf = ind >> 1;
+											
 											if (block_info::is_vanilla_id (id))
-												data[n++] = id & 0xFF;
+												{
+													data[n] = id & 0xFF;
+													if (ind & 1)
+														{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (metas[hlf] & 0xF0); }
+													else
+														{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= (metas[hlf] & 0x0F); }
+													++ n;
+												}
 											else
 												{
 													physics_block *ph = physics_block::from_id (id);
 													if (ph)
-														data[n++] = ph->vanilla_id () & 0xFF;
+														{
+															blocki vn = ph->vanilla_block ();
+															data[n] = vn.id & 0xFF;
+															if (ind & 1)
+																{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (vn.meta << 4); }
+															else
+																{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= vn.meta; }
+															++ n;
+														}
 													else
-														data[n++] = 0;
+														{
+															data[n] = 0;
+															if (ind & 1)
+																data[(primary_count << 12) + hlf] &= 0x0F;
+															else
+																data[(primary_count << 12) + hlf] &= 0xF0;
+															++ n;
+														}
 												}
 										}
 								}
 						}
 				}
-		
-		for (i = 0; i < 16; ++i)
-			if (primary_bitmap & (1 << i))
-				{ std::memcpy (data + n, ch->get_sub (i)->meta, 2048);
-					n += 2048; }
+		n += primary_count * 2048; // account for metadata
 		
 		for (i = 0; i < 16; ++i)
 			if (primary_bitmap & (1 << i))
@@ -1400,19 +1429,23 @@ namespace hCraft {
 					{ -- elems; continue; }
 				
 				int id = rec.id;
+				int meta = rec.meta;
 				if (!block_info::is_vanilla_id (id))
 					{
 						physics_block *ph = physics_block::from_id (id);
 						if (ph)
-							id = ph->vanilla_id ();
+							{
+								id = ph->vanilla_block ().id;
+								meta = ph->vanilla_block ().meta;
+							}
 						else
-							id = 0;
+							id = meta = 0;
 					}
 				
 				pack->put_byte ((rec.x << 4) | rec.z);
 				pack->put_byte (rec.y);
 				pack->put_byte (id >> 4);
-				pack->put_byte (((id & 0xF) << 4) | rec.meta);
+				pack->put_byte (((id & 0xF) << 4) | meta);
 			}
 		
 		if (sb)
@@ -1433,13 +1466,17 @@ namespace hCraft {
 		packet* pack = new packet (13);
 		
 		int new_id = id;
+		int new_meta = meta;
 		if (!block_info::is_vanilla_id (new_id))
 			{
 				physics_block *ph = physics_block::from_id (new_id);
 				if (ph)
-					new_id = ph->vanilla_id ();
+					{
+						new_id = ph->vanilla_block ().id;
+						new_meta = ph->vanilla_block ().meta;
+					}
 				else
-					new_id = 0;
+					new_id = new_meta = 0;
 			}
 		
 		pack->put_byte (0x35);

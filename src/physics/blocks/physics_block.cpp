@@ -32,6 +32,7 @@
 #include "physics/blocks/activewater.hpp"
 #include "physics/blocks/sponge.hpp"
 #include "physics/blocks/c235.hpp"
+#include "physics/blocks/firework.hpp"
 
 
 namespace hCraft {
@@ -70,6 +71,8 @@ namespace hCraft {
 			_register_physics_block (new physics::water_sponge ());
 			_register_physics_block (new physics::water_sponge_agent ());
 			_register_physics_block (new physics::c235 ());
+			_register_physics_block (new physics::firework ());
+			_register_physics_block (new physics::firework_rocket ());
 		}
 		
 		_physics_blocks_initialized = true;
