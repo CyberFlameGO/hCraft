@@ -82,6 +82,9 @@ namespace hCraft {
 				this->show (pl);
 			}
 		
+		virtual block_pos get (int n) = 0;
+		
+		
 		/* 
 		 * Expands\Contracts the selection in the given direction.
 		 */

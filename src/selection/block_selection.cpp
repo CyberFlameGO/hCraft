@@ -284,6 +284,17 @@ namespace hCraft {
 		this->reconstruct (a, b);
 	}
 	
+	block_pos
+	block_selection::get (int n)
+	{
+		switch (n)
+			{
+				case 0: return this->p1;
+				case 1: return this->p2;
+				default: return {};
+			}
+	}
+	
 	
 	static void
 	_show (player *pl, block_selection *sel, bool show)

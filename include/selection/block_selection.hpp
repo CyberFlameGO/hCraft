@@ -79,6 +79,7 @@ namespace hCraft {
 		 */
 		virtual void set (int n, block_pos pt);
 		void set_block (int x, int y, int z, bool include = true);
+		virtual block_pos get (int n);
 		
 		/* 
 		 * Expands\Contracts the selection in the given direction.

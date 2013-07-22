@@ -41,32 +41,6 @@ namespace hCraft {
 				}
 		}
 		
-		static void
-		_particle_tick (world &w, int x, int y, int z, int extra, std::minstd_rand& rnd)
-		{
-			block_data bd = w.get_block (x, y, z);
-			if (bd.id != BT_WOOL)
-				return;
-			
-			w.queue_update (x, y, z, BT_AIR);
-			
-			std::uniform_int_distribution<> die_dis (0, 5);
-			if (die_dis (rnd) == 0 || (extra >= 5))
-				return;
-				
-			
-			int nx = x;
-			int ny = y - 1;
-			int nz = z;
-			
-			if (w.get_id (nx, ny, nz) == BT_AIR)
-				{
-					w.queue_update (nx, ny, nz, bd.id, bd.meta);
-					w.queue_physics (nx, ny, nz, extra + 1, nullptr, 3, nullptr, _particle_tick);
-				}
-			else
-				w.queue_physics (x, y, z, extra + 1, nullptr, 3, nullptr, _particle_tick);
-		}
 		
 		static void
 		_explode (world &w, int x, int y, int z, std::minstd_rand& rnd)
@@ -79,6 +53,9 @@ namespace hCraft {
 			int col2 = wool_dis (rnd);
 			std::uniform_int_distribution<> col_dis (std::min (col1, col2), std::max (col1, col2));
 			
+			physics_params particle_params;
+			physics_params::build ("drop 100 dissipate 25", particle_params);
+			
 			int rad = 5;
 			for (int xx = -rad; xx <= rad; ++xx)
 				for (int yy = -rad; yy <= rad; ++yy)
@@ -88,7 +65,7 @@ namespace hCraft {
 								if (chance_dis (rnd) < 2 && w.get_id (xx + x, yy + y, zz + z) == BT_AIR)
 									{
 										w.queue_update (xx + x, yy + y, zz + z, BT_WOOL, col_dis (rnd));
-										w.queue_physics (xx + x, yy + y, zz + z, 0, nullptr, 3, nullptr, _particle_tick);
+										w.queue_physics (xx + x, yy + y, zz + z, 0, nullptr, 2, &particle_params, nullptr);
 									}
 							}
 		}

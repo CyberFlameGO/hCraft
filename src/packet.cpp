@@ -1302,9 +1302,9 @@ namespace hCraft {
 												{
 													data[n] = id & 0xFF;
 													if (ind & 1)
-														{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (metas[hlf] & 0xF0); }
+														{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0xF0); }
 													else
-														{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= (metas[hlf] & 0x0F); }
+														{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0x0F); }
 													++ n;
 												}
 											else

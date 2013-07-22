@@ -21,6 +21,7 @@
 #include "world.hpp"
 #include "utils.hpp"
 #include "server.hpp"
+#include "stringutils.hpp"
 #include "entities/entity.hpp"
 #include "player.hpp"
 #include <functional>
@@ -44,6 +45,7 @@ namespace hCraft {
 		this->data.blk.cb = cb;
 		this->data.blk.extra = extra;
 		this->tick = tick;
+		this->elapsed = 0;
 	}
 	
 	physics_update::physics_update (world *w, int eid, bool persistent,
@@ -56,13 +58,62 @@ namespace hCraft {
 		this->data.ent.eid = eid;
 		this->data.ent.persistent = persistent;
 		this->tick = tick;
+		this->elapsed = 0;
 	}
 		
 		
 		
 	physics_params::physics_params ()
 	{
-		this->actions[0].type = PA_NONE;
+		for (int i = 0; i < 8; ++i)
+			this->actions[i].type = PA_NONE;
+	}
+	
+	/* 
+	 * Constructs a physics_params object from the given string.
+	 * Returns true on success, and false in case of an error.
+	 */
+	bool
+	physics_params::build (const std::string& str, physics_params& out, int def_expire)
+	{
+		out = physics_params (); // clear it out
+		
+		int index = 0, val;
+		
+		std::istringstream ss {str};
+		std::string word, numstr;
+		while (!ss.eof () && ss.good ())
+			{
+				ss >> word;
+				if (ss.eof () || !ss.good ())
+					return false;
+				ss >> numstr;
+				if (!sutils::is_int (numstr))
+					return false;
+				
+				if (index == 7)
+					return false;
+				
+				val = sutils::to_int (numstr);
+				
+				out.actions[index].expire = def_expire;
+				out.actions[index].val = val;
+				
+				if (word.compare ("dissipate") == 0)
+					out.actions[index].type = PA_DISSIPATE;
+				else if (word.compare ("drop") == 0)
+					out.actions[index].type = PA_DROP;
+				else if (word.compare ("finite") == 0)
+					out.actions[index].type = PA_FINITE;
+				else
+					return false;
+				
+				++ index;
+			}
+		
+		out.actions[index++].type = PA_NONE;
+		
+		return true;
 	}
 	
 	
@@ -113,8 +164,8 @@ namespace hCraft {
 	static bool
 	handle_param_dissipate (physics_update& u, physics_action& act, std::minstd_rand& rnd)
 	{
-		std::uniform_int_distribution<> dis (0, act.val);
-		if (dis (rnd) == 0)
+		std::uniform_int_distribution<> dis (0, 100);
+		if (dis (rnd) <= act.val)
 			{
 				u.w->queue_update (u.data.blk.x, u.data.blk.y, u.data.blk.z, BT_AIR);
 				return false;
@@ -124,41 +175,156 @@ namespace hCraft {
 	}
 	
 	static bool
+	handle_param_drop (physics_update& u, physics_action& act)
+	{
+		int x = u.data.blk.x, y = u.data.blk.y, z = u.data.blk.z;
+		
+		int d = (act.val / (50 * ((u.tick <= 0) ? 1 : u.tick)));
+		if (d <= 0) d = 1;
+		
+		if (u.elapsed % d == 0)
+			{
+				if ((y > 0) && (u.w->get_id (x, y - 1, z) == BT_AIR))
+					{
+						block_data bd = u.w->get_block (x, y, z);
+						u.w->queue_update (x, y - 1, z, bd.id, bd.meta);
+						u.w->queue_update (x, y, z, BT_AIR);
+						
+						-- u.data.blk.y;
+						return true;
+					}
+				else
+					return false;
+			}
+		
+		return true;
+	}
+	
+	// based on MCZall's finite mechanics.
+	static bool
+	handle_param_finite (physics_update& u, physics_action& act, std::minstd_rand& rnd)
+	{
+		int x = u.data.blk.x, y = u.data.blk.y, z = u.data.blk.z;
+		world *w = u.w;
+		
+		block_data bd = w->get_block (x, y, z);
+		if (bd.id == BT_AIR)
+			return false;
+		
+		if (w->get_id (x, y - 1, z) == BT_AIR)
+			{
+				w->queue_update (x, y - 1, z, bd.id, bd.meta);
+				w->queue_update (x, y, z, BT_AIR);
+				
+				-- u.data.blk.y;
+			}
+		else
+			{
+				int ind_list[25];
+				for (int i = 0; i < 25; ++i)
+					ind_list[i] = i;
+				
+				// shuffle the array
+				for (int i = 24; i >= 0; --i)
+					{
+						std::uniform_int_distribution<> dis (0, i);
+						int j = dis (rnd);
+						int t = ind_list[j];
+						ind_list[j] = ind_list[i];
+						ind_list[i] = t;
+					}
+				
+				struct xz_pos { int x; int z; };
+				xz_pos pos_list[25];
+				{
+					int i;
+					for (int xx = (x - 2); xx <= (x + 2); ++xx)
+						for (int zz = (z - 2); zz <= (z + 2); ++zz)
+							{
+								pos_list[i].x = xx;
+								pos_list[i].z = zz;
+								++ i;
+							}
+				}
+				
+				for (int ii = 0; ii < 25; ++ii)
+					{
+						int i = ind_list[ii];
+						xz_pos pos = pos_list[i];
+						if (w->get_id (pos.x, y - 1, pos.z) == BT_AIR &&
+								w->get_id (pos.x, y, pos.z) == BT_AIR)
+							{
+								if (pos.x < x) pos.x = std::floor ((pos.x + x) / 2.0);
+								else pos.x = std::ceil ((pos.x + x) / 2.0);
+								if (pos.z < z) pos.z = std::floor ((pos.z + z) / 2.0);
+								else pos.z = std::ceil ((pos.z + z) / 2.0);
+								
+								if (pos.x != x || pos.z != z)
+									{
+										if (w->get_id (pos.x, y, pos.z) == BT_AIR)
+											{
+												w->queue_update (pos.x, y, pos.z, bd.id, bd.meta);
+												w->queue_update (x, y, z, BT_AIR);
+												
+												u.data.blk.x = pos.x;
+												u.data.blk.z = pos.z;
+												break;
+											}
+									}
+							}
+					}
+			}
+		
+		return true;
+	}
+	
+	static bool
 	handle_params (physics_update& u, physics_manager &man, std::minstd_rand& rnd)
 	{
-		bool expire = true;
+		int found = 0;
 		
 		for (int i = 0; i < 8; ++i)
 			{
 				physics_action& act = u.params.actions[i];
 				if (act.type == PA_NONE)
-					break;
-				if (act.expire == 0)
 					continue;
 				
 				switch (act.type)
 					{
 					case PA_DISSIPATE:
 						if (!handle_param_dissipate (u, act, rnd))
-							return false;
+							act.type = PA_NONE;
 						break;
 					
-					default: break;
+					case PA_DROP:
+						if (!handle_param_drop (u, act))
+							act.type = PA_NONE;
+						break;
+					
+					case PA_FINITE:
+						if (!handle_param_finite (u, act, rnd))
+							act.type = PA_NONE;
+						break;
+					
+					default:
+						act.type = PA_NONE;
+						break;
 					}
 				
-				if (act.expire == 0xFFFF)
-					expire = false;
-				else if (act.expire > 0)
-					{
-						-- act.expire;
-						expire = false;
-					}
+				if (act.expire == 0)
+					act.type = PA_NONE;
+				else if ((act.expire != -1) && (act.expire > 0))
+					-- act.expire;
+				
+				if (act.type != PA_NONE)
+					++ found;
 			}
 		
-		if (!expire)
+		if (found > 0)
 			{
 				physics_update nu = u;
 				nu.nt = std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * nu.tick);
+				++ nu.elapsed;
 				man.updates.push (nu);
 			}
 		
@@ -379,8 +545,8 @@ namespace hCraft {
 		int extra, int tick_delay, physics_params *params,
 		physics_block_callback cb)
 	{
-		if (tick_delay == 0) tick_delay = 1;
-		-- tick_delay;
+		//if (tick_delay == 0) tick_delay = 1;
+		//-- tick_delay;
 		
 		std::lock_guard<std::mutex> guard {this->lock};
 		this->add_block_nolock (w, x, y, z);
@@ -412,8 +578,8 @@ namespace hCraft {
 		if (this->block_exists_nolock (w, x, y, z))
 			return;
 		
-		if (tick_delay == 0) tick_delay = 1;
-		-- tick_delay;
+		//if (tick_delay == 0) tick_delay = 1;
+		//-- tick_delay;
 		
 		this->add_block_nolock (w, x, y, z);
 		physics_update u (w, x, y, z, extra, tick_delay,

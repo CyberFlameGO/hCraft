@@ -23,6 +23,7 @@
 #include "stringutils.hpp"
 #include "utils.hpp"
 #include "drawops.hpp"
+#include "messages.hpp"
 #include <sstream>
 
 
@@ -42,13 +43,27 @@ namespace hCraft {
 			cuboid_data *data = static_cast<cuboid_data *> (pl->get_data ("cuboid"));
 			if (!data) return true; // shouldn't happen
 			
+			int bc;
+			
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
-			draw.fill_cuboid (marked[0], marked[1], data->bl);
+			bc = draw.fill_cuboid (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
+			if (bc == -1)
+				{
+					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
+					pl->delete_data ("cuboid");
+					return true;
+				}
 			es.commit ();
 			
 			pl->delete_data ("cuboid");
-			pl->message ("§3Cuboid complete");
+			
+			{
+				std::ostringstream ss;
+				ss << "§7 | Cuboid complete - §b" << bc << " §7blocks modified";
+				pl->message (ss.str ());
+			}
+			
 			return true;
 		}
 		
@@ -91,8 +106,8 @@ namespace hCraft {
 				[] (void *ptr) { delete static_cast<cuboid_data *> (ptr); });
 			pl->get_nth_marking_callback (2) += on_blocks_marked;
 			
-			pl->message ("§8Cuboid §7(§8Block§7: §b" + str + "§7):");
-			pl->message ("§8 * §7Please mark §btwo §7blocks§7.");
+			pl->message ("§5Draw§f: §3regular cuboid §f[§7block§f: §8" + str + "§f]:");
+			pl->message ("§7 | §ePlease mark §btwo §eblocks to determine the edges§f.");
 		}
 	}
 }

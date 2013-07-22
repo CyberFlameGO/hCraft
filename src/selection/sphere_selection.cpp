@@ -103,6 +103,18 @@ namespace hCraft {
 			}
 	}
 	
+	block_pos
+	sphere_selection::get (int n)
+	{
+		switch (n)
+			{
+				case 0: return this->cp;
+				case 1: return
+					{(int)(this->cp.x + this->rad), (int)(this->cp.y + this->rad), (int)(this->cp.z + this->rad)};
+				default: return {};
+			}
+	}
+	
 	
 	
 	/* 

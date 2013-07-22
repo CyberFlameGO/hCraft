@@ -80,6 +80,7 @@ hCraft_sources = Split("""
 		commands/wsetspawn.cpp
 		commands/unmute.cpp
 		commands/say.cpp
+		commands/bp.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

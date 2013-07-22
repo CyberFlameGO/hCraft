@@ -34,9 +34,8 @@ namespace hCraft {
 				return;
 		
 			int below = w.get_final_block (x, y - 1, z).id;
-			if (below == BT_AIR)
+			if (below == BT_AIR || below == BT_WATER)
 				{
-					w.queue_update (x, y, z, BT_AIR);
 					w.queue_update (x, y - 1, z, BT_SAND);
 				}
 			else

@@ -67,6 +67,7 @@ namespace hCraft {
 		 * Sets the @{n}th point to @{pt}.
 		 */
 		virtual void set (int n, block_pos pt);
+		virtual block_pos get (int n);
 		
 		/* 
 		 * Expands\Contracts the selection in the given direction.

@@ -215,6 +215,7 @@ namespace hCraft {
 			
 			int block_counter = 0;
 			int selection_counter = 0;
+			int fill_limit = pl->get_rank ().fill_limit ();
 			
 			// fill all selections
 			{
@@ -240,38 +241,56 @@ namespace hCraft {
 						if (min_p.y > 255) min_p.y = 255;
 						if (max_p.y < 0) max_p.y = 0;
 						if (max_p.y > 255) max_p.y = 255;
+						bool done_filling = false;
+						
 						for (int y = max_p.y; y >= min_p.y; --y)
-							for (int x = min_p.x; x <= max_p.x; ++x)
-								for (int z = min_p.z; z <= max_p.z; ++z)
+							{
+								if (done_filling) break;
+								for (int x = min_p.x; x <= max_p.x; ++x)
 									{
-										if (!wr->in_bounds (x, y, z)) continue;
-										if (!sel->contains (x, y, z)) continue;
-										if (do_hollow && sel_inner->contains (x, y, z)) continue;
-										
-										block_data bd = wr->get_block (x, y, z);
-										if (bd_in.id != 0xFFFF && (bd.id != bd_in.id || bd.meta != bd_in.meta))
-											continue;
-										if (bd.id == bd_out.id && bd.meta == bd_out.meta)
-											continue;
-										
-										if (is_rand)
+										if (done_filling) break;
+										for (int z = min_p.z; z <= max_p.z; ++z)
 											{
-												if (dis (rnd) < rprec)
+												if (done_filling) break;
+												if (!wr->in_bounds (x, y, z)) continue;
+												if (!sel->contains (x, y, z)) continue;
+												if (do_hollow && sel_inner->contains (x, y, z)) continue;
+										
+												block_data bd = wr->get_block (x, y, z);
+												if (bd_in.id != 0xFFFF && (bd.id != bd_in.id || bd.meta != bd_in.meta))
+													continue;
+												if (bd.id == bd_out.id && bd.meta == bd_out.meta)
+													continue;
+										
+												if (block_counter >= fill_limit)	
+													{
+														std::ostringstream ss;
+														ss << "§eA §cpartial §efill has been completed (§c" << fill_limit << " §eblocks)";
+														pl->message (ss.str ());
+														done_filling = true;
+														break;
+													}
+										
+												if (is_rand)
+													{
+														if (dis (rnd) < rprec)
+															{
+																es.set (x, y, z, bd_out.id, bd_out.meta);
+																++ block_counter;
+															}
+													}
+												else
 													{
 														es.set (x, y, z, bd_out.id, bd_out.meta);
 														++ block_counter;
 													}
+										
+												if (!sel_cont)
+													++ selection_counter;
+												sel_cont = true;
 											}
-										else
-											{
-												es.set (x, y, z, bd_out.id, bd_out.meta);
-												++ block_counter;
-											}
-								
-										if (!sel_cont)
-											++ selection_counter;
-										sel_cont = true;
 									}
+							}
 					
 						es.commit (do_physics);
 						if (do_hollow)

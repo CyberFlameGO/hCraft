@@ -300,6 +300,50 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		// Should this command even be in the world subdirectory?
+		/* 
+		 * /bp -
+		 * 
+		 * Modifies physics properties for individual blocks.
+		 * 
+		 * Permissions:
+		 *   - command.world.bp
+		 *       Needed to execute the command.
+		 */
+		class c_block_physics: public command
+		{
+		public:
+			const char* get_name () { return "block-physics"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char* aliases[] =
+					{
+						"bp",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Modifies physics properties for individual blocks."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.bp"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

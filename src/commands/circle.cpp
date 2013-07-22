@@ -56,13 +56,19 @@ namespace hCraft {
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
-				blocks = draw.fill_circle (marked[0], radius, data->bl, data->pn);
+				blocks = draw.fill_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			else
-				blocks = draw.draw_circle (marked[0], radius, data->bl, data->pn);
+				blocks = draw.draw_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
+			if (blocks == -1)
+				{
+					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
+					pl->delete_data ("circle");
+					return true;
+				}
 			es.commit ();
 			
 			std::ostringstream ss;
-			ss << "§3Circle complete §7(§3Radius§7: §b" << radius << "§7, §3Modified§7: §b" <<  blocks << " §3blocks§7)";
+			ss << "§7 | Circle complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
 			
 			pl->delete_data ("circle");
@@ -147,21 +153,25 @@ namespace hCraft {
 			pl->get_nth_marking_callback ((radius == -1) ? 2 : 1) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Circle §7(§8Plane§7: §b";
+			ss << "§5Draw§f: §3" << (do_fill ? "filled" : "hollow")
+				 << " circle §f[§7block§f: §8" << str << "§f, §7plane§f: §8";
 			switch (pn)
 				{
-					case draw_ops::XZ_PLANE: ss << "XZ§7, "; break;
-					case draw_ops::YX_PLANE: ss << "YX§7, "; break;
-					case draw_ops::YZ_PLANE: ss << "YZ§7, "; break;
+					case draw_ops::XZ_PLANE: ss << "xz§f, "; break;
+					case draw_ops::YX_PLANE: ss << "yx§f, "; break;
+					case draw_ops::YZ_PLANE: ss << "yz§f, "; break;
 				}
-			if (radius != -1)
-				ss << "§8Radius§7: §b" << radius << "§7, ";
-			ss << "§8Block§7: §b" << str << "§7):";
+			ss << "§7radius§f: §8";
+			if (radius == -1)
+				ss << "?";
+			else
+				ss << radius;
+			ss << "§f]:";
 			pl->message (ss.str ());
 			
 			ss.str (std::string ()); ss.clear ();
-			ss << "§8 * §7Please mark §b" << ((radius == -1) ? 2 : 1) << " §7block"
-				 << ((radius == -1) ? "s" : "") << "§7.";
+			ss << "§7 | §ePlease mark §b" << ((radius == -1) ? "two" : "one") << " §eblock"
+				 << ((radius == -1) ? "s" : "") << "§f.";
 			pl->message (ss.str ());
 		}
 	}

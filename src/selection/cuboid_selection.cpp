@@ -81,6 +81,17 @@ namespace hCraft {
 			}
 	}
 	
+	block_pos
+	cuboid_selection::get (int n)
+	{
+		switch (n)
+			{
+				case 0: return this->p1;
+				case 1: return this->p2;
+				default: return {};
+			}
+	}
+	
 	
 	
 	/* 

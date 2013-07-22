@@ -50,11 +50,12 @@ namespace hCraft {
 		
 		PA_DISSIPATE = 0,
 		PA_DROP,
+		PA_FINITE,
 	};
 	
 	struct physics_action {
 		physics_action_type type;
-		unsigned short expire;
+		int expire;
 		short val;
 	};
 	
@@ -64,6 +65,12 @@ namespace hCraft {
 		
 	//---
 		physics_params ();
+		
+		/* 
+		 * Constructs a physics_params object from the given string.
+		 * Returns true on success, and false in case of an error.
+		 */
+		static bool build (const std::string& str, physics_params& out, int def_expire = 32);
 	};
 	
 	typedef void (*physics_block_callback)(world &w, int x, int y, int z,
@@ -91,6 +98,7 @@ namespace hCraft {
 			
 		physics_params params;
 		
+		int elapsed;
 		int tick;
 		std::chrono::steady_clock::time_point nt; // next tick
 		

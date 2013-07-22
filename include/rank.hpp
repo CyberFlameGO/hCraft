@@ -68,6 +68,11 @@ namespace hCraft {
 		
 		bool color_codes;
 		
+		int fill_limit;
+		int select_limit;
+		
+	//----
+		
 		bool all_perms; // true if this group has the '*' perm.
 		bool no_perms;  // opposite
 		
@@ -268,6 +273,11 @@ namespace hCraft {
 		 * Searches through the rank's group list for the highest power field.
 		 */
 		int power () const;
+		
+		int fill_limit () const;
+		int select_limit () const;
+		
+		
 		
 		/* 
 		 * Returns the group that has the highest power field.

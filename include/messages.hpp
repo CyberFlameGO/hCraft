@@ -28,13 +28,17 @@ namespace hCraft {
 	
 	
 	/* 
-	 * A utility class that constructs commonly-used messages.
+	 * A utility class that constructs messages that are used often.
 	 */
 	class messages
 	{
 	public:
 		static std::string insufficient_permissions (group_manager& groups,
 			const char *perm);
+		
+		static std::string over_fill_limit (int f_limit);
+		
+		static std::string over_select_limit (int s_limit);
 	};
 }
 

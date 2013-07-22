@@ -42,7 +42,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_line (vector3 pt1, vector3 pt2, blocki material)
+	draw_ops::draw_line (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
 	{
 		/* 
 		 * Bresenham's line algorithm modified to work in three dimensions.
@@ -200,7 +200,7 @@ namespace hCraft {
 	 * in the specified material. Returns the total numebr of blocks modified.
 	 */
 	int
-	draw_ops::draw_bezier (std::vector<vector3>& points, blocki material)
+	draw_ops::draw_bezier (std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		if (points.size () == 1)
 			this->es.set (points[0].x, points[0].y, points[0].z, material.id, material.meta);
@@ -297,7 +297,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_circle (vector3 pt, double radius, blocki material, plane pn)
+	draw_ops::draw_circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
 	{
 		/* 
 		 * Bresenham's 2D circle algorithm. 
@@ -311,9 +311,15 @@ namespace hCraft {
 		
 		while (x >= z)
 			{
+				if ((modified + 4) > max_blocks)
+					return -1;
 				modified += _plot_four_points (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
 				if (x != z)
-					modified += _plot_four_points (this->es, pt.x, pt.y, pt.z, z, x, material, pn);
+					{
+						if ((modified + 4) > max_blocks)
+							return -1;
+						modified += _plot_four_points (this->es, pt.x, pt.y, pt.z, z, x, material, pn);
+					}
 				
 				error += z;
 				++ z;
@@ -389,7 +395,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_ellipse (vector3 pt, double a, double b, blocki material, plane pn)
+	draw_ops::draw_ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		long x = -a, z = 0;
@@ -421,7 +427,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_polygon (const std::vector<vector3>& points, blocki material)
+	draw_ops::draw_polygon (const std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		if (points.empty ()) return 0;
 		if (points.size () == 1)
@@ -476,7 +482,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_curve (const std::vector<vector3>& points, blocki material)
+	draw_ops::draw_curve (const std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		int modified = 0;
 		
@@ -513,7 +519,7 @@ namespace hCraft {
 	 * block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_cuboid (vector3 pt1, vector3 pt2, blocki material)
+	draw_ops::fill_cuboid (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
 	{
 		int sx = utils::min ((int)pt1.x, (int)pt2.x);
 		int sy = utils::min ((int)pt1.y, (int)pt2.y);
@@ -522,14 +528,18 @@ namespace hCraft {
 		int ey = utils::max ((int)pt1.y, (int)pt2.y);
 		int ez = utils::max ((int)pt1.z, (int)pt2.z);
 		
+		int c = 0;
 		for (int x = sx; x <= ex; ++x)
 			for (int y = sy; y <= ey; ++y)
 				for (int z = sz; z <= ez; ++z)
 					{
+						if (c >= max_blocks)
+							return -1;
 						this->es.set (x, y, z, material.id, material.meta);
+						++ c;
 					}
 		
-		return ((ex - sx + 1) * (ey - sy + 1) * (ez - sz + 1));
+		return c;
 	}
 	
 	
@@ -568,8 +578,9 @@ namespace hCraft {
 	
 	static int
 	_plot_four_lines (edit_stage& es, int cx, int cy, int cz, int x, int z,
-		blocki material, draw_ops::plane pn)
+		blocki material, draw_ops::plane pn, int max)
 	{
+		if (max == 0) return -1;
 		int modified = 1;
 		
 		switch (pn)
@@ -590,6 +601,7 @@ namespace hCraft {
 							else
 								++ modified;
 						}
+					if (modified > max) return -1;
 					break;
 				
 				case draw_ops::YX_PLANE:
@@ -608,6 +620,7 @@ namespace hCraft {
 							else
 								++ modified;
 						}
+					if (modified > max) return -1;
 					break;
 				
 				case draw_ops::YZ_PLANE:
@@ -626,6 +639,7 @@ namespace hCraft {
 							else
 								++ modified;
 						}
+					if (modified > max) return -1;
 					break;
 			}
 		
@@ -637,19 +651,31 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_circle (vector3 pt, double radius, blocki material, plane pn)
+	draw_ops::fill_circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		int iradius = std::round (radius);
 		int error = -iradius;
 		int x = iradius;
 		int z = 0;
+		int r;
 		
 		while (x >= z)
 			{
-				modified += _plot_four_lines (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
+				r = _plot_four_lines (this->es, pt.x, pt.y, pt.z, x, z, material, pn, max_blocks - modified);
+				if (r == -1)
+					return -1;
+				else
+					modified += r;
+				
 				if (x != z)
-					modified += _plot_four_lines (this->es, pt.x, pt.y, pt.z, z, x, material, pn);
+					{
+						r = _plot_four_lines (this->es, pt.x, pt.y, pt.z, z, x, material, pn, max_blocks - modified);
+						if (r == -1)
+							return -1;
+						else
+							modified += r;
+					}
 				
 				error += z;
 				++ z;
@@ -714,7 +740,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_ellipse (vector3 pt, double a, double b, blocki material, plane pn)
+	draw_ops::fill_ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		long x = -a, z = 0;
@@ -746,7 +772,7 @@ namespace hCraft {
 	 * given block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_sphere (vector3 pt, double radius, blocki material)
+	draw_ops::fill_sphere (vector3 pt, double radius, blocki material, int max_blocks)
 	{
 		int rad = std::round (radius);
 		int srad = rad * rad;
@@ -775,7 +801,7 @@ namespace hCraft {
 	 * given block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_hollow_sphere (vector3 pt, double radius, blocki material)
+	draw_ops::fill_hollow_sphere (vector3 pt, double radius, blocki material, int max_blocks)
 	{
 		int srad = std::round (radius * radius);
 		int rad = std::round (radius);

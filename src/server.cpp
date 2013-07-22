@@ -1092,6 +1092,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "wsetspawn");
 		_add_command (this->perms, this->commands, "unmute");
 		_add_command (this->perms, this->commands, "say");
+		_add_command (this->perms, this->commands, "block-physics");
 	}
 	
 	void
@@ -1142,6 +1143,8 @@ namespace hCraft {
 		grp_builder->add ("command.draw.cuboid");
 		grp_builder->add ("command.draw.aid");
 		grp_builder->msuffix = "§f:";
+		grp_builder->fill_limit = 2000;
+		grp_builder->select_limit = 2000;
 		
 		group* grp_designer = groups.add (4, "designer");
 		grp_designer->color = 'b';
@@ -1149,7 +1152,10 @@ namespace hCraft {
 		grp_designer->add ("command.draw.select");
 		grp_designer->add ("command.draw.fill");
 		grp_designer->add ("command.draw.sphere");
+		grp_designer->add ("command.world.bp");
 		grp_designer->msuffix = "§f:";
+		grp_designer->fill_limit = 8000;
+		grp_designer->select_limit = 8000;
 		
 		group* grp_architect = groups.add (5, "architect");
 		grp_architect->color = '3';
@@ -1161,6 +1167,8 @@ namespace hCraft {
 		grp_architect->add ("command.draw.polygon");
 		grp_architect->add ("command.draw.curve");
 		grp_architect->msuffix = "§f:";
+		grp_architect->fill_limit = 32000;
+		grp_architect->select_limit = 32000;
 		
 		group* grp_moderator = groups.add (6, "moderator");
 		grp_moderator->color = 'c';
@@ -1171,6 +1179,8 @@ namespace hCraft {
 		grp_moderator->add ("command.admin.mute");
 		grp_moderator->add ("command.admin.unmute");
 		grp_moderator->msuffix = "§f:";
+		grp_moderator->fill_limit = 8000;
+		grp_moderator->select_limit = 8000;
 		
 		group* grp_admin = groups.add (7, "admin");
 		grp_admin->color = '4';
@@ -1187,6 +1197,8 @@ namespace hCraft {
 		grp_admin->text_color = 'c';
 		grp_admin->msuffix = "§f:";
 		grp_admin->color_codes = true;
+		grp_admin->fill_limit = 120000;
+		grp_admin->select_limit = 120000;
 		
 		group* grp_executive = groups.add (8, "executive");
 		grp_executive->color = 'e';
@@ -1201,6 +1213,8 @@ namespace hCraft {
 		grp_executive->text_color = 'c';
 		grp_executive->msuffix = "§f:";
 		grp_executive->color_codes = true;
+		grp_executive->fill_limit = 2000000;
+		grp_executive->select_limit = 2000000;
 		
 		group* grp_owner = groups.add (9, "owner");
 		grp_owner->color = '6';
@@ -1208,6 +1222,8 @@ namespace hCraft {
 		grp_owner->add ("*");
 		grp_owner->msuffix = "§f:";
 		grp_owner->color_codes = true;
+		grp_owner->fill_limit = 15000000;
+		grp_owner->select_limit = 60000000;
 		
 		// ladders
 		group_ladder *ld_normal = groups.add_ladder ("normal");

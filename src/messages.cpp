@@ -79,5 +79,21 @@ namespace hCraft {
 		ss << " §" << lgrp->color << grp_name << " §cto do that§7.";
 		return ss.str ();
 	}
+	
+	std::string
+	messages::over_fill_limit (int f_limit)
+	{
+		std::ostringstream ss;
+		ss << "§c * §7You are trying to fill too many blocks§c! (§7limit §f- §8" << f_limit << " §7blocks§c)";
+		return ss.str ();
+	}
+		
+	std::string
+	messages::over_select_limit (int s_limit)
+	{
+		std::ostringstream ss;
+		ss << "§c * §7You are selecting too many blocks§c! (§7limit §f- §8" << s_limit << " §7blocks§c)";
+		return ss.str ();
+	}
 }
 

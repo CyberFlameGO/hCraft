@@ -21,6 +21,7 @@
 #include "position.hpp"
 #include "stringutils.hpp"
 #include "cistring.hpp"
+#include "messages.hpp"
 #include <vector>
 #include <sstream>
 #include <utility>
@@ -323,12 +324,35 @@ namespace hCraft {
 				{
 					std::ostringstream ss;
 					ss << "§c * §7The selection that you§f'§7re making requires only §f"
-						 << selection->needed_points ()<< " §7points§f.";
+						 << selection->needed_points () << " §7points§f.";
 					pl->message (ss.str ());
 					return;
 				}
-	
+				
 			block_pos curr_pos = pl->pos;
+				
+			{
+				world_selection *test = selection->copy ();
+				test->set (num - 1, curr_pos);
+				
+				// get collective volume
+				int collective_vol = test->volume ();
+				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+					{
+						world_selection *sel = itr->second;
+						if (sel != selection)
+							collective_vol += sel->volume ();
+					}
+				
+				if (collective_vol > pl->get_rank ().select_limit ())
+					{
+						delete test;
+						pl->message (messages::over_select_limit (pl->get_rank ().select_limit ()));
+						return;
+					}
+				delete test;
+			}
+	
 			selection->set_update (num - 1, curr_pos, pl);
 			pl->sb_commit ();
 	

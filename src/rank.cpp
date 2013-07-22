@@ -48,6 +48,7 @@ namespace hCraft {
 		this->no_perms = false;
 		this->ladder = nullptr;
 		this->color_codes = false;
+		this->fill_limit = 0;
 	}
 	
 	
@@ -507,6 +508,28 @@ namespace hCraft {
 		return grp ? grp->power : 0;
 	}
 	
+	int
+	rank::fill_limit () const
+	{
+		int max = 0;
+		for (auto itr = this->groups.begin (); itr != this->groups.end (); ++itr)
+			if ((*itr)->fill_limit > max)
+				max = (*itr)->fill_limit;
+		return max;
+	}
+	
+	int
+	rank::select_limit () const
+	{
+		int max = 0;
+		for (auto itr = this->groups.begin (); itr != this->groups.end (); ++itr)
+			if ((*itr)->select_limit > max)
+				max = (*itr)->select_limit;
+		return max;
+	}
+	
+	
+	
 	/* 
 	 * Returns the group that has the highest power field.
 	 */
@@ -871,8 +894,12 @@ namespace hCraft {
 					if (!grp->can_move)
 						curr->add_boolean ("can-move", grp->can_move);
 					if (grp->color_codes)
-						if (!grp->can_chat)
 						curr->add_boolean ("color-codes", grp->color_codes);
+						
+					if (grp->fill_limit > 0)
+						curr->add_integer ("fill-limit", grp->fill_limit);
+					if (grp->select_limit > 0)
+						curr->add_integer ("select-limit", grp->select_limit);
 					
 					// permissions
 					{
@@ -991,6 +1018,22 @@ namespace hCraft {
 			g_color_codes = true;
 		}
 		
+		
+		int g_fill_limit;
+		try {
+			g_fill_limit = cg.get_integer ("fill-limit");
+		} catch (const std::exception&) {
+			g_fill_limit = 0;
+		}
+		
+		int g_select_limit;
+		try {
+			g_select_limit = cg.get_integer ("select-limit");
+		} catch (const std::exception&) {
+			g_select_limit = 0;
+		}
+		
+		
 		std::vector<std::string> perms;
 		try {
 			auto arr = cg.find_array ("permissions");
@@ -1040,6 +1083,8 @@ namespace hCraft {
 		grp->can_move = g_can_move;
 		grp->can_chat = g_can_chat;
 		grp->color_codes = g_color_codes;
+		grp->fill_limit = g_fill_limit;
+		grp->select_limit = g_select_limit;
 		for (std::string& perm : perms)
 			grp->add (perm.c_str ());
 	}
