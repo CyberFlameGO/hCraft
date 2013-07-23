@@ -22,7 +22,7 @@
 #include "cistring.hpp"
 #include "logger.hpp"
 #include "player.hpp"
-#include "playerlist.hpp"
+#include "player_list.hpp"
 #include "scheduler.hpp"
 #include "world.hpp"
 #include "threadpool.hpp"
@@ -32,6 +32,7 @@
 #include "sql.hpp"
 #include "authentication.hpp"
 #include "generator.hpp"
+#include "world_list.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -157,7 +158,7 @@ namespace hCraft {
 		
 		struct evconnlistener *listener;
 		
-		playerlist *players;
+		player_list *players;
 		std::unordered_set<player *> connecting;
 		std::unordered_set<player *> to_destroy;
 		std::mutex player_lock;
@@ -169,8 +170,7 @@ namespace hCraft {
 		scheduler sched;
 		thread_pool tpool;
 		
-		std::unordered_map<cistring, world *> worlds;
-		std::mutex world_lock;
+		world_list worlds;
 		world *main_world;
 		
 		command_list *commands;
@@ -298,13 +298,14 @@ namespace hCraft {
 		
 		inline const server_config& get_config () { return this->cfg; }
 		inline logger& get_logger () { return this->log; }
-		inline playerlist& get_players () { return *this->players; }
+		inline player_list& get_players () { return *this->players; }
 		inline scheduler& get_scheduler () { return this->sched; }
 		inline thread_pool& get_thread_pool () { return this->tpool; }
 		inline world* get_main_world () { return this->main_world; }
 		inline command_list& get_commands () { return *this->commands; }
 		inline permission_manager& get_perms () { return this->perms; }
 		inline group_manager& get_groups () { return this->groups; }
+		inline world_list& get_worlds () { return this->worlds; }
 		
 		inline std::mutex& get_player_lock () { return this->player_lock; }
 		
@@ -351,25 +352,6 @@ namespace hCraft {
 		 * previously allocated by the start () member function.
 		 */
 		void stop ();
-		
-		
-		
-		/* 
-		 * Attempts to insert the specifed world into the server's world list.
-		 * Returns true on success, and false on failure (due to a name collision).
-		 */
-		bool add_world (world *w);
-		
-		/* 
-		 * Removes the specified world from the server's world list.
-		 */
-		void remove_world (world *w);
-		void remove_world (const char *name);
-		
-		/* 
-		 * Searches the server's world list for a world that has the specified name.
-		 */
-		world* find_world (const char *name);
 		
 		
 		

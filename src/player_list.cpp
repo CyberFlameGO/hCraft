@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "playerlist.hpp"
+#include "player_list.hpp"
 #include "player.hpp"
 #include <cstring>
 
@@ -28,20 +28,20 @@ namespace hCraft {
 	/* 
 	 * Constructs a new empty player list.
 	 */
-	playerlist::playerlist ()
+	player_list::player_list ()
 		{ }
 	
 	/* 
 	 * Class copy constructor.
 	 */
-	playerlist::playerlist (const playerlist& other)
+	player_list::player_list (const player_list& other)
 		: players (other.players), lock ()
 		{ }
 	
 	/* 
 	 * Class destructor.
 	 */
-	playerlist::~playerlist ()
+	player_list::~player_list ()
 		{ }
 	
 	
@@ -50,7 +50,7 @@ namespace hCraft {
 	 * Returns the number of players contained in this list.
 	 */
 	int
-	playerlist::count ()
+	player_list::count ()
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		return this->players.size ();
@@ -64,7 +64,7 @@ namespace hCraft {
 	 * true otherwise.
 	 */
 	bool
-	playerlist::add (player *pl)
+	player_list::add (player *pl)
 	{
 		const char *username = pl->get_username ();
 		player *other = this->find (username, player_find_method::case_insensitive);
@@ -81,7 +81,7 @@ namespace hCraft {
 	 * NOTE: the search is done using case-INsensitive comparison.
 	 */
 	void
-	playerlist::remove (const char *name, bool delete_player)
+	player_list::remove (const char *name, bool delete_player)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -98,7 +98,7 @@ namespace hCraft {
 	 * Removes the specified player from this player list.
 	 */
 	void
-	playerlist::remove (player *pl, bool delete_player)
+	player_list::remove (player *pl, bool delete_player)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -119,7 +119,7 @@ namespace hCraft {
 	 * Removes all players from this player list.
 	 */
 	void
-	playerlist::clear (bool delete_players)
+	player_list::clear (bool delete_players)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -140,7 +140,7 @@ namespace hCraft {
 	 * Uses the given method to determine if names match.
 	 */
 	player*
-	playerlist::find (const char *name, player_find_method method)
+	player_list::find (const char *name, player_find_method method)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -185,7 +185,7 @@ namespace hCraft {
 	 * Calls the function @{f} on all players in this list.
 	 */
 	void
-	playerlist::all (std::function<void (player *)> f, player* except)
+	player_list::all (std::function<void (player *)> f, player* except)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -202,7 +202,7 @@ namespace hCraft {
 	 * exception to @{target} itself.
 	 */
 	void
-	playerlist::all_visible (std::function<void (player *)> f, player *target)
+	player_list::all_visible (std::function<void (player *)> f, player *target)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -220,7 +220,7 @@ namespace hCraft {
 	 * removed from the list, and can be optinally destroyed as well.
 	 */
 	void
-	playerlist::remove_if (std::function<bool (player *)> pred, bool delete_players)
+	player_list::remove_if (std::function<bool (player *)> pred, bool delete_players)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -244,7 +244,7 @@ namespace hCraft {
 	 * Inserts all players except player @{except} into vector @{vec}.
 	 */
 	void
-	playerlist::populate (std::vector<player *>& vec, player *except)
+	player_list::populate (std::vector<player *>& vec, player *except)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -263,7 +263,7 @@ namespace hCraft {
 	 */
 	
 	void
-	playerlist::message (const char *msg, player *except)
+	player_list::message (const char *msg, player *except)
 	{
 		this->all (
 			[msg] (player *pl)
@@ -273,13 +273,13 @@ namespace hCraft {
 	}
 	
 	void
-	playerlist::message (const std::string& msg, player *except)
+	player_list::message (const std::string& msg, player *except)
 	{
 		this->message (msg.c_str (), except);
 	}
 	
 	void
-	playerlist::message_wrapped (const char *msg, const char *prefix,
+	player_list::message_wrapped (const char *msg, const char *prefix,
 		bool first_line, player *except)
 	{
 		this->all (
@@ -290,7 +290,7 @@ namespace hCraft {
 	} 
 	
 	void
-	playerlist::message_wrapped (const std::string& msg, const char *prefix,
+	player_list::message_wrapped (const std::string& msg, const char *prefix,
 		bool first_line, player *except)
 	{
 		this->message_wrapped (msg.c_str (), prefix, first_line, except);
@@ -302,7 +302,7 @@ namespace hCraft {
 	 * Sends the specified packet to all players in this list.
 	 */
 	void
-	playerlist::send_to_all (packet *pack, player *except)
+	player_list::send_to_all (packet *pack, player *except)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		
@@ -318,7 +318,7 @@ namespace hCraft {
 	}
 	
 	void
-	playerlist::send_to_all_visible (packet *pack, player *target)
+	player_list::send_to_all_visible (packet *pack, player *target)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		

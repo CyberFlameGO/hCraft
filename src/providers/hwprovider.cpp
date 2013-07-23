@@ -31,6 +31,14 @@
 
 
 namespace hCraft {
+
+	#define HW_SUPERBLOCK_TABLE_OFFSET		 1024	
+		
+	#define HW_LAYER_SIZE										 40
+	#define HW_LAYER_TABLE_OFFSET					50176
+	#define HW_LAYER_PAGE_SIZE						 1024
+	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
+	
 	
 	inline int
 	fast_floor (double x)
@@ -148,6 +156,27 @@ namespace hCraft {
 			return str;
 		}
 		
+		inline std::string
+		read_fixed_string (int max_len)
+		{
+			std::string str;
+			str.reserve (max_len);
+			
+			int i, c;
+			for (i = 0; i < max_len; ++i)
+				{
+					c = this->read_byte ();
+					if (c == 0) break;
+					str.push_back (c);
+				}
+			
+			// skip the rest
+			for (; i < max_len; ++i)
+				this->read_byte ();
+			
+			return str;
+		}
+		
 		inline void
 		read_bytes (unsigned char *data, unsigned int len)
 		{
@@ -233,6 +262,17 @@ namespace hCraft {
 			}
 		
 		inline void
+		write_fixed_string (const char *str, int max_len)
+		{
+			int len = std::strlen (str);
+			if (len > max_len) len = max_len;
+			for (int i = 0; i < len; ++i)
+				write_byte (str[i]);
+			for (int i = 0; i < (max_len - len); ++i)
+				write_byte (0);
+		}
+		
+		inline void
 		write_bytes (const unsigned char *data, unsigned int len)
 		{
 			this->strm.write ((const char *)data, len);
@@ -281,6 +321,7 @@ namespace hCraft {
 				{
 					binary_reader reader {strm};
 					read_file (this->inf, this->sblocks, reader);
+					this->read_layer_table (strm);
 					strm.close ();
 				}
 		}
@@ -293,6 +334,8 @@ namespace hCraft {
 	{
 		for (int i = 0; i < 4096; ++i)
 			delete this->sblocks[i];
+		for (hw_layer& ly : this->layers)
+			delete[] ly.offsets;
 		this->close ();
 	}
 	
@@ -438,7 +481,7 @@ namespace hCraft {
 				writer.pad_to (512);
 		
 				// update file
-				writer.seek (512 + (12 * hash_m));
+				writer.seek (HW_SUPERBLOCK_TABLE_OFFSET + (12 * hash_m));
 				writer.write_int (x);
 				writer.write_int (z);
 				writer.write_int (sblock->offset);
@@ -902,6 +945,9 @@ namespace hCraft {
 		
 		writer.write_int (info.seed);
 		
+		writer.write_string (info.access_str.c_str ());
+		writer.write_string (info.build_str.c_str ());
+		
 		writer.flush ();
 		this->inf = info;
 	}
@@ -943,7 +989,12 @@ namespace hCraft {
 				writer.write_int (0);
 			}
 		
-		writer.pad_to (512);
+		writer.write_string (""); // access string
+		writer.write_string (""); // build string
+		
+		writer.write_int (HW_LAYER_TABLE_OFFSET); // offset of layer table
+		
+		writer.pad_to (1024);
 		
 		// super-block table
 		for (int i = 0; i < 4096; ++i)
@@ -952,6 +1003,17 @@ namespace hCraft {
 				writer.write_int (0); // z
 				writer.write_int (0xFFFFFFFFU); // offset
 			}
+		
+		// layer table
+		writer.write_int (0); // number of layers
+		writer.write_int (0); // the offset of this table's continuation (or 0, if there isn't one)
+		for (int i = 0; i < 12; ++i)
+			{
+				writer.write_int (0); // offset
+				writer.write_int (0); // layer size
+				writer.write_fixed_string ("#none#", 32);
+			}
+		writer.pad_to (512);
 		
 		writer.flush ();
 		
@@ -988,10 +1050,55 @@ namespace hCraft {
 	
 //----
 	
+	void
+	hw_provider::read_layer_table (std::fstream& strm)
+	{
+		binary_reader reader {strm};
+		reader.seek (HW_LAYER_TABLE_OFFSET);
+		
+		int layer_count = reader.read_int ();
+		/*int cont_offset =*/ reader.read_int ();
+		
+		// TODO: handle pages in the table _itself_
+		for (int i = 0; i < layer_count; ++i)
+			{
+				reader.seek (HW_LAYER_TABLE_OFFSET + 8 + (i * HW_LAYER_SIZE));
+				
+				int init_page_offset = reader.read_int ();
+				int layer_size = reader.read_int ();
+				std::string layer_name = reader.read_fixed_string (32);
+				
+				hw_layer ly;
+				ly.name = layer_name;
+				ly.size = layer_size;
+				
+				int page_count = ly.size / HW_LAYER_PAGE_DATA_SIZE;
+				if (ly.size % HW_LAYER_PAGE_DATA_SIZE != 0)
+					++ page_count;
+				
+				if (page_count == 0)
+					ly.offsets = nullptr;
+				else
+					{
+						ly.offsets = new unsigned int [page_count];
+						int count = 0;
+						
+						ly.offsets[count++] = init_page_offset;
+						while (count < page_count)
+							{
+								reader.seek (ly.offsets[count - 1] * 512);
+								ly.offsets[count ++] = reader.read_int ();
+							}
+					}
+				
+				this->layers.push_back (ly);
+			}
+	}	
+	
 	static void
 	read_tables (hw_superblock **sblocks, binary_reader reader)
 	{
-		reader.seek (512);
+		reader.seek (HW_SUPERBLOCK_TABLE_OFFSET);
 		
 		int sb_x, sb_z;
 		unsigned int sb_offset;
@@ -1113,6 +1220,9 @@ namespace hCraft {
 			}
 		
 		inf.seed = reader.read_int ();
+		
+		inf.access_str = reader.read_string ();
+		inf.build_str = reader.read_string ();
 	}
 	
 	static void
@@ -1267,6 +1377,157 @@ namespace hCraft {
 		fill_chunk (ch, data);
 		delete[] data;
 		return true;
+	}
+	
+	
+	
+	static unsigned int
+	_create_layer_page (binary_writer writer)
+	{
+		writer.seek (0, std::ios_base::end);
+		writer.pad_to (512);
+		unsigned int page_offset = (unsigned int)writer.tell ();
+		writer.write_int (0); // offset to next page
+		
+		unsigned int left = HW_LAYER_PAGE_DATA_SIZE;
+		while (left > 0)
+			{
+				writer.write_int (0);
+				left -= 4;
+			}
+		
+		return page_offset;
+	}
+	
+	void
+	hw_provider::write_layer (const char *layer_name, const unsigned char *data,
+		unsigned int layer_size)
+	{
+		int ly_index = -1;
+		for (size_t i = 0; i < this->layers.size (); ++i)
+			if (this->layers[i].name.compare (layer_name) == 0)
+				{ ly_index = i;  break; }
+		
+		binary_writer writer {this->strm};
+		unsigned int written = 0;
+		
+		hw_layer *ly;
+		unsigned int init_page_offset;
+		if (ly_index == -1)
+			{
+				// create the initial page
+				init_page_offset = _create_layer_page (writer);
+				
+				// link this page to the layer table.
+				writer.seek (HW_LAYER_TABLE_OFFSET + 8 + (this->layers.size () * HW_LAYER_SIZE));
+				writer.write_int (init_page_offset / 512);
+				writer.write_int (layer_size);
+				writer.write_fixed_string (layer_name, 32);
+				
+				// update layer count
+				writer.seek (HW_LAYER_TABLE_OFFSET);
+				writer.write_int (this->layers.size () + 1);
+				
+				int page_count = layer_size / HW_LAYER_PAGE_DATA_SIZE;
+				if (layer_size % HW_LAYER_PAGE_DATA_SIZE != 0)
+					++ page_count;
+				
+				hw_layer l;
+				l.name.assign (layer_name);
+				l.offsets = new unsigned int [page_count];
+				l.offsets[0] = init_page_offset / 512;
+				for (int i = 1; i < page_count; ++i)
+					l.offsets[i] = 0;
+				l.size = layer_size;
+				this->layers.push_back (l);
+				ly = &this->layers[this->layers.size () - 1];
+			}
+		else
+			{
+				ly = &this->layers[ly_index];
+				init_page_offset = ly->offsets[0] * 512;
+			}
+		
+		int page_index = 0;
+		unsigned int curr_page_offset = init_page_offset;
+		unsigned int left = layer_size - written;
+		writer.seek (init_page_offset + 4); // skip offset of next page
+		while (left > 0)
+			{
+				unsigned int need = (left > HW_LAYER_PAGE_DATA_SIZE) ? HW_LAYER_PAGE_DATA_SIZE : left;
+				
+				writer.write_bytes (data + written, need);
+				if (need < HW_LAYER_PAGE_DATA_SIZE)
+					{
+						// pad the rest
+						unsigned int rem = HW_LAYER_PAGE_DATA_SIZE - need;
+						while (rem > 4)
+							{ writer.write_int (0); rem -= 4; }
+						while (rem > 0)
+							{ writer.write_byte (0); -- rem; }
+					}
+					
+				left -= need;
+				written += need;
+				
+				if (left > 0)
+					{
+						++ page_index;
+						
+						if (ly->offsets[page_index] == 0)
+							{
+								// allocate another page
+								unsigned int next_page_offset = _create_layer_page (writer);
+								writer.seek (curr_page_offset);
+								writer.write_int (next_page_offset / 512);
+								writer.seek (next_page_offset + 4);
+								ly->offsets[page_index] = next_page_offset / 512;
+							}
+						else
+							writer.seek (ly->offsets[page_index] * 512 + 4);
+					}
+			}
+		
+		writer.flush ();
+	}
+	
+	void
+	hw_provider::read_layer (const char *layer_name, unsigned char *data,
+		unsigned int& data_size)
+	{
+		int ly_index = -1;
+		for (size_t i = 0; i < this->layers.size (); ++i)
+			if (this->layers[i].name.compare (layer_name) == 0)
+				{ ly_index = i;  break; }
+			
+		if (ly_index == -1 || this->layers[ly_index].size == 0)
+			{
+				data_size = 0;
+				return;
+			}
+		
+		hw_layer &ly = this->layers[ly_index];
+		binary_reader reader {this->strm};
+		
+		int page_index = 0;
+		unsigned int left = ly.size;
+		unsigned int read = 0;
+		reader.seek (ly.offsets[0] + 4);
+		while (left > 0)
+			{
+				int need = (left > HW_LAYER_PAGE_DATA_SIZE) ? HW_LAYER_PAGE_DATA_SIZE : left;
+				reader.read_bytes (data + read, need);
+				
+				left -= need;
+				read += need;
+				
+				if (left > 0)
+					{
+						// fetch next page
+						++ page_index;
+						reader.seek (ly.offsets[page_index] + 4);
+					}
+			}
 	}
 }
 

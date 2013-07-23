@@ -21,6 +21,7 @@
 
 #include "worldprovider.hpp"
 #include <fstream>
+#include <vector>
 
 
 namespace hCraft {
@@ -137,6 +138,13 @@ namespace hCraft {
 	};
 	
 	
+	struct hw_layer
+	{
+		std::string name;
+		unsigned int *offsets;
+		unsigned int size;
+	};
+	
 	/* 
 	 * World exporter for .hw (hCraft world) formats.
 	 */
@@ -147,6 +155,18 @@ namespace hCraft {
 		std::fstream strm;
 		
 		world_information inf;
+		
+		std::vector<hw_layer> layers;
+		
+	private:
+		void read_layer_table (std::fstream& strm);
+		
+	protected:
+		void write_layer (const char *layer_name, const unsigned char *data,
+			unsigned int layer_size);
+		
+		void read_layer (const char *layer_name, unsigned char *data,
+			unsigned int& data_size);
 		
 	public:
 		/* 

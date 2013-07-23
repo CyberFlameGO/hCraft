@@ -69,7 +69,7 @@ namespace hCraft {
 				{ this->show_summary (pl); return; }
 			
 			std::string& world_name = reader.arg (0);
-			world *twr = pl->get_server ().find_world (world_name.c_str ());
+			world *twr = pl->get_server ().get_worlds ().find (world_name.c_str ());
 			if (twr)
 				{
 					if (reader.opt ("autoload")->found ())
@@ -115,7 +115,7 @@ namespace hCraft {
 			wr->set_spawn (winf.spawn_pos);
 			wr->prepare_spawn (10, false);
 			wr->start ();
-			if (!pl->get_server ().add_world (wr))
+			if (!pl->get_server ().get_worlds ().add (wr))
 				{
 					pl->get_logger () (LT_ERROR) << "Failed to load world \"" << world_name << "\": Already loaded." << std::endl;
 					pl->message ("§c * ERROR§f: §eFailed to load world§f.");

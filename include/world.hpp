@@ -44,7 +44,7 @@ namespace hCraft {
 	class entity;
 	class logger;
 	class player;
-	class playerlist;
+	class player_list;
 	class world_transaction;
 	
 	
@@ -111,7 +111,7 @@ namespace hCraft {
 		server &srv;
 		logger &log;
 		char name[33]; // 32 chars max
-		playerlist *players;
+		player_list *players;
 		
 		std::unique_ptr<std::thread> th;
 		bool th_running;
@@ -149,7 +149,7 @@ namespace hCraft {
 		inline server& get_server () { return this->srv; }
 		inline world_type get_type () { return this->typ; }
 		inline const char* get_name () { return this->name; }
-		inline playerlist& get_players () { return *this->players; }
+		inline player_list& get_players () { return *this->players; }
 		
 		inline world_generator* get_generator () { return this->gen; }
 		inline world_provider* get_provider () { return this->prov; }

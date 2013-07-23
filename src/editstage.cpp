@@ -19,7 +19,7 @@
 #include "editstage.hpp"
 #include "world.hpp"
 #include "player.hpp"
-#include "playerlist.hpp"
+#include "player_list.hpp"
 #include "physics/blocks/physics_block.hpp"
 #include <cstring>
 #include <mutex>

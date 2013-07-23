@@ -321,71 +321,6 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Attempts to insert the specifed world into the server's world list.
-	 * Returns true on success, and false on failure (due to a name collision).
-	 */
-	bool
-	server::add_world (world *w)
-	{
-		std::lock_guard<std::mutex> guard {this->world_lock};
-		
-		cistring name {w->get_name ()};
-		auto itr = this->worlds.find (name);
-		if (itr != this->worlds.end ())
-			return false;
-		
-		this->worlds[std::move (name)] = w;
-		return true;
-	}
-	
-	/* 
-	 * Removes the specified world from the server's world list.
-	 */
-	void
-	server::remove_world (world *w)
-	{
-		std::lock_guard<std::mutex> guard {this->world_lock};
-		
-		for (auto itr = this->worlds.begin (); itr != this->worlds.end (); ++itr)
-			{
-				world *other = itr->second;
-				if (other == w)
-					{
-						other->stop ();
-						this->worlds.erase (itr);
-						delete other;
-						break;
-					}
-			}
-	}
-	
-	void
-	server::remove_world (const char *name)
-	{
-		std::lock_guard<std::mutex> guard {this->world_lock};
-		
-		auto itr = this->worlds.find (name);
-		if (itr != this->worlds.end ())
-			this->worlds.erase (itr);
-	}
-	
-	/* 
-	 * Searches the server's world list for a world that has the specified name.
-	 */
-	world*
-	server::find_world (const char *name)
-	{
-		std::lock_guard<std::mutex> guard {this->world_lock};
-		
-		auto itr = this->worlds.find (name);
-		if (itr != this->worlds.end ())
-			return itr->second;
-		return nullptr;
-	}
-	
-	
-	
-	/* 
 	 * Returns a unique number that can be used for entity identification.
 	 */
 	int
@@ -1010,7 +945,7 @@ namespace hCraft {
 		
 		this->sched.start ();
 		
-		this->players = new playerlist ();
+		this->players = new player_list ();
 		this->id_counter = 0;
 		
 		physics_block::init_blocks ();
@@ -1336,7 +1271,7 @@ namespace hCraft {
 				main_world->prepare_spawn (10, false);
 			}
 		main_world->start ();
-		this->add_world (main_world);
+		this->worlds.add (main_world);
 		this->main_world = main_world;
 		
 		// load worlds from the autoload list.
@@ -1385,7 +1320,7 @@ namespace hCraft {
 				wr->set_spawn (winf.spawn_pos);
 				wr->prepare_spawn (10, false);
 				wr->start ();
-				if (!this->add_world (wr))
+				if (!this->worlds.add (wr))
 					{
 						log (LT_ERROR) << "   - Failed to load world \"" << wname << "\": Already loaded." << std::endl;
 						delete wr;
@@ -1407,16 +1342,15 @@ namespace hCraft {
 		
 		// clear worlds
 		{
-			std::lock_guard<std::mutex> guard {this->world_lock};
-			for (auto itr = this->worlds.begin (); itr != this->worlds.end (); ++itr)
-				{
-					world *w = itr->second;
-					log (LT_SYSTEM) << "  - Saving world \"" << w->get_name () << "\"" << std::endl;
-					w->stop ();
-					w->save_all ();
-					delete w;
-				}
-			this->worlds.clear ();
+			logger &log = this->log;
+			this->worlds.all (
+				[&log] (world *w)
+					{
+						log (LT_SYSTEM) << "  - Saving world \"" << w->get_name () << "\"" << std::endl;
+						w->stop ();
+						w->save_all ();
+					});
+			this->worlds.clear (true);
 		}
 	}
 	

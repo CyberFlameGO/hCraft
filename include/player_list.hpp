@@ -45,7 +45,7 @@ namespace hCraft {
 	 * A thread-safe list of players that provides a multitude of methods to
 	 * acquire a subset of that list according to certain criteria.
 	 */
-	class playerlist
+	class player_list
 	{
 		std::unordered_map<cistring, player *> players;
 		std::mutex lock;
@@ -54,17 +54,17 @@ namespace hCraft {
 		/* 
 		 * Constructs a new empty player list.
 		 */
-		playerlist ();
+		player_list ();
 		
 		/* 
 		 * Class copy constructor.
 		 */
-		playerlist (const playerlist& other);
+		player_list (const player_list& other);
 		
 		/* 
 		 * Class destructor.
 		 */
-		~playerlist ();
+		~player_list ();
 		
 		
 		/* 
@@ -95,6 +95,8 @@ namespace hCraft {
 		 * Removes all players from this player list.
 		 */
 		void clear (bool delete_players = false);
+		
+		
 		
 		/* 
 		 * Searches the player list for a player that has the specified name.

@@ -161,7 +161,7 @@ namespace hCraft {
 			
 		//----
 			
-			if (load_world && (pl->get_server ().find_world (world_name.c_str ()) != nullptr))
+			if (load_world && (pl->get_server ().get_worlds ().find (world_name.c_str ()) != nullptr))
 				{
 					pl->message ("§c * §eA world with the same name is already loaded§f.");
 					return;
@@ -237,7 +237,7 @@ namespace hCraft {
 			
 			if (load_world)
 				{
-					if (!pl->get_server ().add_world (wr))
+					if (!pl->get_server ().get_worlds ().add (wr))
 						{
 							delete wr;
 							pl->message ("§cFailed to load world§7.");

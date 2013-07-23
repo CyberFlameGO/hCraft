@@ -540,6 +540,17 @@ namespace hCraft {
 		 */
 		bool perm (const char *perm);
 		
+		/* 
+		 * Syntax:
+		 *   term1|term2|term3|...|termN
+		 * 
+		 * Where term is one of:
+		 *   <group name>   : e.g. moderator or builder
+		 *   ^<player name> : e.g. ^BizarreCake
+		 *   *<permission>  : e.g. *command.admin.say
+		 */
+		bool has_access (const std::string& access_str);
+		
 		
 		
 	//----

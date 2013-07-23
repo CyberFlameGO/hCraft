@@ -18,7 +18,7 @@
 
 #include "world.hpp"
 #include "server.hpp"
-#include "playerlist.hpp"
+#include "player_list.hpp"
 #include "player.hpp"
 #include "packet.hpp"
 #include "logger.hpp"
@@ -64,7 +64,7 @@ namespace hCraft {
 		this->edge_chunk = nullptr;
 		this->last_chunk = {0, 0, nullptr};
 		
-		this->players = new playerlist ();
+		this->players = new player_list ();
 		this->th_running = false;
 		this->auto_lighting = true;
 		this->ticks = 0;

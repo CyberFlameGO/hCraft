@@ -581,6 +581,18 @@ namespace hCraft {
 		return false;
 	}
 	
+	/* 
+	 * Checks whether the rank contains the specified group.
+	 */
+	bool
+	rank::contains (group *grp) const
+	{
+		for (group *g : this->groups)
+			if (g == grp)
+				return true;
+		return false;
+	}
+	
 	
 	
 	/* 

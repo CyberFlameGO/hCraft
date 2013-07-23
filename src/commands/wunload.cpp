@@ -68,7 +68,7 @@ namespace hCraft {
 				{ this->show_summary (pl); return; }
 			
 			std::string world_name = reader.arg (0);
-			world *wr = pl->get_server ().find_world (world_name.c_str ());
+			world *wr = pl->get_server ().get_worlds ().find (world_name.c_str ());
 			if (!wr)
 				{
 					if (reader.opt ("autoload")->found ())
@@ -95,7 +95,7 @@ namespace hCraft {
 			wr->get_players ().populate (to_transfer);
 			for (player *pl : to_transfer)
 				pl->join_world (pl->get_server ().get_main_world ());
-			pl->get_server ().remove_world (wr);
+			pl->get_server ().get_worlds ().remove (wr);
 			
 			if (reader.opt ("autoload")->found ())
 				{

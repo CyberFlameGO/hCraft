@@ -54,7 +54,7 @@ namespace hCraft {
 				{ this->show_summary (pl); return; }
 			
 			std::string& world_name = reader.arg (0);
-			world *wr = pl->get_server ().find_world (world_name.c_str ());
+			world *wr = pl->get_server ().get_worlds ().find (world_name.c_str ());
 			if (!wr)
 				{
 					pl->message ("§c * §7Cannot find world§f: §c" + world_name);

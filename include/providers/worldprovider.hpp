@@ -44,6 +44,9 @@ namespace hCraft {
 		
 		std::string generator;
 		int seed;
+		
+		std::string access_str;
+		std::string build_str;
 	};
 	
 	

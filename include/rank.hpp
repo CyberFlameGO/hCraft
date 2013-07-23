@@ -292,6 +292,11 @@ namespace hCraft {
 		 */
 		bool has (const char *perm) const;
 		
+		/* 
+		 * Checks whether the rank contains the specified group.
+		 */
+		bool contains (group *grp) const;
+		
 	//---
 		/* 
 		 * Comparison between rank objects:

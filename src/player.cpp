@@ -1349,6 +1349,114 @@ namespace hCraft {
 		return false;
 	}
 	
+	/* 
+	 * Syntax:
+	 *   term1|term2|term3|...|termN
+	 * 
+	 * Where term is one of:
+	 *   <group name>   : e.g. moderator or builder
+	 *   ^<player name> : e.g. ^BizarreCake
+	 *   *<permission>  : e.g. *command.admin.say
+	 */
+	bool 
+	player::has_access (const std::string& access_str)
+	{
+		if (access_str.empty ())
+			return true;
+		
+		enum term_type
+			{
+				TT_GROUP,
+				TT_ATLEAST_GROUP,
+				TT_PLAYER,
+				TT_PERM
+			};
+		
+		const char *str = access_str.c_str ();
+		const char *ptr = str;
+		while (*ptr)
+			{
+				term_type typ = TT_GROUP;
+				std::string word;
+				int neg = 0;
+				
+				while (*ptr && (*ptr != '|'))
+					{
+						int c = *ptr;
+						switch (c)
+							{
+								case '!':
+									++ neg;
+									if (neg > 1)
+										return false;
+									break;
+								
+								case '^':
+									if (typ == TT_PLAYER)
+										return false;
+									typ = TT_PLAYER;
+									break;
+								
+								case '*':
+									if (typ == TT_PERM)
+										return false;
+									typ = TT_PERM;
+									break;
+								
+								case '>':
+									if (typ == TT_ATLEAST_GROUP)
+										return false;
+									typ = TT_ATLEAST_GROUP;
+									break;
+								
+								default:
+									word.push_back (c);
+							}
+						++ ptr;
+					}
+				
+				if (*ptr == '|')
+					++ ptr;
+				
+				bool res = true;
+				switch (typ)
+					{
+						case TT_GROUP:
+							{
+								group *grp = this->srv.get_groups ().find (word.c_str ());
+								if (!grp)
+									res = false;
+								else if (!this->get_rank ().contains (grp))
+									res = false;
+							}
+							break;
+						
+						case TT_ATLEAST_GROUP:
+							{
+								group *grp = this->srv.get_groups ().find (word.c_str ());
+								if (grp && (this->get_rank ().power () < grp->power))
+									res = false;
+							}
+							break;
+						
+						case TT_PLAYER:
+							res = sutils::iequals (word, this->username);
+							break;
+						
+						case TT_PERM:
+							res = this->has (word.c_str ());
+							break;
+					}
+				
+				if (neg == 1)
+					res = !res;
+				if (!res)
+					return false;
+			}
+		
+		return true;
+	}
+	
 	
 	
 //----
@@ -1467,7 +1575,7 @@ namespace hCraft {
 							(float)row.at (6).as_double (),
 						};
 						
-						this->curr_world = this->srv.find_world (world_name);
+						this->curr_world = this->srv.get_worlds ().find (world_name);
 						if (this->curr_world)
 							{
 								this->pos = last_pos;
@@ -2443,7 +2551,7 @@ namespace hCraft {
 		std::string out = build_message (pl->get_nickname (), pl->get_rank (), msg,
 			is_global_message);
 		
-		playerlist *target;
+		player_list *target;
 		if (is_global_message)
 			{
 				pl->get_logger () (LT_CHAT) << "#" << pl->get_username () << ": " << msg << std::endl;
