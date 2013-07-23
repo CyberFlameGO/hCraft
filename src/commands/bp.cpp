@@ -24,8 +24,6 @@
 #include "physics/physics.hpp"
 #include <sstream>
 
-#include <iostream> // DEBUG
-
 
 namespace hCraft {
 	namespace commands {
