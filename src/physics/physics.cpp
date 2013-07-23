@@ -237,7 +237,7 @@ namespace hCraft {
 				struct xz_pos { int x; int z; };
 				xz_pos pos_list[25];
 				{
-					int i;
+					int i = 0;
 					for (int xx = (x - 2); xx <= (x + 2); ++xx)
 						for (int zz = (z - 2); zz <= (z + 2); ++zz)
 							{
@@ -265,7 +265,7 @@ namespace hCraft {
 											{
 												w->queue_update (pos.x, y, pos.z, bd.id, bd.meta);
 												w->queue_update (x, y, z, BT_AIR);
-												
+										
 												u.data.blk.x = pos.x;
 												u.data.blk.z = pos.z;
 												break;
