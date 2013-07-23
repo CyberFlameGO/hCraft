@@ -43,6 +43,7 @@ Commands
 --------
 
 *  /aid
+*  /ban
 *  /bezier
 *  /circle
 *  /cuboid
@@ -55,6 +56,7 @@ Commands
 *  /line
 *  /me
 *  /money
+*  /mute
 *  /nick
 *  /physics
 *  /ping
@@ -64,6 +66,8 @@ Commands
 *  /sphere
 *  /status
 *  /tp
+*  /unban
+*  /unmute
 *  /wcreate
 *  /wload
 *  /world
