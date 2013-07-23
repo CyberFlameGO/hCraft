@@ -27,6 +27,8 @@
 #include <zlib.h>
 #include <stdexcept>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -694,7 +696,7 @@ namespace hCraft {
 			}
 		data_size += 256; // biome array
 		data_size += 4; // bitmaps
-		data_size += 1; // some bits
+		data_size += 1; // some bytes
 		
 		
 		/* 
@@ -1140,6 +1142,7 @@ namespace hCraft {
 				
 				n += need;
 				compressed_size -= need;
+				++ sector_index;
 			}
 		
 		return compressed;
