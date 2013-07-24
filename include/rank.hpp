@@ -374,9 +374,14 @@ namespace hCraft {
 		group* find (const char *name);
 		
 		/* 
-		 * Returns the group with the highest power number.
+		 * Returns the group with the highest power value.
 		 */
 		group* highest ();
+		
+		/* 
+		 * Returns the group with the lowest power value.
+		 */
+		group* lowest ();
 		
 		
 		

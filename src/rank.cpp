@@ -262,7 +262,7 @@ namespace hCraft {
 	}
 	
 	/* 
-	 * Returns the group with the highest power number.
+	 * Returns the group with the highest power value.
 	 */
 	group*
 	group_manager::highest ()
@@ -278,6 +278,25 @@ namespace hCraft {
 				highest = itr->second;
 		
 		return highest;
+	}
+	
+	/* 
+	 * Returns the group with the lowest power value.
+	 */
+	group*
+	group_manager::lowest ()
+	{
+		if (this->groups.empty ())
+			return nullptr;
+		
+		auto itr = this->groups.begin ();
+		group *lowest = itr->second;
+		
+		for (++itr; itr != this->groups.end (); ++itr)
+			if (itr->second->power < lowest->power)
+				lowest = itr->second;
+		
+		return lowest;
 	}
 	
 	
@@ -858,7 +877,7 @@ namespace hCraft {
 		
 		// groups
 		{
-			cfg::group *grp_groups = new cfg::group ();
+			cfg::group *grp_groups = new cfg::group (1);
 			
 			// create a sorted list of groups (in ascending values of power)
 			std::vector<group *> group_list;

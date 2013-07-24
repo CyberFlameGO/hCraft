@@ -84,7 +84,7 @@ namespace hCraft {
 				}
 			else if (wr == pl->get_server ().get_main_world ())
 				{
-					pl->message ("§c * §7You can not unload the main world§f!");
+					pl->message ("§c * §7You can not unload the main world§c!");
 					return;
 				}
 			
@@ -95,7 +95,11 @@ namespace hCraft {
 			wr->get_players ().populate (to_transfer);
 			for (player *pl : to_transfer)
 				pl->join_world (pl->get_server ().get_main_world ());
-			pl->get_server ().get_worlds ().remove (wr);
+				
+			std::string colname = wr->get_colored_name ();
+			wr->stop ();
+			wr->save_all ();
+			pl->get_server ().get_worlds ().remove (wr, true);
 			
 			if (reader.opt ("autoload")->found ())
 				{
@@ -104,8 +108,9 @@ namespace hCraft {
 					else
 						pl->message ("§cWorld §7" + world_name + " §cis not in the autoload list§7.");
 				}
+			
 			pl->get_server ().get_players ().message (
-				"§cWorld §4" + world_name + " §chas been unloaded§c!");
+				"§cWorld §4" + colname + " §chas been unloaded§c!");
 		}
 	}
 }

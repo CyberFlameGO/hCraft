@@ -458,6 +458,11 @@ namespace hCraft {
 		void join_world_at (world *w, entity_pos destpos);
 		
 		/* 
+		 * Reloads the map for the player.
+		 */
+		void rejoin_world ();
+		
+		/* 
 		 * Loads new close chunks to the player and unloads those that are too
 		 * far away.
 		 */

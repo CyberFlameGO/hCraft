@@ -20,12 +20,47 @@
 #include "server.hpp"
 #include "player.hpp"
 #include "world.hpp"
+#include "stringutils.hpp"
 #include <string>
 #include <sstream>
+#include <vector>
+#include <algorithm>
+#include <cstring>
 
 
 namespace hCraft {
 	namespace commands {
+		
+		static void
+		_world_list (player *pl)
+		{
+			std::vector<world *> worlds;
+			pl->get_server ().get_worlds ().populate (worlds);
+			
+			std::ostringstream ss;
+			if (worlds.size () == 1)
+				pl->message ("§eThere is currently only §bone §eworld loaded§f:");
+			else
+				{
+					ss << "§eThere are currently §b" << worlds.size () << " §eworlds loaded§f:";
+					pl->message (ss.str ());
+					ss.str (std::string ());
+				}
+				
+			// sort list alphabetically
+			std::sort (worlds.begin (), worlds.end (),
+				[] (const world *a, const world *b) -> bool
+					{
+						return std::strcmp (a->get_name (), b->get_name ()) < 0;
+					});
+			
+			ss << "§3    ";
+			for (world *w : worlds)
+				ss << w->get_colored_name () << " ";
+			
+			pl->message_spaced (ss.str ());
+		}
+		
 		
 		/* 
 		 * /world - 
@@ -47,13 +82,19 @@ namespace hCraft {
 			
 			if (reader.no_args ())
 				{
-					pl->message ("§eYou are currently in§f: §b" + std::string (pl->get_world ()->get_name ()));
+					pl->message ("§eYou are currently in§f: §b" + std::string (pl->get_world ()->get_colored_name ()));
 					return;
 				}
 			else if (reader.arg_count () > 1)
 				{ this->show_summary (pl); return; }
 			
 			std::string& world_name = reader.arg (0);
+			if (sutils::iequals (world_name, "list"))
+				{
+					_world_list (pl);
+					return;
+				}
+			
 			world *wr = pl->get_server ().get_worlds ().find (world_name.c_str ());
 			if (!wr)
 				{
@@ -68,10 +109,16 @@ namespace hCraft {
 					return;
 				}
 			
+			if (!pl->has_access (wr->get_join_perms ()))
+				{
+					pl->message ("§4 * §cYou are not allowed to go there§4.");
+					return;
+				}
+			
 			pl->join_world (wr);
 			
 			std::ostringstream leave_ss;
-			leave_ss << "§c << §" << pl->get_colored_nickname () << " §7has departed to §9" << wr->get_name ();
+			leave_ss << "§c << §" << pl->get_colored_nickname () << " §7has departed to " << wr->get_colored_name ();
 			std::string leave_msg = leave_ss.str ();
 			prev_world->get_players ().all (
 				[&leave_msg] (player *pl)
@@ -89,7 +136,7 @@ namespace hCraft {
 					}, pl);
 			
 			enter_ss.clear (); enter_ss.str (std::string ());
-			enter_ss << "§a >> §" << pl->get_colored_nickname () << " §7has entered the world §b" << wr->get_name ();
+			enter_ss << "§a >> §" << pl->get_colored_nickname () << " §7has entered the world " << wr->get_colored_name ();
 			pl->message (enter_ss.str ());
 		}
 	}

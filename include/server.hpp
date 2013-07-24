@@ -292,6 +292,11 @@ namespace hCraft {
 		 */
 		static void handle_muted (scheduler_task& task);
 		
+		/* 
+		 * Saves all currently loaded worlds.
+		 */
+		static void save_worlds (scheduler_task& task);
+		
 	public:
 		inline bool is_running () { return this->running; }
 		inline bool is_shutting_down () { return this->shutting_down; }

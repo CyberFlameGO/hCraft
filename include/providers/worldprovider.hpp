@@ -36,6 +36,8 @@ namespace hCraft {
 	 */
 	struct world_information
 	{
+		std::string world_type;
+		
 		int width;
 		int depth;
 		entity_pos spawn_pos;
@@ -45,8 +47,8 @@ namespace hCraft {
 		std::string generator;
 		int seed;
 		
-		std::string access_str;
-		std::string build_str;
+		std::string join_perms;
+		std::string build_perms;
 	};
 	
 	

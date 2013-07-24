@@ -36,6 +36,7 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <stdexcept>
 
 
 namespace hCraft {
@@ -99,6 +100,15 @@ namespace hCraft {
 	
 	
 	
+	class world_load_error: public std::runtime_error {
+	public:
+		world_load_error (const std::string& str)
+			: std::runtime_error (str)
+			{ }
+	};
+	
+	
+	
 	/* 
 	 * The world provides methods to easily retreive or modify chunks, and
 	 * get/set individual blocks within those chunks. In addition to that,
@@ -135,6 +145,10 @@ namespace hCraft {
 		
 		world_generator *gen;
 		world_provider *prov;
+		std::mutex gen_lock;
+		
+		std::string build_perms, join_perms;
+		char colored_name[65];
 		
 	public:
 		bool auto_lighting;
@@ -146,12 +160,12 @@ namespace hCraft {
 		std::mutex update_lock;
 		
 	public:
-		inline server& get_server () { return this->srv; }
-		inline world_type get_type () { return this->typ; }
-		inline const char* get_name () { return this->name; }
+		inline server& get_server () const { return this->srv; }
+		inline world_type get_type () const { return this->typ; }
+		inline const char* get_name () const { return this->name; }
+		inline const char* get_colored_name () const { return this->colored_name; }
 		inline player_list& get_players () { return *this->players; }
 		
-		inline world_generator* get_generator () { return this->gen; }
 		inline world_provider* get_provider () { return this->prov; }
 		
 		inline int get_width () const { return this->width; }
@@ -167,6 +181,15 @@ namespace hCraft {
 		
 		inline world_physics_state physics_state () const { return this->ph_state; }
 		inline std::mutex& get_update_lock () { return this->update_lock; }
+		
+	public:
+		const std::string& get_build_perms () { return this->build_perms; }
+		const std::string& get_join_perms () { return this->join_perms; }
+		void set_build_perms (const std::string& str);
+		void set_join_perms (const std::string& str);
+		
+		inline world_generator* get_generator () { return this->gen; }
+		void set_generator (world_generator *gen);
 		
 	private:
 		/* 
@@ -188,6 +211,8 @@ namespace hCraft {
 		world (world_type typ, server &srv, const char *name, logger &log,
 			world_generator *gen,
 			world_provider *provider);
+			
+		static world* load_world (server &srv, const char *name);
 		
 		/* 
 		 * Class destructor.

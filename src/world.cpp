@@ -42,6 +42,8 @@ namespace hCraft {
 	chunk_coords (unsigned long long key, int* x, int* z)
 		{ *x = key & 0xFFFFFFFFU; *z = key >> 32; }
 	
+	static std::string _build_colored_name (server&, const char *, const std::string&);
+	
 	
 	
 	/* 
@@ -53,6 +55,7 @@ namespace hCraft {
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
+		std::strcpy (this->colored_name, _build_colored_name (srv, name, "").c_str ());
 		
 		this->typ = typ;
 		
@@ -101,6 +104,60 @@ namespace hCraft {
 	
 	
 	
+	world*
+	world::load_world (server &srv, const char *name)
+	{
+		srv.get_logger () () << " - Loading world \"" << name << "\"" << std::endl;
+		
+		std::string prov_name = world_provider::determine ("data/worlds", name);
+		if (prov_name.empty ())
+			{
+				srv.get_logger () (LT_ERROR) << " - Failed to load world: world does not exist" << std::endl;
+				return nullptr; // we don't throw
+			}
+		
+		world_provider *prov = world_provider::create (prov_name.c_str (),
+			"data/worlds", name);
+		if (!prov)
+			{
+				srv.get_logger () (LT_ERROR) << " - Failed to load world: invalid provider \"" << prov_name << "\"" << std::endl;
+				throw world_load_error ("Invalid provider");
+			}
+		
+		const world_information& winf = prov->info ();
+		world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
+		if (!gen)
+			{
+				srv.get_logger () (LT_ERROR) << " - Failed to load world: invalid generator \"" << winf.generator << "\"" << std::endl;
+				delete prov;
+				throw world_load_error ("Invalid generator");
+			}
+		
+		world_type wtyp;
+		if (winf.world_type.compare ("NORMAL") == 0)
+			wtyp = WT_NORMAL;
+		else if (winf.world_type.compare ("LIGHT") == 0)
+			wtyp = WT_LIGHT;
+		else
+			{
+				srv.get_logger () (LT_ERROR) << " - Failed to load world: world type" << std::endl;
+				delete gen;
+				delete prov;
+				throw world_load_error ("Corrupt world");
+			}
+		
+		world *wr = new world (wtyp, srv, name, srv.get_logger (), gen, prov);
+		wr->set_size (winf.width, winf.depth);
+		wr->set_spawn (winf.spawn_pos);
+		wr->set_build_perms (winf.build_perms);
+		wr->set_join_perms (winf.join_perms);
+		wr->prepare_spawn (10, false);
+		
+		return wr;
+	}
+	
+	
+	
 	/* 
 	 * Checks whether the specified string can be used to name a world.
 	 */
@@ -119,6 +176,154 @@ namespace hCraft {
 			}
 		
 		return true;
+	}
+	
+	std::string
+	_build_colored_name (server& srv, const char *wname, const std::string& astr)
+	{
+		enum term_type
+			{
+				TT_GROUP,
+				TT_ATLEAST_GROUP,
+				TT_PLAYER,
+				TT_PERM
+			};
+		
+		group *min_grp = nullptr;
+		bool player_world = false;
+		bool perm_world   = false;
+		
+		const char *str = astr.c_str ();
+		const char *ptr = str;
+		while (*ptr)
+			{
+				term_type typ = TT_GROUP;
+				std::string word;
+				int neg = 0;
+				
+				while (*ptr && (*ptr != '|'))
+					{
+						int c = *ptr;
+						switch (c)
+							{
+								case '!':
+									++ neg;
+									if (neg > 1)
+										return false;
+									break;
+								
+								case '^':
+									if (typ == TT_PLAYER)
+										return false;
+									typ = TT_PLAYER;
+									break;
+								
+								case '*':
+									if (typ == TT_PERM)
+										return false;
+									typ = TT_PERM;
+									break;
+								
+								case '>':
+									if (typ == TT_ATLEAST_GROUP)
+										return false;
+									typ = TT_ATLEAST_GROUP;
+									break;
+								
+								default:
+									word.push_back (c);
+							}
+						++ ptr;
+					}
+				
+				if (*ptr == '|')
+					++ ptr;
+				
+				bool bad = false;
+				switch (typ)
+					{
+						case TT_GROUP:
+						case TT_ATLEAST_GROUP:
+							{
+								group *grp = srv.get_groups ().find (word.c_str ());
+								if (!grp)
+									bad = true;
+								if (!min_grp || (grp->power < min_grp->power))
+									min_grp = grp;
+							}
+							break;
+						
+						case TT_PLAYER:
+							if (!neg)
+								player_world = true;
+							break;
+						
+						case TT_PERM:
+							if (!neg)
+								perm_world = true;
+							break;
+					}
+				
+				if (bad)
+					return std::string (wname);
+			}
+		
+		std::string colname;
+		
+		if (min_grp)
+			{
+				colname.append ("§");
+				colname.push_back (min_grp->color);
+			}
+		else if (player_world)
+			{
+				colname.append ("§7^§e");
+			}
+		else if (perm_world)
+			{
+				colname.append ("§c*§f");
+			}
+		else
+			{
+				group *grp = srv.get_groups ().lowest ();
+				if (grp)
+					{
+						colname.append ("§");
+						colname.push_back (grp->color);
+					}
+			}
+		
+		colname.append (wname);
+		return colname;
+	}
+	
+	
+	
+	void
+	world::set_build_perms (const std::string& str)
+	{
+		this->build_perms.assign (str);
+		std::strcpy (this->colored_name, _build_colored_name (this->srv, this->name, str).c_str ());
+	}
+	
+	void
+	world::set_join_perms (const std::string& str)
+	{
+		this->join_perms.assign (str);
+	}
+	
+	
+	
+	void
+	world::set_generator (world_generator *gen)
+	{
+		std::lock_guard<std::mutex> guard {this->gen_lock};
+		
+		if (gen == this->gen)
+			return;
+		
+		delete this->gen;
+		this->gen = gen;
 	}
 	
 	
@@ -351,7 +556,12 @@ namespace hCraft {
 		inf.generator = this->gen ? this->gen->name () : "";
 		inf.seed = this->gen ? this->gen->seed () : 0;
 		inf.chunk_count = 0;
+		inf.join_perms = this->join_perms;
+		inf.build_perms = this->build_perms;
+		inf.world_type = (this->typ == WT_LIGHT) ? "LIGHT" : "NORMAL";
 	}
+	
+	
 	
 	/* 
 	 * Saves all modified chunks to disk.
@@ -589,23 +799,27 @@ namespace hCraft {
 	world::load_chunk (int x, int z)
 	{
 		chunk *ch = this->get_chunk (x, z);
+		
 		if (ch && ch->generated) return ch;
 		else if (!ch)
 			{
 				ch = new chunk ();
 		
 				// try to load from disk
-				this->prov->open (*this);
-				if (this->prov->load (*this, ch, x, z))
-					{
-						if (ch->generated)
-							{
-								ch->recalc_heightmap ();
-								this->prov->close ();
-								this->put_chunk (x, z, ch);
-								return ch;
-							}
-					}
+				{
+					std::lock_guard<std::mutex> guard {this->gen_lock};
+					this->prov->open (*this);
+					if (this->prov->load (*this, ch, x, z))
+						{
+							if (ch->generated)
+								{
+									ch->recalc_heightmap ();
+									this->prov->close ();
+									this->put_chunk (x, z, ch);
+									return ch;
+								}
+						}
+				}
 				
 				this->prov->close ();
 				this->put_chunk (x, z, ch);

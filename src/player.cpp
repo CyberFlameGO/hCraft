@@ -662,6 +662,45 @@ namespace hCraft {
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 	}
 	
+	/* 
+	 * Reloads the map for the player.
+	 */
+	void
+	player::rejoin_world ()
+	{
+		std::lock_guard<std::mutex> wguard {this->world_lock};
+		
+		for (auto itr = this->known_chunks.begin (); itr != this->known_chunks.end (); ++ itr)
+			{
+				known_chunk kc = *itr;
+				
+				this->send (packet::make_empty_chunk (kc.cx, kc.cz));
+				
+				// despawn entities from self and vice-versa.
+				chunk *ch = (kc.w)->get_chunk (kc.cx, kc.cz);
+				if (ch)
+					{
+						player *me = this;
+						ch->all_entities (
+							[me] (entity *e)
+								{
+									e->despawn_from (me);
+									if (e->get_type () == ET_PLAYER)
+										{
+											player *pl = dynamic_cast<player *> (e);
+											if (pl == me) return;
+											me->despawn_from (pl);
+										}
+								});
+					}
+			}
+		this->known_chunks.clear ();
+		
+		this->need_new_chunks = true;
+		this->joining_world = true;
+		this->fall_flag = true;
+	}
+	
 	
 	
 //--
@@ -1450,11 +1489,11 @@ namespace hCraft {
 				
 				if (neg == 1)
 					res = !res;
-				if (!res)
-					return false;
+				if (res)
+					return true;
 			}
 		
-		return true;
+		return false;
 	}
 	
 	
@@ -2068,6 +2107,8 @@ namespace hCraft {
 	void 
 	player::handle_death ()
 	{
+		this->despawn_from_all ();
+		
 		// drop everything
 		if (this->curr_gamemode != GT_CREATIVE)
 			{
@@ -2340,7 +2381,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -2348,7 +2389,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -2737,13 +2778,17 @@ namespace hCraft {
 				 * Digging
 				 */
 				
+				// make sure the player is allowed to build
 				if (!pl->rnk.main ()->can_build)
 					{
-						// player not allowed to build
-						pl->send (packet::make_block_change (
-							x, y, z,
-							pl->get_world ()->get_id (x, y, z),
-							pl->get_world ()->get_meta (x, y, z)));
+						pl->message ("§4 * §cYou are not allowed to break/place blocks§4.");
+						pl->send_orig_block (x, y, z);
+						return 0;
+					}
+				else if (!pl->has_access (pl->get_world ()->get_build_perms ()))
+					{
+						pl->message ("§4 * §cYou are not allowed to build here§4.");
+						pl->send_orig_block (x, y, z);
 						return 0;
 					}
 				
@@ -2841,7 +2886,7 @@ namespace hCraft {
 					}
 				return 0;
 			}
-		 
+		
 		item = pl->held_item ();
 		if (!item.is_valid () || item.empty ())
 			return 0;
@@ -2868,10 +2913,7 @@ namespace hCraft {
 		if (((w_width > 0) && ((nx >= w_width) || (nx < 0))) ||
 				((w_depth > 0) && ((nz >= w_depth) || (nz < 0))))
 			{
-				pl->send (packet::make_block_change (
-					nx, ny, nz,
-					pl->get_world ()->get_id (nx, ny, nz),
-					pl->get_world ()->get_meta (nx, ny, nz)));
+				pl->send_orig_block (nx, ny, nz);
 				return 0;
 			}
 		
@@ -2885,10 +2927,14 @@ namespace hCraft {
 		if (!pl->rnk.main ()->can_build)
 			{
 				// player not allowed to build
-				pl->send (packet::make_block_change (
-					nx, ny, nz,
-					pl->get_world ()->get_id (nx, ny, nz),
-					pl->get_world ()->get_meta (nx, ny, nz)));
+				pl->message ("§4 * §cYou are not allowed to break/place blocks§4.");
+				pl->send_orig_block (nx, ny, nz);
+				return 0;
+			}
+		else if (!pl->has_access (pl->get_world ()->get_build_perms ()))
+			{
+				pl->message ("§4 * §cYou are not allowed to build here§4.");
+				pl->send_orig_block (nx, ny, nz);
 				return 0;
 			}
 		
@@ -3016,6 +3062,8 @@ namespace hCraft {
 				entity_pos spawn_pos = pl->curr_world->get_spawn ();
 				pl->last_ground_height = -128.0;
 				pl->teleport_to (spawn_pos);
+				
+				pl->spawn_to_all ();
 			}
 		
 		return 0;

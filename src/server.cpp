@@ -254,6 +254,27 @@ namespace hCraft {
 			}
 	}
 	
+	/* 
+	 * Saves all currently loaded worlds.
+	 */
+	void
+	server::save_worlds (scheduler_task& task)
+	{
+		server &srv = *(static_cast<server *> (task.get_context ()));
+		if (!srv.is_running () || srv.is_shutting_down ())
+			return;
+		
+		srv.log (LT_SYSTEM) << "Saving all loaded worlds [Autosave]" << std::endl;
+		srv.get_players ().message (
+			"§5Autosave: §dSaving all loaded worlds");
+		srv.get_worlds ().all (
+			[] (world *w) {
+				w->save_all ();
+			});
+		srv.get_players ().message (
+			"§5Autosave: §dAll worlds have been saved");
+	}
+	
 	
 	
 	/* 
@@ -951,10 +972,13 @@ namespace hCraft {
 		physics_block::init_blocks ();
 		
 		this->get_scheduler ().new_task (hCraft::server::cleanup_players, this)
-			.run_forever (10000);
+			.run_forever (10 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::handle_muted, this)
-			.run_forever (1000);
+			.run_forever (1 * 1000);
+		
+		this->get_scheduler ().new_task (hCraft::server::save_worlds, this)
+			.run_forever (5 * 60 * 1000);
 		
 		// create pooled threads
 		this->tpool.start (6);
@@ -1028,6 +1052,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "unmute");
 		_add_command (this->perms, this->commands, "say");
 		_add_command (this->perms, this->commands, "block-physics");
+		_add_command (this->perms, this->commands, "wconfig");
 	}
 	
 	void
@@ -1143,6 +1168,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.world.wsetspawn");
+		grp_executive->add ("command.world.wconfig");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->text_color = 'c';
@@ -1251,25 +1277,16 @@ namespace hCraft {
 			}
 		else
 			{
-				log () << " - Loading \"" << this->get_config ().main_world << "\"" << std::endl;
-				world_provider *prov = world_provider::create (prov_name.c_str (),
-					"data/worlds", this->get_config ().main_world);
-				if (!prov)
-					throw server_error ("failed to load main world (invalid provider)");
-				
-				const world_information& winf = prov->info ();
-				world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
-				if (!gen)
+				try
 					{
-						delete prov;
-						throw server_error ("failed to load main world (invalid generator)");
+						main_world = world::load_world (*this, this->get_config ().main_world);
 					}
-				
-				main_world = new world (WT_NORMAL, *this, this->get_config ().main_world, this->log, gen, prov);
-				main_world->set_size (winf.width, winf.depth);
-				main_world->set_spawn (winf.spawn_pos);
-				main_world->prepare_spawn (10, false);
+				catch (const std::exception& ex)
+					{
+						throw server_error (("failed to load main world (" + std::string (ex.what ()) + ")").c_str ());
+					}
 			}
+		
 		main_world->start ();
 		this->worlds.add (main_world);
 		this->main_world = main_world;
@@ -1287,38 +1304,18 @@ namespace hCraft {
 		}
 		for (std::string& wname : to_load)
 			{
-				std::string prov_name = world_provider::determine ("data/worlds", wname.c_str ());
-				if (prov_name.empty ())
+				world *wr;
+				try
 					{
-						log (LT_WARNING) << " - World \"" << wname << "\" does not exist." << std::endl;
-						continue;
+						wr = world::load_world (*this, wname.c_str ());
+						if (!wr)
+							continue;
+					}
+				catch (const std::exception& ex)
+					{
+						throw server_error (("failed to load world (" + std::string (ex.what ()) + ")").c_str ());
 					}
 				
-				world_provider *prov = world_provider::create (prov_name.c_str (),
-					"data/worlds", wname.c_str ());
-				if (!prov)
-					{
-						log (LT_ERROR) << " - Failed to load world \"" << wname
-							<< "\": Invalid provider." << std::endl;
-						continue;
-					}
-				
-				const world_information& winf = prov->info ();
-				world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
-				if (!gen)
-					{
-						delete prov;
-						log (LT_ERROR) << " - Failed to load world \"" << wname
-							<< "\": Invalid generator." << std::endl;
-						continue;
-					}
-				
-				log () << " - Loading \"" << wname << "\"" << std::endl;
-				world *wr = new world (WT_NORMAL, *this, wname.c_str (), this->log, gen, prov);
-				wr->set_size (winf.width, winf.depth);
-				
-				wr->set_spawn (winf.spawn_pos);
-				wr->prepare_spawn (10, false);
 				wr->start ();
 				if (!this->worlds.add (wr))
 					{

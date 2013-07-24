@@ -42,6 +42,7 @@ namespace hCraft {
 		 */
 		virtual const char* name () = 0;
 		virtual long seed () = 0;
+		virtual void seed (long new_seed) = 0;
 		
 		/* 
 		 * Finds and instantiates a new world generator from the given name.

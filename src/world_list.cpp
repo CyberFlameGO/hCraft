@@ -33,6 +33,18 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Returns the number of worlds contianed in this list.
+	 */
+	int
+	world_list::count ()
+	{
+		std::lock_guard<std::mutex> guard {this->lock};
+		return this->worlds.size ();
+	}
+	
+	
+	
+	/* 
 	 * Adds the specified world into the world list.
 	 * Returns false if a world with the same name already exists in the list;
 	 * true otherwise.
@@ -73,7 +85,6 @@ namespace hCraft {
 	void
 	world_list::remove (world *w, bool delete_world)
 	{
-		std::lock_guard<std::mutex> guard {this->lock};
 		this->remove (w->get_name (), delete_world);
 	}
 	

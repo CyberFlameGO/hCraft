@@ -84,36 +84,22 @@ namespace hCraft {
 					return;
 				}
 			
-			std::string prov_name = world_provider::determine ("data/worlds", world_name.c_str ());
-			if (prov_name.empty ())
+			world *wr;
+			try
 				{
-					pl->message ("§c * §7World §b" + world_name + " §7does not exist§f.");
+					wr = world::load_world (pl->get_server (), world_name.c_str ());
+					if (!wr)
+						{
+							pl->message ("§c * §7World " + world_name + " §7does not exist§c.");
+							return;
+						}
+				}
+			catch (const std::exception& ex)
+				{
+					pl->message (std::string ("§c * §7Failed to load world§f: §c") + ex.what ());
 					return;
 				}
 			
-			world_provider *prov = world_provider::create (prov_name.c_str (),
-				"data/worlds", world_name.c_str ());
-			if (!prov)
-				{
-					pl->message ("§c * ERROR§f: §eInvalid provider§f.");
-					return;
-				}
-			
-			const world_information& winf = prov->info ();
-			world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
-			if (!gen)
-				{
-					pl->message ("§c * ERROR§f: §eInvalid generator§f.");
-					return;
-				}
-			
-			pl->get_logger () () << "Loading world \"" << world_name << "\"" << std::endl;
-			world *wr = new world (WT_NORMAL, pl->get_server (), world_name.c_str (),
-				pl->get_logger (), gen, prov);
-			wr->set_size (winf.width, winf.depth);
-			
-			wr->set_spawn (winf.spawn_pos);
-			wr->prepare_spawn (10, false);
 			wr->start ();
 			if (!pl->get_server ().get_worlds ().add (wr))
 				{
@@ -134,7 +120,7 @@ namespace hCraft {
 			
 			wr->start ();
 			pl->get_server ().get_players ().message (
-				"§3World §b" + world_name + " §3has been loaded§b!");
+				"§3World §b" + std::string (wr->get_colored_name ()) + " §3has been loaded§b!");
 		}
 	}
 }

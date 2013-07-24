@@ -82,6 +82,7 @@ hCraft_sources = Split("""
 		commands/unmute.cpp
 		commands/say.cpp
 		commands/bp.cpp
+		commands/wconfig.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp
@@ -97,6 +98,7 @@ hCraft_sources = Split("""
 		physics/blocks/sponge.cpp
 		physics/blocks/c235.cpp
 		physics/blocks/firework.cpp
+		physics/blocks/water_faucet.cpp
 		""")
 
 hCraft_libs = Split("""

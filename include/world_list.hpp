@@ -80,6 +80,13 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Returns the number of worlds contianed in this list.
+		 */
+		int count ();
+		
+		
+		
+		/* 
 		 * Searches the world list for a world that has the specified name.
 		 * Uses the given method to determine if names match.
 		 */

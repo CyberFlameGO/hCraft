@@ -945,8 +945,10 @@ namespace hCraft {
 		
 		writer.write_int (info.seed);
 		
-		writer.write_string (info.access_str.c_str ());
-		writer.write_string (info.build_str.c_str ());
+		writer.write_string (info.join_perms.c_str ());
+		writer.write_string (info.build_perms.c_str ());
+		
+		writer.write_string (info.world_type.c_str ());
 		
 		writer.flush ();
 		this->inf = info;
@@ -989,8 +991,10 @@ namespace hCraft {
 				writer.write_int (0);
 			}
 		
-		writer.write_string (""); // access string
-		writer.write_string (""); // build string
+		writer.write_string (""); // join perms
+		writer.write_string (""); // build perms
+		
+		writer.write_string ("NORMAL"); // world type
 		
 		writer.write_int (HW_LAYER_TABLE_OFFSET); // offset of layer table
 		
@@ -1221,8 +1225,10 @@ namespace hCraft {
 		
 		inf.seed = reader.read_int ();
 		
-		inf.access_str = reader.read_string ();
-		inf.build_str = reader.read_string ();
+		inf.join_perms = reader.read_string ();
+		inf.build_perms = reader.read_string ();
+		
+		inf.world_type = reader.read_string ();
 	}
 	
 	static void

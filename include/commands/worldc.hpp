@@ -344,6 +344,50 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /wconfig - 
+		 * 
+		 * Lets the user view or modify world properties.
+		 * 
+		 * Permissions:
+		 *   - command.world.wconfig
+		 *       Needed to execute the command.
+		 */
+		class c_wconfig: public command
+		{
+		public:
+			const char* get_name () { return "wconfig"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						"config-world",
+						"world-config",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Lets the user view or modify world properties."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.wconfig"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

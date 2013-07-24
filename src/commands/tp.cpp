@@ -81,6 +81,12 @@ namespace hCraft {
 									return;
 								}
 							
+							if (!pl->has_access (target->get_world ()->get_join_perms ()))
+								{
+									pl->message ("§4 * §cYou are not allowed to go into that player's world§4.");
+									return;
+								}
+							
 							pl->join_world_at (target->get_world (), target->pos);
 							return;
 						}

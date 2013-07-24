@@ -59,6 +59,8 @@ namespace hCraft {
 	void
 	e_pickup::spawn_to (player *pl)
 	{
+		if (!this->valid) return;
+		
 		pl->send (
 			packet::make_spawn_object (this->eid, 2, this->pos.x, this->pos.y,
 				this->pos.z, 0.0f, 0.0f, 1, 0, 2000, 0));
@@ -152,6 +154,7 @@ namespace hCraft {
 		if (this->data.empty ())
 			{
 				this->valid = false;
+				w.despawn_entity (this);
 				return true;	
 			}
 		return false;

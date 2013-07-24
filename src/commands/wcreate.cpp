@@ -100,7 +100,7 @@ namespace hCraft {
 					auto& arg = opt_width->arg (0);
 					if (!arg.is_int ())
 						{
-							pl->message ("§c * §eArgument to flag §c--width §emust be an integer§f.");
+							pl->message ("§c * §7Argument to flag §c--width §7must be an integer§f.");
 							return;
 						}
 					world_width = arg.as_int ();
@@ -116,7 +116,7 @@ namespace hCraft {
 					auto& arg = opt_depth->arg (0);
 					if (!arg.is_int ())
 						{
-							pl->message ("§c * §eArgument to flag §c--depth §emust be an integer§f.");
+							pl->message ("§c * §7Argument to flag §c--depth §7must be an integer§f.");
 							return;
 						}
 					world_depth = arg.as_int ();
@@ -163,14 +163,14 @@ namespace hCraft {
 			
 			if (load_world && (pl->get_server ().get_worlds ().find (world_name.c_str ()) != nullptr))
 				{
-					pl->message ("§c * §eA world with the same name is already loaded§f.");
+					pl->message ("§c * §7A world with the same name is already loaded§f.");
 					return;
 				}
 			
 			world_generator *gen = world_generator::create (gen_name.c_str (), gen_seed);
 			if (!gen)
 				{
-					pl->message ("§c * §eInvalid world generator§f: §c" + gen_name);
+					pl->message ("§c * §7Invalid world generator§f: §c" + gen_name);
 					return;
 				}
 			
@@ -178,7 +178,7 @@ namespace hCraft {
 				"data/worlds", world_name.c_str ());
 			if (!prov)
 				{
-					pl->message ("§c * §eInvalid world provider§f: §c" + provider_name);
+					pl->message ("§c * §7Invalid world provider§f: §c" + provider_name);
 					delete gen;
 					return;
 				}

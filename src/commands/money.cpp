@@ -301,17 +301,21 @@ namespace hCraft {
 			// /money [player]
 			// 
 			std::ostringstream ss;
-			ss << "§8 | ";
 			if (someone_else)
 				{
+					if (!pl->has ("command.info.money.others"))
+						{
+							pl->message ("§c * §7You are not allowed to do that§c.");
+							return;
+						}
+					
 					if (sutils::iequals (target_name, pl->get_username ()))
-						ss << "§2Balance§8: §a$" << utils::format_number (pl->bal, 2);
+						ss << "§2Balance§8: §7$" << utils::format_number (pl->bal, 2);
 					else
 						{
 							player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 							if (target)
-								ss << target->get_colored_username () << "§e's balance§6: "
-									 << "§7$" << utils::format_number (target->bal, 2);
+								ss << target->get_colored_username () << "§e's balance§f: $" << utils::format_number (target->bal, 2);
 							else
 								{
 									auto& conn = pl->get_server ().sql ().pop ();
@@ -325,8 +329,7 @@ namespace hCraft {
 												}
 											
 											ss << sqlops::player_colored_name (conn, target_name.c_str (), pl->get_server ())
-												 << "§2's balance§8: "
-												 << "§a$" << utils::format_number (sqlops::get_money (conn, target_name.c_str ()), 2);
+												 << "§2's balance§f: $" << utils::format_number (sqlops::get_money (conn, target_name.c_str ()), 2);
 										}
 									catch (const std::exception& ex)
 										{
@@ -341,7 +344,7 @@ namespace hCraft {
 						}
 				}
 			else
-				ss << "§2Balance§8: §a$" << utils::format_number (pl->bal, 2);
+				ss << "§2Balance§f: $" << utils::format_number (pl->bal, 2);
 			
 			pl->message (ss.str ());
 		}
