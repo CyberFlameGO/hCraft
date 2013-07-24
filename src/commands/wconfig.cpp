@@ -87,7 +87,7 @@ namespace hCraft {
 					
 					pl->message ("§7 | Property §adimensions §7has been modified.");
 				}
-			if (sutils::iequals (prop, "generator"))
+			else if (sutils::iequals (prop, "generator"))
 				{
 					std::string str = reader.rest ();
 					

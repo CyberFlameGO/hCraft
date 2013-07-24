@@ -55,13 +55,19 @@ namespace hCraft {
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
-				blocks = draw.fill_ellipse (marked[0], a, b, data->bl, data->pn);
+				blocks = draw.fill_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			else
-				blocks = draw.draw_ellipse (marked[0], a, b, data->bl, data->pn);
+				blocks = draw.draw_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
+			if (blocks == -1)
+				{
+					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
+					pl->delete_data ("ellipse");
+					return true;
+				}
 			es.commit ();
 			
 			std::ostringstream ss;
-			ss << "§3Ellipse complete §7(§3Modified§7: §b" <<  blocks << " §3blocks§7)";
+			ss << "§7 | Ellipse complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
 			
 			pl->delete_data ("ellipse");
@@ -160,22 +166,23 @@ namespace hCraft {
 			pl->get_nth_marking_callback ((a == -1) ? 3 : 1) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Ellipse §7(§8Plane§7: §b";
+			ss << "§5Draw§f: §3" << (do_fill ? "filled" : "hollow")
+				 << " ellipse §f[§7block§f: §8" << str << "§f, §7plane§f: §8";
 			switch (pn)
 				{
-					case draw_ops::XZ_PLANE: ss << "XZ§7, "; break;
-					case draw_ops::YX_PLANE: ss << "YX§7, "; break;
-					case draw_ops::YZ_PLANE: ss << "YZ§7, "; break;
+					case draw_ops::XZ_PLANE: ss << "xz"; break;
+					case draw_ops::YX_PLANE: ss << "yx"; break;
+					case draw_ops::YZ_PLANE: ss << "yz"; break;
 				}
 			if (a != -1)
-				ss << "§8A§7: §b" << a << "§7, ";
+				ss << "§f, §7a§f: §8" << a;
 			if (b != -1)
-				ss << "§8B§7: §b" << b << "§7, ";
-			ss << "§8Block§7: §b" << str << "§7):";
+				ss << "§f, §7b§f: §8" << b;
+			ss << "§f]:";
 			pl->message (ss.str ());
 			
 			ss.str (std::string ()); ss.clear ();
-			ss << "§8 * §7Please mark §b" << ((a == -1) ? 3 : 1) << " §7blocks§7.";
+			ss << "§7 | §ePlease mark §b" << ((a == -1) ? "three" : "one") << " §eblock" << ((a == -1) ? "s" : "") << "§f.";
 			pl->message (ss.str ());
 		}
 	}

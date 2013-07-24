@@ -405,6 +405,8 @@ namespace hCraft {
 		do
 			{
 				modified += _plot_ellipse_points (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
+				if (modified > max_blocks)
+					return -1;
 				
 				e2 = 2*err;
 				if (e2 >= dx) { ++ x; err += dx += 2*(long)b*b; }
@@ -415,6 +417,8 @@ namespace hCraft {
 		while (z++ < b)
 			{
 				modified += _plot_ellipse_points (this->es, pt.x, pt.y, pt.z, 0, z, material, pn);
+				if (modified > max_blocks)
+					return -1;
 			}
 		
 		return modified;
@@ -750,6 +754,8 @@ namespace hCraft {
 		do
 			{
 				modified += _plot_ellipse_lines (this->es, pt.x, pt.y, pt.z, x, z, material, pn);
+				if (modified > max_blocks)
+					return -1;
 				
 				e2 = 2*err;
 				if (e2 >= dx) { ++ x; err += dx += 2*(long)b*b; }
@@ -760,6 +766,8 @@ namespace hCraft {
 		while (z++ < b)
 			{
 				modified += _plot_ellipse_lines (this->es, pt.x, pt.y, pt.z, 0, z, material, pn);
+				if (modified > max_blocks)
+					return -1;
 			}
 		
 		return modified;

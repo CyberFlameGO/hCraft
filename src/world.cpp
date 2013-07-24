@@ -515,7 +515,7 @@ namespace hCraft {
 	world::set_width (int width)
 	{
 		if (width % 16 != 0)
-			width += width % 16;
+			width += 16 - (width % 16);
 		this->width = width;
 		
 		if (this->width > 0 && !this->edge_chunk)
@@ -532,7 +532,7 @@ namespace hCraft {
 	world::set_depth (int depth)
 	{
 		if (depth % 16 != 0)
-			depth += depth % 16;
+			depth += 16 - (depth % 16);
 		this->depth = depth;
 		
 		if (this->depth > 0 && !this->edge_chunk)
