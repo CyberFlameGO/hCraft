@@ -2803,7 +2803,7 @@ namespace hCraft {
 					}
 				
 				++ pl->bl_destroyed;
-				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, nullptr, pl);
+				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
 					{
 						pl->increment_exhaustion (0.025);
@@ -3087,66 +3087,313 @@ namespace hCraft {
 		
 		unsigned char wid = reader.read_byte ();
 		short slot = reader.read_short ();
-		char mbtn = reader.read_byte ();
-		short actnum = reader.read_short ();
+		char button = reader.read_byte ();
+		short action = reader.read_short ();
 		char mode = reader.read_byte ();
 		
 		//slot_item item = reader.read_slot ();
-		// use our own item:
-		slot_item item = pl->inv.get (slot);
 		
-		pl->log (LT_DEBUG) << "[" << slot << "]: btn(" << (int)mbtn << ") mode(" << (int)mode <<
-			") item(" << item.id () << ")" << std::endl;
+		if (wid != 0)
+			return 0; // TODO: we currently only handle player inventory
 		
-		if (mode == 3 || mbtn == 3)
-			return 0;
+		window *win = &pl->inv;
 		
-		// TODO: This assumes that we're only handling the inventory.
-		if (slot < 0 || slot >= pl->inv.slot_count ())
+		switch (mode)
 			{
-				if (mode == 5 && slot == -999)
+				/* 
+				 * MODE 0:
+				 *   button 0 = left mouse click
+				 *   button 1 = right mouse click
+				 */
+				case 0:
+					if (slot < 0 || slot >= win->slot_count ())
+						pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+							<< "\" tried to use a slot outside of window." << std::endl;
 					{
-						// inv painting
-						switch (mbtn)
+						slot_item& item = win->get (slot);
+							
+						if (button == 0)
 							{
-							// begin painting
+								// left mouse click
+								if (pl->cursor_slot.empty ())
+									{
+										if (!item.empty ())
+											{
+												// pick up entire stack
+												//pl->log (LT_DEBUG) << "Picking up entire stack at [" << slot << "]" << std::endl;
+												pl->cursor_slot.set (item);
+												item.clear ();
+											}
+									}
+								else
+									{
+										if (!win->can_place_at (slot, item))
+											return 0;
+										
+										if (pl->cursor_slot.compatible_with (item))
+											{
+												// put stack down
+												int take = pl->cursor_slot.amount ();
+												if (item.amount () + take > item.max_stack ())
+													take = item.max_stack () - item.amount ();
+												
+												if (item.empty ())
+													item.set (pl->cursor_slot);		
+												else
+													item.give (take);
+												pl->cursor_slot.take (take);
+												//pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+											}
+										else
+											{
+												// swap between held item and the one being clicked
+												slot_item tmp = pl->cursor_slot;
+												pl->cursor_slot = item;
+												item = tmp;
+												//pl->log (LT_DEBUG) << "Swapping between [" << slot << "] and held item" << std::endl;
+											}
+									}
+							}
+						else if (button == 1)
+							{
+								// right mouse click
+								if (pl->cursor_slot.empty ())
+									{
+										if (!item.empty ())
+											{
+												// pick up half the stack
+												int take = item.amount () / 2 + !!(item.amount () % 2);
+												pl->cursor_slot.set (item);
+												pl->cursor_slot.take (item.amount () - take);
+												item.take (take);
+												//pl->log (LT_DEBUG) << "Halving: Picking up " << take << " [leaving " << item.amount () << "]" << std::endl;
+											}
+									}
+								else
+									{
+										if (!win->can_place_at (slot, item))
+											return 0;
+										
+										if (pl->cursor_slot.compatible_with (item))
+											{
+												// put one down
+												if (item.amount () < item.max_stack ())
+													{
+														if (item.empty ())
+															{
+																item.set (pl->cursor_slot);
+																item.set_amount (1);
+															}
+														else
+															item.give (1);
+														pl->cursor_slot.take (1);
+														//pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+													}
+											}
+									}
+							}
+						else
+							return false;
+						break;
+					}
+				
+				/* 
+				 * MODE 1:
+				 *   button 0 = shift + left mouse click
+				 *   button 1 = shift + right mouse click
+				 */
+				case 1:
+					if (slot < 0 || slot >= win->slot_count ())
+						{
+							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+								<< "\" tried to use a slot outside of window." << std::endl;
+							return -1;
+						}
+					{
+						slot_item& item = win->get (slot);
+						if (item.empty ())
+							break;
+						
+						auto range = win->shift_range (slot);
+						if (range.first == -1 || range.second == -1)
+							break;
+							
+						//pl->log (LT_DEBUG) << "Shifting [" << slot << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
+						
+						// we perform two passes - try items with matching IDs first, and
+						// then finally try empty slots too.
+						bool first_pass = true;
+						for (int j = 0; j < 2; ++j)
+							{
+								int i, a = (range.first < range.second) ? 1 : -1;
+								for (i = range.first; i != range.second && !item.empty (); i += a)
+									{
+										slot_item& sl = win->get (i);
+										if (first_pass ? ((item.id () == sl.id ()) && (item.damage () == sl.damage ())) : sl.compatible_with (item))
+											{
+												int take = item.amount ();
+												if (sl.amount () + take > sl.max_stack ())
+													take = sl.max_stack () - sl.amount ();
+										
+												//pl->log (LT_DEBUG) << "  Adding " << take << " to [" << i << "] [of type: " << sl.id () << "]" << std::endl;
+												if (sl.empty ())
+													{
+														sl.set (item);
+														sl.set_amount (take);
+													}	
+												else
+													sl.give (take);
+												item.take (take);
+											}
+									}
+								
+								first_pass = false;
+							}
+						
+						//pl->log (LT_DEBUG) << "  Done, " << item.amount () << " left" << std::endl;
+						break;
+					}
+				
+				/* 
+				 * MODE 2:
+				 *   button 0 = Number key 1
+				 *   ...
+				 *   button 8 = Number key 9
+				 */
+				case 2:
+					if (slot < 0 || slot >= win->slot_count ())
+						{
+							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+								<< "\" tried to use a slot outside of window." << std::endl;
+							return -1;
+						}
+					{
+						if (button < 0 || button > 8)
+							{
+								pl->log (LT_WARNING) << "Invalid 0x66 packet (click window) received from \"" << pl->get_username () << "\"" << std::endl;
+								return -1;
+							}
+						
+						auto hotbar_range = win->hotbar_range ();
+						if (hotbar_range.first == -1 || hotbar_range.second == -1 ||
+							((hotbar_range.second - hotbar_range.first) != 8))
+							break;
+						
+						int dest_pos = hotbar_range.first + button;
+						if (dest_pos >= win->slot_count ())
+							break;
+						
+						// swap
+						slot_item& item = win->get (slot);
+						slot_item tmp = win->get (dest_pos);
+						win->set (dest_pos, item, false);
+						win->set (slot, tmp, false);
+						//pl->log (LT_DEBUG) << "Swapped between [" << slot << "] and [" << dest_pos << "]" << std::endl;
+						break;
+					}
+				
+				/* 
+				 * MODE 3
+				 *   button 2 = middle click
+				 */
+				case 3:
+					if (button == 2)
+						; // does nothing
+					break;
+				
+				/* 
+				 * MODE 4
+				 *   button 0, slot not -999 = drop key
+				 *   button 1, slot not -999 = ctrl + drop key
+				 *   button 0, slot -999 = left click outside inventory holding nothing
+				 *   button 1, slot -999 = right click outside inventory holding nothing
+				 */
+				case 4:
+					if (slot != -999)
+						{
+							// TODO: handle dropping items
+						}
+					break;
+				
+				/* 
+				 * MODE 5
+				 *   button 0, slot -999 = starting left/middle mouse paint
+				 *   button 4, slot -999 = starting right mouse paint
+				 *   button 1, slot not -999 = left mouse painting progress
+				 *   button 5, slot not -999 = right mouse painting progress
+				 *   button 2, slot -999 = ending left mouse paint
+				 *   button 6, slot -999 = ending right mouse paint
+				 */
+				case 5:
+					switch (button)
+						{
+							// start left/middle mouse paint
 							case 0:
 								if (pl->inv_painting)
-									return -1;
+									return -1; // TODO: reset
 								pl->inv_mb = 0;
 								pl->inv_paint_slots.clear ();
 								pl->inv_painting = true;
-								return 0;
-								
+								break;
+							
+							// start right mouse paint
 							case 4:
 								if (pl->inv_painting)
-									return -1;
+									return -1; // TODO: reset
 								pl->inv_mb = 1;
 								pl->inv_paint_slots.clear ();
 								pl->inv_painting = true;
-								return 0;
+								break;
+							
+							// left mouse painting progress
+							case 1:
+								if (!pl->inv_painting || pl->inv_mb != 0)
+									return -1;
+								if (slot < 0 || slot >= win->slot_count ())
+									{
+										pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+											<< "\" tried to use a slot outside of window." << std::endl;
+										return -1;
+									}
+								if (!win->can_place_at (slot, pl->cursor_slot))
+									return 0;
+								pl->inv_paint_slots.push_back (slot);
+								break;
+							
+							// right mouse paiting progress
+							case 5:
+								if (!pl->inv_painting || pl->inv_mb != 1)
+									return -1;
+								if (slot < 0 || slot >= win->slot_count ())
+									{
+										pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+											<< "\" tried to use a slot outside of window." << std::endl;
+										return -1;
+									}
+								if (!win->can_place_at (slot, pl->cursor_slot))
+									return 0;
+								pl->inv_paint_slots.push_back (slot);
+								break;
 							
 							// end painting
-							case 2: case 6:
+							case 2:
+							case 6:
 								if (!pl->inv_painting)
 									return -1;
 								pl->inv_painting = false;
 								
-								// now that we have collected all affected slots, reorganize...
+								//pl->log (LT_DEBUG) << "End inventory paint [mouse: " << ((pl->inv_mb == 0) ? "left" : "right") << "]" << std::endl;
 								if (!pl->inv_paint_slots.empty ())
 									{
 										int give = (pl->inv_mb == 1) ? 1
 											: (pl->cursor_slot.amount () / pl->inv_paint_slots.size ());
-										
 										for (short s : pl->inv_paint_slots)
 											{
 												if (pl->cursor_slot.amount () < give)
 													return 0;
 												
-												slot_item& prev = pl->inv.get (s);
-												
-												// make sure both items are compatible
-												if (item.compatible_with (pl->cursor_slot))
+												slot_item& prev = win->get (s);
+												if (prev.compatible_with (pl->cursor_slot))
 													{
 														if (pl->cursor_slot.amount () < give)
 															return 0;
@@ -3158,212 +3405,26 @@ namespace hCraft {
 														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - this_give);
 														
 														int p_amount = prev.amount ();
-														if (prev.id () == BT_AIR)
-															prev = pl->cursor_slot;
+														if (prev.empty ())
+															prev.set (pl->cursor_slot);
 														prev.set_amount (p_amount + this_give);
-														//pl->inv.set (s, prev, false);
+														//pl->log (LT_DEBUG) << "  " << this_give << " added to [" << s << "]" << std::endl;
 													}
 											}
 									}
-								
-								return 0;
-							}
-					}
-				else
-					return -1;
-			}
-		
-		if (mode == 5)
-			{
-				if (pl->inv_painting)
-					{
-						// remember slot
-						pl->inv_paint_slots.push_back (slot);
-					}
-				return 0;
-			}
-		
-		if (item.id () == BT_AIR)
-			{
-				// putting item back
-				if (pl->cursor_slot.id () == BT_AIR)
-					return 0;
-				pl->log (LT_DEBUG) << "Putting item back" << std::endl;
-				
-				pl->inv.get (slot) = pl->cursor_slot;
-				pl->cursor_slot.set_id (BT_AIR);
-			}
-		else
-			{
-				if (mode == 1 && !item.empty ())
-					{
-						// shift clicking
-						if (slot >= 9 && slot <= 35)
-							{
-								// first slots with same id&damage
-								for (int i = 36; (i <= 44) && !item.empty (); ++i)
-									{
-										slot_item& s = pl->inv.get (i);
-										if (s.id () != BT_AIR && s.compatible_with (item))
-											{
-												int take = s.max_stack () - s.amount ();
-												if (take > item.amount ())
-													take = item.amount ();
-												
-												int am = s.amount () + take;
-												s = item;
-												s.set_amount (am);
-												item.take (take);
-											}
-									}
-								
-								// now do empty slots
-								for (int i = 36; (i <= 44) && !item.empty (); ++i)
-									{
-										slot_item& s = pl->inv.get (i);
-										if (s.id () == BT_AIR)
-											{
-												int take = 64;
-												if (take > item.amount ())
-													take = item.amount ();
-												
-												s = item;
-												s.set_amount (take);
-												item.take (take);
-												//pl->inv.update_slot (i, s);
-											}
-									}
-								
-								// update item
-								pl->inv.set (slot, item);
-							}
-						else if ((slot >= 36 && slot <= 44) || (slot >= 0 && slot <= 8))
-							{
-								// first slots with same id&damage
-								for (int i = 9; (i <= 35) && !item.empty (); ++i)
-									{
-										slot_item& s = pl->inv.get (i);
-										if (s.id () != BT_AIR && s.compatible_with (item))
-											{
-												int take = s.max_stack () - s.amount ();
-												if (take > item.amount ())
-													take = item.amount ();
-												
-												int am = s.amount () + take;
-												s = item;
-												s.set_amount (am);
-												item.take (take);
-											}
-									}
-								
-								// now do empty slots
-								for (int i = 9; (i <= 35) && !item.empty (); ++i)
-									{
-										slot_item& s = pl->inv.get (i);
-										if (s.id () == BT_AIR)
-											{
-												int take = 64;
-												if (take > item.amount ())
-													take = item.amount ();
-												
-												s = item;
-												s.set_amount (take);
-												item.take (take);
-											}
-									}
-								
-								// update item
-								pl->inv.set (slot, item);
-							}
-					}
-				else if (mode == 2)
-					{
-						// pressing 1-9 while hovering over an item
-						
-						int dest = 36 + mbtn;
-						if (dest > 44)
-							return -1;
-						
-						pl->log (LT_DEBUG) << "Swapping between [" << slot << "] and [" << dest << "]" << std::endl;
-						pl->inv.set (slot, pl->inv.get (dest));
-						pl->inv.set (dest, item);
-					}
-				else
-					{
-						if (pl->cursor_slot.id () != BT_AIR)
-							{
-								if (mbtn == 1)
-									{
-										if (item.compatible_with (pl->cursor_slot) &&
-											(item.amount () < item.max_stack ()))
-											{
-												pl->log (LT_DEBUG) << "Putting one" << std::endl;
-												if (item.id () == BT_AIR)
-													{
-														slot_item &s = pl->inv.get (slot);
-														s = pl->cursor_slot;
-														s.set_amount (1);
-													}
-												else
-													pl->inv.get (slot).give (1);
-												pl->cursor_slot.take (1);
-											}
-									}
-								else
-									{
-										// attempt to merge stacks
-										pl->log (LT_DEBUG) << "Merging stacks" << std::endl;
+								//pl->log (LT_DEBUG) << "  " << pl->cursor_slot.amount () << " left in hand" << std::endl;
+								break;
+						}
+					break;
 					
-										bool item_tool = item_info::is_tool (item.id ());
-										bool cursor_tool = item_info::is_tool (pl->cursor_slot.id ());
-					
-										if (item.compatible_with (pl->cursor_slot))
-											{
-												if (!item.full ())
-													{
-														int room = item.max_stack () - item.amount ();
-														int take = room;
-														if (take > pl->cursor_slot.amount ())
-															take = pl->cursor_slot.amount ();
-									
-														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - take);
-														item.set_amount (item.amount () + take);
-														pl->inv.get (slot).set_amount (item.amount ());
-													}
-											}
-										else if (!item_tool && !cursor_tool)
-											{
-												// swap stacks
-												pl->log (LT_DEBUG) << "Swapping stacks" << std::endl;
-												slot_item temp = pl->cursor_slot;
-												pl->cursor_slot = item;
-												pl->inv.set (slot, temp, false);
-											}
-									}
-							}
-						else
-							{
-								if (mbtn == 1)
-									{
-										// split stack
-										pl->log (LT_DEBUG) << "Splitting stack" << std::endl;
-							
-										int rem = item.amount () % 2;
-										pl->cursor_slot = item;
-										item.set_amount (item.amount () / 2);
-										pl->cursor_slot.set_amount (pl->cursor_slot.amount () / 2 + rem);
-										pl->inv.get (slot).set_amount (item.amount ());
-									}
-								else
-									{
-										// picking up item
-										pl->log (LT_DEBUG) << "Picking item up" << std::endl;
-										pl->cursor_slot = item;
-										pl->inv.get (slot).set_id (BT_AIR);
-										pl->log (LT_DEBUG) << "  [" << slot << "] = " << pl->inv.get (slot).id () << ", [cur] = " << pl->cursor_slot.id () << std::endl;
-									}
-							}
-					}
+				/* 
+				 * MODE 6
+				 *   button 0 = double click
+				 */
+				case 6:
+					if (button == 0)
+						; // does nothing
+					break;
 			}
 		
 		return 0;

@@ -364,6 +364,66 @@ namespace hCraft {
 	
 	
 	
+//===========
+	/* 
+	 * Doors.
+	 */
+	
+#define DOOR_TICK_RATE 4
+
+	static void _door_tick (world &w, int x, int y, int z, int extra, std::minstd_rand& rnd);
+	
+	static bool
+	_try_door_lock (world &w, int x, int y, int z, block_data bd)
+	{
+		if (bd.ex != BE_DOOR) return false;
+		
+		w.queue_update (x, y, z, BT_AIR);
+		w.queue_physics (x, y, z, bd.id | (bd.meta << 12), nullptr, DOOR_TICK_RATE, nullptr, _door_tick);
+		
+		return true;
+	}
+	
+	void
+	_door_tick (world &w, int x, int y, int z, int data, std::minstd_rand& rnd)
+	{
+		int id = data & 0xFFF;
+		int meta = (data >> 12) & 0xF;
+		int elapsed = data >> 16;
+		
+		if (elapsed == 0)
+			{
+				_try_door_lock (w, x - 1, y, z, w.get_block (x - 1, y, z));
+				_try_door_lock (w, x + 1, y, z, w.get_block (x + 1, y, z));
+				_try_door_lock (w, x, y, z - 1, w.get_block (x, y, z - 1));
+				_try_door_lock (w, x, y, z + 1, w.get_block (x, y, z + 1));
+				if (y > 0)   _try_door_lock (w, x, y - 1, z, w.get_block (x, y - 1, z));
+				if (y < 255) _try_door_lock (w, x, y + 1, z, w.get_block (x, y + 1, z));
+			}
+		
+		++ elapsed;
+		if (elapsed == (5 * 4)) // 4 seconds
+			w.queue_update (x, y, z, id, meta, BE_DOOR);
+		else
+			w.queue_physics (x, y, z, id | (meta << 12) | (elapsed << 16),
+				nullptr, DOOR_TICK_RATE, nullptr, _door_tick);
+	}
+	
+	static bool
+	_try_door_nolock (world &w, int x, int y, int z, block_data bd)
+	{
+		if (bd.ex != BE_DOOR) return false;
+		
+		w.queue_update_nolock (x, y, z, BT_AIR);
+		w.queue_physics (x, y, z, bd.id | (bd.meta << 12), nullptr, DOOR_TICK_RATE, nullptr, _door_tick);
+		
+		return true;
+	}
+	
+//===========
+	
+	
+	
 	/* 
 	 * The function ran by the world's thread.
 	 */
@@ -398,19 +458,6 @@ namespace hCraft {
 								{
 									block_update &u = this->updates.front ();
 									
-									block_data old_bd = this->get_block (u.x, u.y, u.z);
-									if (old_bd.id == u.id && old_bd.meta == u.meta)
-										{
-											// nothing modified
-											this->updates.pop_front ();
-											continue;
-										}
-									
-									block_info *old_inf = block_info::from_id (old_bd.id);
-									block_info *new_inf = block_info::from_id (u.id);
-							
-									physics_block *ph = physics_block::from_id (u.id);
-									
 									if (((this->width > 0) && ((u.x >= this->width) || (u.x < 0))) ||
 										((this->depth > 0) && ((u.z >= this->depth) || (u.z < 0))) ||
 										((u.y < 0) || (u.y > 255)))
@@ -418,6 +465,30 @@ namespace hCraft {
 											this->updates.pop_front ();
 											continue;
 										}
+									
+									block_data old_bd = this->get_block (u.x, u.y, u.z);
+									if (old_bd.id == u.id && old_bd.meta == u.meta && old_bd.ex == u.extra)
+										{
+											// nothing modified
+											this->updates.pop_front ();
+											continue;
+										}
+									
+									// doors
+									if (u.id == BT_AIR && u.pl)
+										{
+											if (_try_door_nolock (*this, u.x, u.y, u.z, old_bd))
+												{
+													this->updates.pop_front ();
+													continue;
+												}
+										}
+									
+									block_info *old_inf = block_info::from_id (old_bd.id);
+									block_info *new_inf = block_info::from_id (u.id);
+							
+									physics_block *ph = physics_block::from_id (u.id);
+
 									
 									unsigned short old_id = this->get_id (u.x, u.y, u.z);
 									unsigned char old_meta = this->get_meta (u.x, u.y, u.z);
@@ -436,7 +507,7 @@ namespace hCraft {
 											continue;
 										}
 									
-									this->set_block (u.x, u.y, u.z, u.id, u.meta);
+									this->set_block (u.x, u.y, u.z, u.id, u.meta, u.extra);
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
@@ -462,7 +533,7 @@ namespace hCraft {
 												}
 											if (ph && u.physics)
 												{
-													this->queue_physics (u.x, u.y, u.z, u.extra, u.ptr,
+													this->queue_physics (u.x, u.y, u.z, u.data, u.ptr,
 														ph->tick_rate ());
 												}
 											
@@ -1144,12 +1215,12 @@ namespace hCraft {
 	 */
 	void
 	world::queue_update (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
+		unsigned char meta, int extra, int data, void *ptr, player *pl, bool physics)
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->typ == WT_LIGHT)
 			{
-				this->set_block (x, y, z, id, meta);
+				this->set_block (x, y, z, id, meta, extra);
 				this->lm.enqueue (x, y, z);
 				
 				// update players
@@ -1163,15 +1234,15 @@ namespace hCraft {
 			}
 		
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
+		this->updates.emplace_back (x, y, z, id, meta, extra, data, ptr, pl, physics);
 		
 		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
-		this->estage.set (x, y, z, id, meta);
+		this->estage.set (x, y, z, id, meta, extra);
 	}
 	
 	void
 	world::queue_update_nolock (int x, int y, int z, unsigned short id,
-		unsigned char meta, int extra, void *ptr, player *pl, bool physics)
+		unsigned char meta, int extra, int data, void *ptr, player *pl, bool physics)
 	{
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->typ == WT_LIGHT)
@@ -1188,10 +1259,10 @@ namespace hCraft {
 				return;
 			}
 		
-		this->updates.emplace_back (x, y, z, id, meta, extra, ptr, pl, physics);
+		this->updates.emplace_back (x, y, z, id, meta, extra, data, ptr, pl, physics);
 		
 		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
-		this->estage.set (x, y, z, id, meta);
+		this->estage.set (x, y, z, id, meta, extra);
 	}
 	
 	void

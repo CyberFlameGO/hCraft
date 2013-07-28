@@ -16,28 +16,45 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS__ACTIVEWATER_H_
-#define _hCraft__PHYSICS__ACTIVEWATER_H_
+#ifndef _hCraft__WORLDGENERATOR__EXPERIMENT_H_
+#define _hCraft__WORLDGENERATOR__EXPERIMENT_H_
 
-#include "physics/blocks/physics_block.hpp"
+#include "worldgenerator.hpp"
+#include <random>
 
 
 namespace hCraft {
 	
-	namespace physics {
+	/* 
+	 * Experimental world generator.
+	 */
+	class experiment_world_generator: public world_generator
+	{
+		std::minstd_rand rnd;
+		long gen_seed;
 		
-		class active_water: public physics_block
-		{
-		public:
-			virtual int  id () override { return BT_ACTIVE_WATER; }
-			virtual blocki vanilla_block () override { return BT_STILL_WATER; }
-			virtual const char* name () { return "activewater"; }
-			virtual int  tick_rate () override { return 5; }
+	public:
+		/* 
+		 * Constructs a new "experiment" world generator.
+		 */
+		experiment_world_generator (long seed);
 		
-			virtual void tick (world &w, int x, int y, int z, int data,
-				void *ptr, std::minstd_rand& rnd) override;
-		};
-	}
+		
+		virtual const char* name ()
+			{ return "experiment"; }
+		
+		virtual long seed () override
+			{ return this->gen_seed; }
+		
+		virtual void seed (long new_seed) override
+			{ this->gen_seed = new_seed; }
+		
+		
+		/* 
+		 * Generates terrain on the specified chunk.
+		 */
+		virtual void generate (world& wr, chunk *out, int cx, int cz);
+	};
 }
 
 #endif

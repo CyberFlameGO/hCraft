@@ -63,6 +63,7 @@ namespace hCraft {
 	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	static command* create_c_block_physics () { return new commands::c_block_physics (); }
 	static command* create_c_wconfig () { return new commands::c_wconfig (); }
+	static command* create_c_block_type () { return new commands::c_block_type (); }
 	
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
@@ -128,6 +129,7 @@ namespace hCraft {
 			{ "say", create_c_say },
 			{ "block-physics", create_c_block_physics },
 			{ "wconfig", create_c_wconfig },
+			{ "block-type", create_c_block_type },
 			};
 		
 		auto itr = creators.find (name);

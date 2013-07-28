@@ -28,7 +28,7 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		water_faucet::tick (world &w, int x, int y, int z, int extra,
+		water_faucet::tick (world &w, int x, int y, int z, int data,
 			void *ptr, std::minstd_rand& rnd)
 		{
 			if (w.get_id (x, y, z) != 2005)

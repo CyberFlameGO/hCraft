@@ -82,13 +82,13 @@ namespace hCraft {
 		
 		
 		void
-		firework_rocket::tick (world &w, int x, int y, int z, int extra,
+		firework_rocket::tick (world &w, int x, int y, int z, int data,
 			void *ptr, std::minstd_rand& rnd)
 		{
 			if (w.get_id (x, y, z) != 2004)
 				return;
 				
-			if (extra == 20 || (w.get_id (x, y + 1, z) != BT_AIR))
+			if (data == 20 || (w.get_id (x, y + 1, z) != BT_AIR))
 				{
 					_remove_rocket (w, x, y, z);
 					_explode (w, x, y, z, rnd);
@@ -101,7 +101,7 @@ namespace hCraft {
 			if (w.get_id (x, y - 2, z) == BT_STILL_LAVA)
 				w.queue_update (x, y - 2, z, BT_AIR);
 			
-			w.queue_update (x, y + 1, z, this->id (), 0, extra + 1);
+			w.queue_update (x, y + 1, z, this->id (), 0, data + 1);
 		}
 		
 		void

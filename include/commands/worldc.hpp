@@ -305,12 +305,12 @@ namespace hCraft {
 		
 		// Should this command even be in the world subdirectory?
 		/* 
-		 * /bp -
+		 * /block-physics -
 		 * 
 		 * Modifies physics properties for individual blocks.
 		 * 
 		 * Permissions:
-		 *   - command.world.bp
+		 *   - command.world.block-physics
 		 *       Needed to execute the command.
 		 */
 		class c_block_physics: public command
@@ -339,7 +339,49 @@ namespace hCraft {
 				return "";
 			}
 			
-			const char* get_exec_permission () { return "command.world.bp"; }
+			const char* get_exec_permission () { return "command.world.block-physics"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		// Should this command even be in the world subdirectory?
+		/* 
+		 * /block-type -
+		 * 
+		 * Modifies the type of a selected block.
+		 * 
+		 * Permissions:
+		 *   - command.world.block-type
+		 *       Needed to execute the command.
+		 */
+		class c_block_type: public command
+		{
+		public:
+			const char* get_name () { return "block-type"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char* aliases[] =
+					{
+						"bt",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Modifies the type of a selected block."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.block-type"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

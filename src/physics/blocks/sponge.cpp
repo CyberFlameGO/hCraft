@@ -33,7 +33,7 @@ namespace hCraft {
 		
 		
 		void
-		water_sponge::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		water_sponge::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (w.get_final_block (x, y, z).id != 2001)
@@ -56,7 +56,7 @@ namespace hCraft {
 		}
 		
 		void
-		water_sponge_agent::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		water_sponge_agent::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (w.get_final_block (x, y, z).id != 2002)

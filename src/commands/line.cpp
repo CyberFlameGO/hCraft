@@ -35,12 +35,14 @@ namespace hCraft {
 				std::vector<vector3> points;
 				blocki bl;
 				bool cont;
+				int modified;
 				
 				line_data (player *pl, world *wr, blocki bl, bool cont)
 					: es (wr)
 				{
 					this->bl = bl;
 					this->cont = cont;
+					this->modified = 0;
 					
 					pl->es_add (&this->es);
 				}
@@ -63,6 +65,7 @@ namespace hCraft {
 					return true;
 				}
 			
+			int blocks;
 			if (data->cont)
 				{
 					std::vector<vector3>& points = data->points;
@@ -74,12 +77,27 @@ namespace hCraft {
 						}
 					
 					if (points.size () == 1)
-						es.set (marked[0].x, marked[0].y, marked[0].z, data->bl.id, data->bl.meta);
+						{
+							es.set (marked[0].x, marked[0].y, marked[0].z, data->bl.id, data->bl.meta);
+							data->modified = 1;
+						}
 					else
 						{
 							draw_ops draw (es);
+							int r;
 							for (int i = 0; i < ((int)points.size () - 1); ++i)
-								draw.draw_line (points[i], points[i + 1], data->bl);
+								{
+									r = draw.draw_line (points[i], points[i + 1], data->bl);
+									if (r == -1 || ((data->modified + (r - 1)) > pl->get_rank ().fill_limit ()))
+										{
+											pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
+											pl->es_remove (&data->es);
+											pl->delete_data ("line");
+											return true;
+										}
+								}
+							
+							data->modified += r - 1;
 						}
 					
 					es.preview_to (pl);
@@ -87,12 +105,21 @@ namespace hCraft {
 				}
 			
 			draw_ops draw (es);
-			draw.draw_line (marked[0], marked[1], data->bl);
+			blocks = draw.draw_line (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
+			if (blocks == -1)
+				{
+					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
+					pl->delete_data ("line");
+					return true;
+				}
 			es.commit ();
+			
+			std::ostringstream ss;
+			ss << "§7 | Line complete §f- §b" << blocks << " §7blocks modified";
+			pl->message (ss.str ());
 			
 			pl->es_remove (&data->es);
 			pl->delete_data ("line");
-			pl->message ("§3Line complete");
 			return true;
 		}
 		
@@ -143,8 +170,12 @@ namespace hCraft {
 			
 			pl->stop_marking ();
 			pl->es_remove (&data->es);
+			
+			std::ostringstream ss;
+			ss << "§7 | Line complete §f- §b" << data->modified << " §7blocks modified";
+			pl->message (ss.str ());
+			
 			pl->delete_data ("line");
-			pl->message ("§3Line complete");
 			return;
 		}
 		
@@ -197,14 +228,17 @@ namespace hCraft {
 				[] (void *ptr) { delete static_cast<line_data *> (ptr); });
 			pl->get_nth_marking_callback (do_cont ? 1 : 2) += on_blocks_marked;
 			
-			pl->message ("§8Line §7(§8Block§7: §b" + str + "§7):");
+			std::ostringstream ss;
+			ss << "§5Draw§f: §3" << (do_cont ? "continuous " : "")
+				 << "line §f[§7block§f: §8" << str << "§f]:";
+			pl->message (ss.str ());
 			if (do_cont)
 				{
-					pl->message ("§8 * §7Please mark the required points§8.");
-					pl->message ("§8 * §7Type §c/line stop §7to stop§8."); 
+					pl->message ("§7 | §ePlease mark the required points§f.");
+					pl->message ("§7 | §eType §c/line stop §eto stop§f."); 
 				}
 			else
-				pl->message ("§8 * §7Please mark §btwo §7blocks§7.");
+				pl->message ("§7 | §ePlease mark §btwo §eblocks§f.");
 		}
 	}
 }

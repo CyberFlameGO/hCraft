@@ -74,7 +74,7 @@ namespace hCraft {
 	};
 	
 	typedef void (*physics_block_callback)(world &w, int x, int y, int z,
-		int extra, std::minstd_rand& rnd);
+		int data, std::minstd_rand& rnd);
 	
 	struct physics_update	{
 		physics_update_type type;
@@ -85,7 +85,7 @@ namespace hCraft {
 				struct
 					{
 						int x, y, z;
-						int extra;
+						int data;
 						physics_block_callback cb;
 					} blk;
 				
@@ -104,7 +104,7 @@ namespace hCraft {
 		
 	//---
 		physics_update () { }
-		physics_update (world *w, int x, int y, int z, int extra, int tick,
+		physics_update (world *w, int x, int y, int z, int data, int tick,
 			std::chrono::steady_clock::time_point nt, physics_block_callback cb = nullptr);
 		physics_update (world *w, int eid, bool persistent, int tick,
 			std::chrono::steady_clock::time_point nt);
@@ -222,7 +222,7 @@ namespace hCraft {
 		/* 
 		 * Queues an update to be processed by one of the workers:
 		 */
-		void queue_physics (world *w, int x, int y, int z, int extra = 0,
+		void queue_physics (world *w, int x, int y, int z, int data = 0,
 			int tick_delay = 20, physics_params *params = nullptr,
 			physics_block_callback cb = nullptr);
 		
@@ -230,7 +230,7 @@ namespace hCraft {
 		 * Queues an update only if one with the same xyz coordinates does not
 		 * already exist.
 		 */
-		void queue_physics_once (world *w, int x, int y, int z, int extra = 0,
+		void queue_physics_once (world *w, int x, int y, int z, int data = 0,
 			int tick_delay = 20, physics_params *params = nullptr,
 			physics_block_callback cb = nullptr);
 		

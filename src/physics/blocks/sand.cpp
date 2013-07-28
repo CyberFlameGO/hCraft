@@ -25,15 +25,15 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		sand::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		sand::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (y <= 0)
 				{ w.queue_update (x, y, z, BT_AIR); return; }
-			if (w.get_final_block (x, y, z).id != BT_SAND)
+			if (w.get_id (x, y, z) != BT_SAND)
 				return;
 		
-			int below = w.get_final_block (x, y - 1, z).id;
+			int below = w.get_id (x, y - 1, z);
 			if (below == BT_AIR)
 				{
 					w.queue_update (x, y, z, BT_AIR);
@@ -41,22 +41,22 @@ namespace hCraft {
 				}
 			else
 				{
-					if (w.get_final_block (x - 1, y - 1, z).id == BT_AIR && w.get_final_block (x - 1, y, z).id == BT_AIR)
+					if (w.get_id (x - 1, y - 1, z) == BT_AIR && w.get_id (x - 1, y, z) == BT_AIR)
 						{
 							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x - 1, y - 1, z, BT_SAND);
 						}
-					else if (w.get_final_block (x + 1, y - 1, z).id == BT_AIR && w.get_final_block (x + 1, y, z).id == BT_AIR)
+					else if (w.get_id (x + 1, y - 1, z) == BT_AIR && w.get_id (x + 1, y, z) == BT_AIR)
 						{
 							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x + 1, y - 1, z, BT_SAND);
 						}
-					else if (w.get_final_block (x, y - 1, z - 1).id == BT_AIR && w.get_final_block (x, y, z - 1).id == BT_AIR)
+					else if (w.get_id (x, y - 1, z - 1) == BT_AIR && w.get_id (x, y, z - 1) == BT_AIR)
 						{
 							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x, y - 1, z - 1, BT_SAND);
 						}
-					else if (w.get_final_block (x, y - 1, z + 1).id == BT_AIR && w.get_final_block (x, y, z + 1).id == BT_AIR)
+					else if (w.get_id (x, y - 1, z + 1) == BT_AIR && w.get_id (x, y, z + 1) == BT_AIR)
 						{
 							w.queue_update (x, y, z, BT_AIR);
 							w.queue_update (x, y - 1, z + 1, BT_SAND);

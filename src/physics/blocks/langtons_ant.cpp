@@ -27,13 +27,13 @@ namespace hCraft {
 		
 		static inline bool
 		queue_update_if_empty (world &w, int x, int y, int z, unsigned short id,
-			unsigned char meta, int extra)
+			unsigned char meta, int data)
 		{
 			int prev_id = w.get_final_block (x, y, z).id;
 			if (prev_id != BT_AIR)
 				return false;
 			
-			w.queue_update (x, y, z, id, meta, extra);
+			w.queue_update (x, y, z, id, meta, 0, data);
 			return true;
 		}
 		
@@ -100,7 +100,7 @@ namespace hCraft {
 		
 		
 		void
-		langtons_ant::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		langtons_ant::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (y == 0)
@@ -115,13 +115,13 @@ namespace hCraft {
 			w.queue_update (x, y - 1, z, BT_WOOL, wool_from_color (next_col));
 			w.queue_update (x, y, z, BT_AIR);
 			
-			int next_dir = rotate (extra, direction_from_color (next_col));
+			int next_dir = rotate (data, direction_from_color (next_col));
 			switch (next_dir)
 				{
-					case 0: queue_update_if_empty (w, x + 1, y, z, BT_MOSSY_COBBLE, 0, (int)next_dir); break;
-					case 1: queue_update_if_empty (w, x, y, z + 1, BT_MOSSY_COBBLE, 0, (int)next_dir); break;
-					case 2: queue_update_if_empty (w, x - 1, y, z, BT_MOSSY_COBBLE, 0, (int)next_dir); break;
-					case 3: queue_update_if_empty (w, x, y, z - 1, BT_MOSSY_COBBLE, 0, (int)next_dir); break;
+					case 0: queue_update_if_empty (w, x + 1, y, z, BT_LANGTONS_ANT, 0, (int)next_dir); break;
+					case 1: queue_update_if_empty (w, x, y, z + 1, BT_LANGTONS_ANT, 0, (int)next_dir); break;
+					case 2: queue_update_if_empty (w, x - 1, y, z, BT_LANGTONS_ANT, 0, (int)next_dir); break;
+					case 3: queue_update_if_empty (w, x, y, z - 1, BT_LANGTONS_ANT, 0, (int)next_dir); break;
 				}
 		}
 	}

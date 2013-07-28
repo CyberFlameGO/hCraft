@@ -978,7 +978,7 @@ namespace hCraft {
 			.run_forever (1 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::save_worlds, this)
-			.run_forever (5 * 60 * 1000);
+			.run_forever (5 * 60 * 1000, 50 * 60 * 1000);
 		
 		// create pooled threads
 		this->tpool.start (6);
@@ -1053,6 +1053,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "say");
 		_add_command (this->perms, this->commands, "block-physics");
 		_add_command (this->perms, this->commands, "wconfig");
+		_add_command (this->perms, this->commands, "block-type");
 	}
 	
 	void
@@ -1112,7 +1113,8 @@ namespace hCraft {
 		grp_designer->add ("command.draw.select");
 		grp_designer->add ("command.draw.fill");
 		grp_designer->add ("command.draw.sphere");
-		grp_designer->add ("command.world.bp");
+		grp_designer->add ("command.world.block-physics");
+		grp_designer->add ("command.world.block-type");
 		grp_designer->msuffix = "§f:";
 		grp_designer->fill_limit = 8000;
 		grp_designer->select_limit = 8000;

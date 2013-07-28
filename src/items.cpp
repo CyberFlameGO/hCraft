@@ -137,8 +137,18 @@ namespace hCraft {
 				case IT_SHEARS:
 					return true;
 				
-				default: return false;
+				default:
+					return false;
 			}
+	}
+	
+	/* 
+	 * Checks whether the specified ID is that of an armor piece.
+	 */
+	bool
+	item_info::is_armor (unsigned short id)
+	{
+		return (id >= 0x12A && id <= 0x13D);
 	}
 }
 

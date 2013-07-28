@@ -22,82 +22,63 @@
 #include "stringutils.hpp"
 #include "server.hpp"
 #include "physics/physics.hpp"
+#include "cistring.hpp"
 #include <sstream>
+#include <unordered_map>
 
 
 namespace hCraft {
 	namespace commands {
 		
+		static int
+		_extra_from_string (const std::string& str)
+		{
+			static std::unordered_map<cistring, int> _map {
+				{ "door", BE_DOOR },
+			};
+			
+			auto itr = _map.find (str.c_str ());
+			if (itr == _map.end ())
+				return -1;
+			return itr->second;
+		}
+		
 		/* 
-		 * /block-physics -
+		 * /block-type -
 		 * 
-		 * Modifies physics properties for individual blocks.
+		 * Modifies the type of a selected block.
 		 * 
 		 * Permissions:
-		 *   - command.world.block-physics
+		 *   - command.world.block-type
 		 *       Needed to execute the command.
 		 */
 		void
-		c_block_physics::execute (player *pl, command_reader& reader)
+		c_block_type::execute (player *pl, command_reader& reader)
 		{
 			if (!pl->perm (this->get_exec_permission ()))
 				return;
 			
-			reader.add_option ("tick-rate", "t", true, true);
-			reader.add_option ("expire", "e", true, true);
 			if (!reader.parse (this, pl))
 				return;
-			if (reader.no_args ())
+			if (reader.arg_count () != 1)
 				{
-					pl->message ("§c * §7Usage§f: §e/bp §cphysics-string");
+					pl->message ("§c * §7Usage§f: §e/bt §ctype");
 					return;
 				}
-			
-			int tick_rate = 250;
-			auto opt_tick_rate = reader.opt ("tick-rate");
-			if (opt_tick_rate->found ())
-				{
-					auto &arg = opt_tick_rate->arg (0);
-					if (!arg.is_int ())
-						{
-							pl->message ("§c * §7Argument to §c\\tick-rate §7option must be an integer§c.");
-							return;
-						}
-					
-					tick_rate = arg.as_int ();
-				}
-			tick_rate /= 50; 
-			
-			int expire = (-1) * 50;
-			auto opt_expire = reader.opt ("expire");
-			if (opt_expire->found ())
-				{
-					auto &arg = opt_tick_rate->arg (0);
-					if (!arg.is_int ())
-						{
-							pl->message ("§c * §7Argument to §c\\expire §7option must be an integer§c.");
-							return;
-						}
-					
-					expire = arg.as_int ();
-				}
-			expire /= 50; 
-			
 			
 			if (pl->selections.empty ())
 				{ pl->message ("§c * §7You§f'§7re not selecting anything§f."); return; }
 			world_selection *sel = pl->curr_sel;
 			world *w = pl->get_world ();
 			
-			// build our physics_params object
-			std::string phy_str = reader.rest ();
-			physics_params params;
-			if (!physics_params::build (phy_str, params, expire))
+			std::string& tstr = reader.arg (0);
+			int ex = _extra_from_string (tstr);
+			if (ex == -1)
 				{
-					pl->message ("§c * §7Invalid physics string§c.");
+					pl->message ("§c * §7Invalid block type§f: §c" + tstr);
 					return;
 				}
-				
+			
 			int blocks = 0;
 			
 			block_pos smin = sel->min (), smax = sel->max ();
@@ -115,7 +96,7 @@ namespace hCraft {
 									int id = w->get_id (x, y, z);
 									if (id != BT_AIR)
 										{
-											w->queue_physics (x, y, z, 0, nullptr, tick_rate, &params, nullptr);
+											w->set_extra (x, y, z, ex);
 											++ blocks;
 										}
 								}

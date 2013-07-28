@@ -29,7 +29,7 @@ namespace hCraft {
 		class firework: public physics_block
 		{
 		public:
-			virtual int  id () override { return 2003; }
+			virtual int  id () override { return BT_FIREWORK; }
 			virtual blocki vanilla_block () override { return BT_IRON_BLOCK; }
 			virtual int  tick_rate () override { return -1; }
 			virtual const char* name () { return "firework"; }
@@ -43,13 +43,13 @@ namespace hCraft {
 		class firework_rocket: public physics_block
 		{
 		public:
-			virtual int  id () override { return 2004; }
+			virtual int  id () override { return BT_FIREWORK_ROCKET; }
 			virtual blocki vanilla_block () override { return BT_IRON_BLOCK; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "firework-rocket"; }
 			
 			
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 			virtual void on_modified (world &w, int x, int y, int z) override;
 		};

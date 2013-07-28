@@ -29,13 +29,13 @@ namespace hCraft {
 		class c235: public physics_block
 		{
 		public:
-			virtual int  id () override { return 45; }
+			virtual int  id () override { return BT_BRICKS; }
 			virtual blocki vanilla_block () override { return BT_BRICKS; }
 			virtual int  tick_rate () override { return 40; }
 			virtual const char* name () { return "c235"; }
 			virtual bool affected_by_neighbours () { return true; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 			virtual void on_neighbour_modified (world &w, int x, int y, int z,
 				int nx, int ny, int nz) override;

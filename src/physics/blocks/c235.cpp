@@ -58,14 +58,14 @@ namespace hCraft {
 		
 		/*
 		static void
-		_air_agent (world &w, int x, int y, int z, int extra, std::minstd_rand& rnd)
+		_air_agent (world &w, int x, int y, int z, int data, std::minstd_rand& rnd)
 		{
 			
 		}
 		*/
 		
 		void
-		c235::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		c235::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (w.get_id (x, y, z) != 45)

@@ -33,6 +33,7 @@ hCraft_sources = Split("""
 		generator.cpp
 		config.cpp
 		world_list.cpp
+		noise.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -46,6 +47,8 @@ hCraft_sources = Split("""
 		generation/plains.cpp
 		generation/overhang.cpp
 		generation/flatplains.cpp
+		generation/d3_normal.cpp
+		generation/experiment.cpp
 		generation/detail/trees.cpp
 		
 		commands/command.cpp
@@ -83,6 +86,7 @@ hCraft_sources = Split("""
 		commands/say.cpp
 		commands/bp.cpp
 		commands/wconfig.cpp
+		commands/bt.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

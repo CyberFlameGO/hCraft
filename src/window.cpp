@@ -19,8 +19,11 @@
 #include "window.hpp"
 #include "player.hpp"
 #include "packet.hpp"
+#include "items.hpp"
 #include <mutex>
 #include <algorithm>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -349,6 +352,58 @@ namespace hCraft {
 			}
 		
 		return removed;
+	}
+	
+	
+	
+	/* 
+	 * Returns a pair of two integers that describe the range of slots where
+	 * the item at the specified slot should be moved to when shift clicked.
+	 */
+	std::pair<int, int>
+	inventory::shift_range (int slot)
+	{
+		if (slot >= 36 && slot <= 44)
+			return std::make_pair (9, 35);
+		else if (slot >= 9 && slot <= 35)
+			return std::make_pair (36, 44);
+		else if (slot >= 0 && slot <= 4)
+			return std::make_pair (44, 9);
+		else if (slot >= 5 && slot <= 8)
+			return std::make_pair (9, 44);
+		return std::make_pair (-1, -1);
+	}
+	
+	/* 
+	 * Hotbar slot range
+	 */
+	std::pair<int, int>
+	inventory::hotbar_range ()
+	{
+		return std::make_pair (36, 44);
+	}
+	
+	/* 
+	 * Returns true if players can place the given item at the specified.
+	 */
+	bool
+	inventory::can_place_at (int slot, slot_item& item)
+	{
+		if (slot < 0 || slot > 44)
+			return false;
+		
+		// crafting slot
+		if (slot == 0)
+			return false;
+		
+		if (slot >= 5 && slot <= 8)
+			{
+				// armor slots
+				if (!item_info::is_armor (item.id ()))
+					return false;
+			}
+		
+		return true;
 	}
 }
 

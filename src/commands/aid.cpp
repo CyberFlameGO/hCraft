@@ -54,7 +54,11 @@ namespace hCraft {
 						{
 							block_pos pos = pl->pos;
 							if (pl->mark_block (pos.x, pos.y, pos.z))
-								pl->message ("§8Block marked");
+								{
+									std::ostringstream ss;
+									ss << "§7 | {§8" << pos.x << "§7, §8" << pos.y << "§7, §8" << pos.z << "§7} has been marked.";
+									pl->message (ss.str ());
+								}
 							else
 								pl->message ("§c * §7Nothing to mark");
 							return;

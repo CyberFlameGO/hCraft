@@ -295,6 +295,11 @@ namespace hCraft {
 		 * (Anything that has a durability bar is considered a tool (except armor))
 		 */
 		static bool is_tool (unsigned short id);
+		
+		/* 
+		 * Checks whether the specified ID is that of an armor piece.
+		 */
+		static bool is_armor (unsigned short id);
 	};
 }
 

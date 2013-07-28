@@ -29,24 +29,24 @@ namespace hCraft {
 		class water_sponge: public physics_block
 		{
 		public:
-			virtual int  id () override { return 2001; }
+			virtual int  id () override { return BT_WATER_SPONGE; }
 			virtual blocki vanilla_block () override { return BT_SPONGE; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "water-sponge"; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 		};
 		
 		class water_sponge_agent: public physics_block
 		{
 		public:
-			virtual int  id () override { return 2002; }
+			virtual int  id () override { return BT_WATER_SPONGE_AGENT; }
 			virtual blocki vanilla_block () override { return BT_AIR; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "water-sponge-agent"; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 		};
 	}

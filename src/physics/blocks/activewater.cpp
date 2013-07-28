@@ -25,7 +25,7 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		active_water::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		active_water::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (w.get_final_block (x, y, z).id != this->id ())

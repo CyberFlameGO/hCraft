@@ -29,13 +29,13 @@ namespace hCraft {
 		class sand: public physics_block
 		{
 		public:
-			virtual int  id () override { return 12; }
+			virtual int  id () override { return BT_SAND; }
 			virtual blocki vanilla_block () override { return BT_SAND; }
 			virtual int  tick_rate () override { return 3; }
 			virtual const char* name () { return "sand"; }
 			virtual bool affected_by_neighbours () { return true; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 			virtual void on_neighbour_modified (world &w, int x, int y, int z,
 				int nx, int ny, int nz) override;

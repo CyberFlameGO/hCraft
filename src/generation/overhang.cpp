@@ -176,6 +176,26 @@ namespace hCraft {
 	}
 	
 	
+	void
+	overhang_world_generator::seed (long new_seed)
+	{
+		this->gen_seed = new_seed;
+		this->gen_oak_trees.seed (new_seed + 1);
+		this->gen_birch_trees.seed (new_seed + 2);
+		this->gen_palm_trees.seed (new_seed + 3);
+		this->gen_pine_trees.seed (new_seed + 4);
+		
+		// REV #03
+		this->pn1.SetSeed (new_seed & 0x7FFFFFFF);
+		this->pn2.SetSeed ((new_seed + 1) & 0x7FFFFFFF);
+		this->pn3.SetSeed ((new_seed + 2) & 0x7FFFFFFF);
+		this->pn5.SetSeed ((new_seed + 4) & 0x7FFFFFFF);
+		this->pn6.SetSeed ((new_seed + 5) & 0x7FFFFFFF);
+		this->pn_sand.SetSeed ((new_seed + 3) & 0x7FFFFFFF);
+		this->pn_foliage.SetSeed ((new_seed + 4) & 0x7FFFFFFF);
+	}
+	
+	
 	
 #define OFFSET_LEVEL 60
 #define WATER_LEVEL  55

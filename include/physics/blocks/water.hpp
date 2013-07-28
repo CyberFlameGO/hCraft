@@ -29,12 +29,12 @@ namespace hCraft {
 		class water: public physics_block
 		{
 		public:
-			virtual int  id () override { return 8; }
+			virtual int  id () override { return BT_WATER; }
 			virtual blocki vanilla_block () override { return BT_WATER; }
 			virtual const char* name () { return "water"; }
 			virtual int  tick_rate () override { return 5; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 		};
 	}

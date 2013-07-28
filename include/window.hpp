@@ -98,6 +98,7 @@ namespace hCraft {
 		void unsubscribe_all ();
 		
 		
+		
 		/* 
 		 * Sends queued slot updates to all subscribers.
 		 */
@@ -111,10 +112,7 @@ namespace hCraft {
 		
 		
 	//----
-		/* 
-		 * Derived methods:
-		 */
-		
+    
 		/* 
 		 * Sets the slot located at @{index} to @{item}.
 		 */
@@ -141,6 +139,24 @@ namespace hCraft {
 		 * Clears out all slots in this window.
 		 */
 		virtual void clear ();
+		
+		
+		
+		/* 
+		 * Returns a pair of two integers that describe the range of slots where
+		 * the item at the specified slot should be moved to when shift clicked.
+		 */
+		virtual std::pair<int, int> shift_range (int slot) = 0;
+		
+		/* 
+		 * Hotbar slot range.
+		 */
+		virtual std::pair<int, int> hotbar_range () = 0;
+		
+		/* 
+		 * Returns true if players can place the given item at the specified 
+		 */
+		virtual bool can_place_at (int slot, slot_item& item) { return true; }
 	};
 	
 	
@@ -176,6 +192,24 @@ namespace hCraft {
 		 * Returns the number of items removed.
 		 */
 		virtual int remove (const slot_item& item, bool update = true) override;
+		
+		
+		
+		/* 
+		 * Returns a pair of two integers that describe the range of slots where
+		 * the item at the specified slot should be moved to when shift clicked.
+		 */
+		virtual std::pair<int, int> shift_range (int slot) override;
+		
+		/* 
+		 * Hotbar slot range.
+		 */
+		virtual std::pair<int, int> hotbar_range () override;
+		
+		/* 
+		 * Returns true if players can place the given item at the specified slot.
+		 */
+		virtual bool can_place_at (int slot, slot_item& item) override;
 	};
 }
 

@@ -62,7 +62,7 @@ namespace hCraft {
 		/* 
 		 * Called every "tick_rate ()" milliseconds by the world's physics loop.
 		 */
-		virtual void tick (world &w, int x, int y, int z, int extra,
+		virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) { }
 		
 		/* 

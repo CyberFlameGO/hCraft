@@ -29,12 +29,12 @@ namespace hCraft {
 		class langtons_ant: public physics_block
 		{
 		public:
-			virtual int  id () override { return 48; }
+			virtual int  id () override { return BT_LANGTONS_ANT; }
 			virtual blocki vanilla_block () override { return BT_MOSSY_COBBLE; }
 			virtual const char* name () { return "langtons-ant"; }
 			virtual int  tick_rate () override { return 1; }
 		
-			virtual void tick (world &w, int x, int y, int z, int extra,
+			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
 		};
 	}

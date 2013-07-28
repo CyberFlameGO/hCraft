@@ -81,8 +81,7 @@ namespace hCraft {
 		virtual long seed () override
 			{ return this->gen_seed; }
 		
-		virtual void seed (long new_seed) override
-			{ this->gen_seed = new_seed; }
+		virtual void seed (long new_seed);
 		
 		 
 		/* 

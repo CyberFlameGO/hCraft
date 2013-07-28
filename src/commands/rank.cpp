@@ -198,18 +198,16 @@ namespace hCraft {
 							{
 								group *main = new_rank.main ();
 								std::ostringstream ss;
-								ss << "§" << pinf.rnk.main ()->color << pinf.nick <<
-									" §cis now a" << (is_vowel (main->name[0]) ? "n" : "")
-									<< " §" << main->color << main->name << "§c!";
+								ss << "§9 > §" << pinf.rnk.main ()->color << pinf.nick <<
+									"§7's rank has been set to" //<< (is_vowel (main->name[0]) ? "n" : "")
+									<< " §" << main->color << main->name << "§7!";
 								pl->get_server ().get_players ().message (ss.str ());
 							}
 					}
 				
 				{
 					std::ostringstream ss;
-					ss << "§" << new_rank.main ()->color << target_name << "'"
-						<< ((target_name[target_name.size () - 1] == 's') ? "" : "s")
-						<< " §7rank has been updated";
+					ss << "§7 | The database has been updated.";
 					pl->message (ss.str ());
 				}
 				

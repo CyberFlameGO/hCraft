@@ -57,15 +57,18 @@ namespace hCraft {
 		int x;
 		int y;
 		int z;
-		int extra;
-		void *ptr;
+		
 		unsigned short id;
 		unsigned char  meta;
+		int extra;
+		
 		player *pl; // the player that initated the update.
 		bool physics;
+		int data;
+		void *ptr;
 		
 		block_update (int x, int y, int z, unsigned short id, unsigned char meta,
-			int extra, void *ptr, player *pl, bool physics)
+			int extra, int data, void *ptr, player *pl, bool physics)
 		{
 			this->x = x;
 			this->y = y;
@@ -74,6 +77,7 @@ namespace hCraft {
 			this->meta = meta;
 			this->pl = pl;
 			this->extra = extra;
+			this->data = data;
 			this->ptr = ptr;
 			this->physics = physics;
 		}
@@ -354,11 +358,11 @@ namespace hCraft {
 		 */
 		
 		void queue_update (int x, int y, int z, unsigned short id,
-			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
+			unsigned char meta = 0, int extra = 0, int data = 0, void *ptr = nullptr,
 			player *pl = nullptr, bool physics = true);
 		
 		void queue_update_nolock (int x, int y, int z, unsigned short id,
-			unsigned char meta = 0, int extra = 0, void *ptr = nullptr,
+			unsigned char meta = 0, int extra = 0, int data = 0, void *ptr = nullptr,
 			player *pl = nullptr, bool physics = true);
 		
 		void queue_update (world_transaction *tr);

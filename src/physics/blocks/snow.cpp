@@ -25,7 +25,7 @@ namespace hCraft {
 	namespace physics {
 		
 		void
-		snow::tick (world &w, int x, int y, int z, int extra, void *ptr,
+		snow::tick (world &w, int x, int y, int z, int data, void *ptr,
 			std::minstd_rand& rnd)
 		{
 			if (y <= 0)

@@ -16,27 +16,45 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__PHYSICS__ACTIVEWATER_H_
-#define _hCraft__PHYSICS__ACTIVEWATER_H_
-
-#include "physics/blocks/physics_block.hpp"
+#ifndef _hCraft__NOISE_H_
+#define _hCraft__NOISE_H_
 
 
 namespace hCraft {
 	
-	namespace physics {
+	/* 
+	 * Our own noise functions.
+	 */
+	namespace noise {
 		
-		class active_water: public physics_block
-		{
-		public:
-			virtual int  id () override { return BT_ACTIVE_WATER; }
-			virtual blocki vanilla_block () override { return BT_STILL_WATER; }
-			virtual const char* name () { return "activewater"; }
-			virtual int  tick_rate () override { return 5; }
+		/* 
+		 * Linear interpolation.
+		 */
+		double lerp (double a, double b, double t);
 		
-			virtual void tick (world &w, int x, int y, int z, int data,
-				void *ptr, std::minstd_rand& rnd) override;
-		};
+		
+		/* 
+		 * Basic noise.
+		 */
+		double int_noise_1d (int seed, int n);
+		double int_noise_2d (int seed, int x, int y);
+		double int_noise_3d (int seed, int x, int y, int z);
+		
+		
+		
+		/* 
+		 * Perlin noise.
+		 */
+		double perlin_noise_2d (int seed, double x, double y);
+		double perlin_noise_3d (int seed, double x, double y, double z);
+		
+		
+		
+		/* 
+		 * Fractal noise.
+		 */
+		double fractal_noise_2d (int seed, double x, double y, int oct, double persist);
+		double fractal_noise_3d (int seed, double x, double y, double z, int oct, double persist);
 	}
 }
 

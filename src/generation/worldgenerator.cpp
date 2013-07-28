@@ -26,6 +26,8 @@
 #include "generation/plains.hpp"
 #include "generation/overhang.hpp"
 #include "generation/flatplains.hpp"
+#include "generation/d3_normal.hpp"
+#include "generation/experiment.hpp"
 
 
 namespace hCraft {
@@ -67,6 +69,14 @@ namespace hCraft {
 	create_flatplains (long seed)
 		{ return new flatplains_world_generator (seed); }
 	
+	static world_generator*
+	create_d3_normal (long seed)
+		{ return new d3_normal_world_generator (seed); }
+	
+	static world_generator*
+	create_experiment (long seed)
+		{ return new experiment_world_generator (seed); }
+	
 	
 	/* 
 	 * Finds and instantiates a new world generator from the given name.
@@ -79,6 +89,8 @@ namespace hCraft {
 				{ "plains", create_plains },
 				{ "overhang", create_overhang },
 				{ "flatplains", create_flatplains },
+				{ "d3-normal", create_d3_normal },
+				{ "experiment", create_experiment },
 			};
 		
 		auto itr = generators.find (name);

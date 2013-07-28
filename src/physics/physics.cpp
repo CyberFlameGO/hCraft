@@ -32,7 +32,7 @@
 
 namespace hCraft {
 	
-	physics_update::physics_update (world *w, int x, int y, int z, int extra, int tick,
+	physics_update::physics_update (world *w, int x, int y, int z, int data, int tick,
 		std::chrono::steady_clock::time_point nt, physics_block_callback cb)
 		: params (), nt (nt)
 	{
@@ -43,7 +43,7 @@ namespace hCraft {
 		this->data.blk.y = y;
 		this->data.blk.z = z;
 		this->data.blk.cb = cb;
-		this->data.blk.extra = extra;
+		this->data.blk.data = data;
 		this->tick = tick;
 		this->elapsed = 0;
 	}
@@ -386,14 +386,14 @@ namespace hCraft {
 								// does this block have a custom callback attached?
 								if (blk.cb)
 									{
-										blk.cb (*u.w, blk.x, blk.y, blk.z, blk.extra, rnd);
+										blk.cb (*u.w, blk.x, blk.y, blk.z, blk.data, rnd);
 									}
 								else
 									{
 										// nope, use the one associated with its ID
 										physics_block *pb = (u.w)->get_physics_at (blk.x, blk.y, blk.z);
 										if (pb)
-											pb->tick (*u.w, blk.x, blk.y, blk.z, blk.extra, nullptr, rnd);
+											pb->tick (*u.w, blk.x, blk.y, blk.z, blk.data, nullptr, rnd);
 									}
 							}
 						else if (u.type == PU_ENTITY)
@@ -542,7 +542,7 @@ namespace hCraft {
 	 */
 	void
 	physics_manager::queue_physics (world *w, int x, int y, int z,
-		int extra, int tick_delay, physics_params *params,
+		int data, int tick_delay, physics_params *params,
 		physics_block_callback cb)
 	{
 		//if (tick_delay == 0) tick_delay = 1;
@@ -551,7 +551,7 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->lock};
 		this->add_block_nolock (w, x, y, z);
 		
-		physics_update u (w, x, y, z, extra, tick_delay,
+		physics_update u (w, x, y, z, data, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
@@ -571,7 +571,7 @@ namespace hCraft {
 	 */
 	void
 	physics_manager::queue_physics_once (world *w, int x, int y, int z,
-		int extra, int tick_delay, physics_params *params,
+		int data, int tick_delay, physics_params *params,
 		physics_block_callback cb)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
@@ -582,7 +582,7 @@ namespace hCraft {
 		//-- tick_delay;
 		
 		this->add_block_nolock (w, x, y, z);
-		physics_update u (w, x, y, z, extra, tick_delay,
+		physics_update u (w, x, y, z, data, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
