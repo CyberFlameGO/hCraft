@@ -49,6 +49,8 @@ hCraft_sources = Split("""
 		generation/flatplains.cpp
 		generation/d3_normal.cpp
 		generation/experiment.cpp
+		generation/islands.cpp
+		
 		generation/detail/trees.cpp
 		
 		commands/command.cpp

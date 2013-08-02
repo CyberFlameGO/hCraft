@@ -28,8 +28,10 @@ namespace hCraft {
 	namespace dgen {
 		
 		/* 
-		 * Tree generator.
+		 * Tree generators.
 		 */
+		 
+		
 		class generic_trees: public detail_generator
 		{
 			blocki bl_trunk;
@@ -56,8 +58,44 @@ namespace hCraft {
 			std::minstd_rand rnd;
 			
 		public:
-			palm_trees (int min_height = 4, blocki bl_trunk = {BT_TRUNK, 3},
+			palm_trees (int min_height = 6, blocki bl_trunk = {BT_TRUNK, 3},
 				blocki bl_leaves = {BT_LEAVES});
+			
+			virtual void seed (long s);
+			virtual void generate (world &wr, int x, int y, int z);
+		};
+		
+		
+		class round_trees: public detail_generator
+		{
+			blocki bl_trunk;
+			blocki bl_leaves;
+			int min_height;
+			
+			std::minstd_rand rnd;
+			
+		public:
+			round_trees (int min_height = 4, blocki bl_trunk = {BT_TRUNK},
+				blocki bl_leaves = {BT_LEAVES});
+			
+			virtual void seed (long s);
+			virtual void generate (world &wr, int x, int y, int z);
+		};
+		
+		
+		class pine_trees: public detail_generator
+		{
+			blocki bl_trunk;
+			blocki bl_leaves;
+			int min_height;
+			int snow_prob;
+			
+			std::minstd_rand rnd;
+			
+		public:
+			// snow_prob = 0-100
+			pine_trees (int min_height = 7, int snow_prob = 0, blocki bl_trunk = {BT_TRUNK, 1},
+				blocki bl_leaves = {BT_LEAVES, 1});
 			
 			virtual void seed (long s);
 			virtual void generate (world &wr, int x, int y, int z);

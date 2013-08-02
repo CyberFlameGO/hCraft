@@ -92,6 +92,35 @@ namespace hCraft {
 			this->rnd.seed (s);
 		}
 		
+		
+		static inline void
+		_palm_advance (int& x, int& z, int dir)
+		{
+			switch (dir)
+				{
+					case 0: -- x; break;
+					case 1: ++ x; break;
+					case 2: -- z; break;
+					case 3: ++ z; break;
+				}
+		}
+		
+		static void
+		_palm_leaves (chunk_link_map& map, int x, int y, int z, int id, int meta, int dir)
+		{
+			++ y;
+			map.set (x, y, z, id, meta);
+			_palm_advance (x, z, dir);
+			
+			map.set (x, y, z, id, meta);
+			_palm_advance (x, z, dir);
+			
+			-- y;
+			map.set (x, y, z, id, meta);
+			_palm_advance (x, z, dir);
+		}
+		
+		
 		void
 		palm_trees::generate (world &wr, int x, int y, int z)
 		{
@@ -107,12 +136,150 @@ namespace hCraft {
 				return;
 		
 			// leaves
-			// TODO
+			map.set (x, tip + 1, z, this->bl_leaves.id, this->bl_leaves.meta);
+			_palm_leaves (map, x - 1, tip - 1, z, this->bl_leaves.id, this->bl_leaves.meta, 0);
+			_palm_leaves (map, x + 1, tip - 1, z, this->bl_leaves.id, this->bl_leaves.meta, 1);
+			_palm_leaves (map, x, tip - 1, z - 1, this->bl_leaves.id, this->bl_leaves.meta, 2);
+			_palm_leaves (map, x, tip - 1, z + 1, this->bl_leaves.id, this->bl_leaves.meta, 3);
 			
 			// trunk
 			for (int i = base; i <= tip; ++i)
 				map.set (x, i, z, this->bl_trunk.id, this->bl_trunk.meta);
 
+		}
+		
+		
+		
+//-----
+		
+		round_trees::round_trees (int min_height, blocki bl_trunk, blocki bl_leaves)
+			: bl_trunk (bl_trunk), bl_leaves (bl_leaves)
+		{
+			this->min_height = min_height; 
+			if (this->min_height < 1)
+				this->min_height = 1;
+		}
+		
+		
+		
+		void
+		round_trees::seed (long s)
+		{
+			this->rnd.seed (s);
+		}
+		
+		void
+		round_trees::generate (world &wr, int x, int y, int z)
+		{
+			auto& rnd = this->rnd;
+			std::uniform_int_distribution<> dis1 (0, 3), dis2 (0, 20);
+			
+			chunk_link_map map (wr, wr.get_chunk_at (x, z), x >> 4, z >> 4);
+			
+			int h = this->min_height + dis1 (rnd);
+			int base = y;
+		 	int tip  = y + h - 1;
+			if (base < 1 || tip > 255) 
+				return;
+		
+			// leaves
+			int rad = h / 2;
+			for (int xx = -rad; xx <= rad; ++xx)
+				for (int yy = -rad; yy <= rad; ++yy)
+					for (int zz = -rad; zz <= rad; ++zz)
+						{
+							if (xx*xx + yy*yy + zz*zz <= rad*rad)
+								{
+									if (dis2 (rnd) < 16)
+										map.set (x + xx, tip - (rad - 2) + yy, z + zz, this->bl_leaves.id, this->bl_leaves.meta);
+								}
+						}
+			
+			// trunk
+			for (int i = base; i <= tip; ++i)
+				map.set (x, i, z, this->bl_trunk.id, this->bl_trunk.meta);
+		}
+		
+		
+		
+//-----
+		
+		pine_trees::pine_trees (int min_height, int snow_prob, blocki bl_trunk, blocki bl_leaves)
+			: bl_trunk (bl_trunk), bl_leaves (bl_leaves)
+		{
+			this->min_height = min_height; 
+			if (this->min_height < 1)
+				this->min_height = 1;
+			
+			this->snow_prob = snow_prob;
+		}
+		
+		
+		
+		void
+		pine_trees::seed (long s)
+		{
+			this->rnd.seed (s);
+		}
+		
+		void
+		pine_trees::generate (world &wr, int x, int y, int z)
+		{
+			auto& rnd = this->rnd;
+			std::uniform_int_distribution<> dis1 (0, 3), dis2 (0, 20), dis3 (0, 99);
+			
+			chunk_link_map map (wr, wr.get_chunk_at (x, z), x >> 4, z >> 4);
+			
+			int h = this->min_height + dis1 (rnd);
+			int base = y;
+		 	int tip  = y + h - 1;
+			if (base < 1 || tip > 255) 
+				return;
+		
+			// leaves
+			int ch = h - 3;
+			float rr = (ch + 2) / 2, irr = rr;
+			for (int yy = base + 3; yy <= tip; ++yy)
+				{
+					int rad = (int)rr;
+					for (int xx = -rad; xx <= rad; ++xx)
+						for (int zz = -rad; zz <= rad; ++zz)
+							{
+								if (xx*xx + zz*zz <= rad*rad)
+									{
+										if (dis2 (rnd) > 2)
+											map.set (x + xx, yy, z + zz, this->bl_leaves.id, this->bl_leaves.meta);
+									}
+							}
+					rr -= 0.5;
+				}
+			map.set (x, tip + 1, z, this->bl_leaves.id, this->bl_leaves.meta);
+			map.set (x, tip + 2, z, this->bl_leaves.id, this->bl_leaves.meta);
+			
+			// cover with snow
+			if (this->snow_prob > 0)
+				{
+					for (int xx = -irr; xx <= irr; ++xx)
+						for (int zz = -irr; zz <= irr; ++zz)
+							{
+								if (xx*xx + zz*zz <= irr*irr)
+									{
+										for (int y = tip + 2; y >= base; --y)
+											{
+												if (map.get (xx + x, y, zz + z).id == BT_LEAVES)
+													{
+														if (dis3 (rnd) < this->snow_prob)
+															map.set (x + xx, y + 1, zz + z, BT_SNOW_COVER);
+														break;
+													}
+											}
+									}
+							}
+				}
+			
+			// trunk
+			for (int i = base; i <= tip; ++i)
+				map.set (x, i, z, this->bl_trunk.id, this->bl_trunk.meta);
 		}
 	}
 }

@@ -3097,6 +3097,7 @@ namespace hCraft {
 			return 0; // TODO: we currently only handle player inventory
 		
 		window *win = &pl->inv;
+		pl->log (LT_DEBUG) << "| Mode [" << (int)mode << "] Button [" << (int)button << "] Slot [" << slot << "]" << std::endl;
 		
 		switch (mode)
 			{
@@ -3120,7 +3121,7 @@ namespace hCraft {
 										if (!item.empty ())
 											{
 												// pick up entire stack
-												//pl->log (LT_DEBUG) << "Picking up entire stack at [" << slot << "]" << std::endl;
+												pl->log (LT_DEBUG) << "Picking up " << item.amount () << " of " << item.id () << " up from [" << slot << "]" << std::endl;
 												pl->cursor_slot.set (item);
 												item.clear ();
 											}
@@ -3142,7 +3143,7 @@ namespace hCraft {
 												else
 													item.give (take);
 												pl->cursor_slot.take (take);
-												//pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+												pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
 											}
 										else
 											{
@@ -3150,7 +3151,7 @@ namespace hCraft {
 												slot_item tmp = pl->cursor_slot;
 												pl->cursor_slot = item;
 												item = tmp;
-												//pl->log (LT_DEBUG) << "Swapping between [" << slot << "] and held item" << std::endl;
+												pl->log (LT_DEBUG) << "Swapping between [" << slot << "] and held item" << std::endl;
 											}
 									}
 							}
@@ -3166,7 +3167,7 @@ namespace hCraft {
 												pl->cursor_slot.set (item);
 												pl->cursor_slot.take (item.amount () - take);
 												item.take (take);
-												//pl->log (LT_DEBUG) << "Halving: Picking up " << take << " [leaving " << item.amount () << "]" << std::endl;
+												pl->log (LT_DEBUG) << "Halving: Picking up " << take << " [leaving " << item.amount () << "]" << std::endl;
 											}
 									}
 								else
@@ -3187,7 +3188,7 @@ namespace hCraft {
 														else
 															item.give (1);
 														pl->cursor_slot.take (1);
-														//pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+														pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
 													}
 											}
 									}
@@ -3218,7 +3219,7 @@ namespace hCraft {
 						if (range.first == -1 || range.second == -1)
 							break;
 							
-						//pl->log (LT_DEBUG) << "Shifting [" << slot << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
+						pl->log (LT_DEBUG) << "Shifting [" << slot << " of type " << item.id () << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
 						
 						// we perform two passes - try items with matching IDs first, and
 						// then finally try empty slots too.
@@ -3226,16 +3227,17 @@ namespace hCraft {
 						for (int j = 0; j < 2; ++j)
 							{
 								int i, a = (range.first < range.second) ? 1 : -1;
-								for (i = range.first; i != range.second && !item.empty (); i += a)
+								for (i = range.first; i != (range.second + a) && !item.empty (); i += a)
 									{
 										slot_item& sl = win->get (i);
-										if (first_pass ? ((item.id () == sl.id ()) && (item.damage () == sl.damage ())) : sl.compatible_with (item))
+										if (first_pass ? (item.id () == sl.id ()) : sl.compatible_with (item))
 											{
+												//pl->log (LT_DEBUG) << "Trying [" << i << "]: yes" << std::endl;
 												int take = item.amount ();
 												if (sl.amount () + take > sl.max_stack ())
 													take = sl.max_stack () - sl.amount ();
-										
-												//pl->log (LT_DEBUG) << "  Adding " << take << " to [" << i << "] [of type: " << sl.id () << "]" << std::endl;
+												
+												int dbg_then = sl.amount ();
 												if (sl.empty ())
 													{
 														sl.set (item);
@@ -3244,13 +3246,17 @@ namespace hCraft {
 												else
 													sl.give (take);
 												item.take (take);
+												
+												pl->log (LT_DEBUG) << "  Adding " << take << " to [" << i << "] [of type: " << sl.id () << "] [then: " << dbg_then << "] [now: " << sl.amount () << "]" << std::endl;
 											}
-									}
+										//else
+										//	pl->log (LT_DEBUG) << "Trying [" << i << "]: nope (" << sl.id () << ") (our: " << item.id () <<  << std::endl;
+									} 
 								
 								first_pass = false;
 							}
 						
-						//pl->log (LT_DEBUG) << "  Done, " << item.amount () << " left" << std::endl;
+						pl->log (LT_DEBUG) << "  Done, " << item.amount () << " left" << std::endl;
 						break;
 					}
 				
@@ -3288,7 +3294,7 @@ namespace hCraft {
 						slot_item tmp = win->get (dest_pos);
 						win->set (dest_pos, item, false);
 						win->set (slot, tmp, false);
-						//pl->log (LT_DEBUG) << "Swapped between [" << slot << "] and [" << dest_pos << "]" << std::endl;
+						pl->log (LT_DEBUG) << "Swapped between [" << slot << "] and [" << dest_pos << "]" << std::endl;
 						break;
 					}
 				
@@ -3382,7 +3388,7 @@ namespace hCraft {
 									return -1;
 								pl->inv_painting = false;
 								
-								//pl->log (LT_DEBUG) << "End inventory paint [mouse: " << ((pl->inv_mb == 0) ? "left" : "right") << "]" << std::endl;
+								pl->log (LT_DEBUG) << "End inventory paint [mouse: " << ((pl->inv_mb == 0) ? "left" : "right") << "]" << std::endl;
 								if (!pl->inv_paint_slots.empty ())
 									{
 										int give = (pl->inv_mb == 1) ? 1
@@ -3402,17 +3408,17 @@ namespace hCraft {
 														if ((prev.id () != BT_AIR) && ((prev.amount () + this_give) > prev.max_stack ()))
 															this_give = prev.max_stack () - prev.amount ();
 														
-														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - this_give);
-														
 														int p_amount = prev.amount ();
 														if (prev.empty ())
 															prev.set (pl->cursor_slot);
 														prev.set_amount (p_amount + this_give);
-														//pl->log (LT_DEBUG) << "  " << this_give << " added to [" << s << "]" << std::endl;
+														pl->cursor_slot.set_amount (pl->cursor_slot.amount () - this_give);
+														
+														pl->log (LT_DEBUG) << "  " << this_give << " added to [" << s << "]" << std::endl;
 													}
 											}
 									}
-								//pl->log (LT_DEBUG) << "  " << pl->cursor_slot.amount () << " left in hand" << std::endl;
+								pl->log (LT_DEBUG) << "  " << pl->cursor_slot.amount () << " left in hand" << std::endl;
 								break;
 						}
 					break;
@@ -3422,8 +3428,34 @@ namespace hCraft {
 				 *   button 0 = double click
 				 */
 				case 6:
+					if (slot < 0 || slot >= win->slot_count ())
+						{
+							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+								<< "\" tried to use a slot outside of window." << std::endl;
+							return -1;
+						}
 					if (button == 0)
-						; // does nothing
+						{
+							if (pl->cursor_slot.empty ())
+								break;
+							
+							int scount = win->slot_count ();
+							for (int i = 0; i < scount && !pl->cursor_slot.full (); ++i)
+								{
+									slot_item& sl = win->get (i);
+									if (sl.compatible_with (pl->cursor_slot))
+										{
+											int take = pl->cursor_slot.max_stack () - pl->cursor_slot.amount ();
+											if (take > sl.amount ())
+												take = sl.amount ();
+											
+											pl->cursor_slot.give (take);
+											sl.take (take);
+										}
+								}
+							
+							pl->log (LT_DEBUG) << "Double click [collected " << pl->cursor_slot.amount () << " items]" << std::endl;
+						}
 					break;
 			}
 		
@@ -3470,7 +3502,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		pl->inv.set (index, item);
+		pl->inv.set (index, item, false);
 		return 0;
 	}
 	

@@ -33,6 +33,8 @@ namespace hCraft {
 		std::minstd_rand rnd;
 		long gen_seed;
 		
+		biome_selector biome_gen;
+		
 	public:
 		/* 
 		 * Constructs a new "experiment" world generator.
@@ -46,8 +48,7 @@ namespace hCraft {
 		virtual long seed () override
 			{ return this->gen_seed; }
 		
-		virtual void seed (long new_seed) override
-			{ this->gen_seed = new_seed; }
+		virtual void seed (long new_seed) override;
 		
 		
 		/* 

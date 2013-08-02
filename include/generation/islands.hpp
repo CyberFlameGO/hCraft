@@ -16,46 +16,50 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__NOISE_H_
-#define _hCraft__NOISE_H_
+#ifndef _hCraft__WORLDGENERATOR__ISLANDS_H_
+#define _hCraft__WORLDGENERATOR__ISLANDS_H_
+
+#include "worldgenerator.hpp"
+#include "generation/detail/trees.hpp"
+#include <noise/noise.h>
 
 
 namespace hCraft {
 	
 	/* 
-	 * Our own noise functions.
+	 * Islands generator.
 	 */
-	namespace h_noise {
+	class islands_world_generator: public world_generator
+	{
+		long gen_seed;
 		
+		noise::module::Perlin pn;
+		dgen::palm_trees tree_gen;
+		
+	public:
 		/* 
-		 * Linear interpolation.
+		 * Constructs a new island world generator.
 		 */
-		double lerp (double a, double b, double t);
-		
-		
-		/* 
-		 * Basic noise.
-		 */
-		double int_noise_1d (int seed, int n);
-		double int_noise_2d (int seed, int x, int y);
-		double int_noise_3d (int seed, int x, int y, int z);
-		
+		islands_world_generator (long seed);
 		
 		
 		/* 
-		 * Perlin noise.
+		 * Returns the name of this generator.
 		 */
-		double perlin_noise_2d (int seed, double x, double y);
-		double perlin_noise_3d (int seed, double x, double y, double z);
+		virtual const char* name ()
+			{ return "islands"; }
 		
+		virtual long seed () override
+			{ return this->gen_seed; }
+		
+		virtual void seed (long new_seed) override;
 		
 		
 		/* 
-		 * Fractal noise.
+		 * Generates on the specified chunk.
 		 */
-		double fractal_noise_2d (int seed, double x, double y, int oct, double persist);
-		double fractal_noise_3d (int seed, double x, double y, double z, int oct, double persist);
-	}
+		virtual void generate (world& wr, chunk *out, int cx, int cz);
+	};
 }
 
 #endif

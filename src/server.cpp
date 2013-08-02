@@ -1271,7 +1271,7 @@ namespace hCraft {
 				// main world does not exist
 				log () << " - Main world does not exist, creating..." << std::endl;
 				main_world = new world (WT_NORMAL, *this, this->get_config ().main_world, this->log, 
-					world_generator::create ("overhang"),
+					world_generator::create ("experiment"),
 					world_provider::create ("hw", "data/worlds", this->get_config ().main_world));
 				main_world->set_size (192, 192);
 				main_world->prepare_spawn (15, true);

@@ -20,6 +20,8 @@
 #define _hCraft__WORLDGENERATOR_H_
 
 #include "chunk.hpp"
+#include <vector>
+#include <random>
 
 
 namespace hCraft {
@@ -64,6 +66,84 @@ namespace hCraft {
 		
 		virtual void seed (long s) { };
 		virtual void generate (world &wr, int x, int y, int z) = 0;
+	};
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	class biome_generator
+	{
+	public:
+		virtual ~biome_generator () { }
+		
+		// used by three-dimensional generators
+		virtual bool is_3d () = 0;
+		virtual int min_y () { return 0; }
+		virtual int max_y () { return 0; }
+		
+		virtual void seed (long s) { }
+		virtual double generate (int x, int y, int z) = 0;
+		virtual void decorate (world &w, chunk *ch, int x, int z, std::minstd_rand& rnd) = 0;
+	};
+	
+	
+	
+	struct biome_info
+	{
+		biome_generator *bgen;
+		
+		double start;
+		double end;
+	};
+	
+	class biome_selector
+	{
+		int water_level;
+		std::vector<biome_info> biomes;
+		double edge_falloff;
+		long gen_seed;
+		bool bedrock;
+		
+		double next_start;
+		
+	private:
+		biome_generator* find_biome (double t);
+		
+		// these functions assume that the user knows what type of biome they're
+		// currently in (2d or 3d).
+		double get_value_2d (double x, double z);
+		double get_value_3d (double x, double y, double z);
+		
+	public:
+		/* 
+		 * Constructs a new biome selector with the specified default water level.
+		 */
+		biome_selector (int water_level = 64, bool bedrock = true, double edge_falloff = 0.85);
+		
+		/* 
+		 * Destroys all biome generators held by the selector.
+		 */
+		~biome_selector ();
+		
+		
+		
+		/* 
+		 * Inserts a new biome with the specified occurrence rate (percentage, %0-%100).
+		 */
+		void add (biome_generator *bgen, double occurrence);
+		
+		
+		
+		/* 
+		 * Uses the selector's biomes to generate terrain on the given chunk.
+		 */
+		void generate (world &w, chunk *ch, int cx, int cz);
+		
+		/* 
+		 * Seeds the internal generators used by the biome selector.
+		 */
+		void seed (long seed);
 	};
 }
 

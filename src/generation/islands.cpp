@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "generation/plains.hpp"
+#include "generation/islands.hpp"
 #include "blocks.hpp"
 #include <random>
 
@@ -24,18 +24,26 @@
 namespace hCraft {
 	
 	/* 
-	 * Constructs a new plains world generator.
+	 * Constructs a new islands world generator.
 	 */
-	plains_world_generator::plains_world_generator (long seed)
+	islands_world_generator::islands_world_generator (long seed)
+	{
+		this->seed (seed);
+	}
+	
+	
+	
+	void
+	islands_world_generator::seed (long seed)
 	{
 		this->gen_seed = seed; 
-		this->gen_trees.seed (seed);
+		this->tree_gen.seed (seed);
 		
 		this->pn.SetSeed (seed & 0x7FFFFFFF);
 		this->pn.SetNoiseQuality (noise::QUALITY_FAST);
-		this->pn.SetFrequency (0.037);
-		this->pn.SetPersistence (0.2);
-		this->pn.SetLacunarity (0.5);
+		this->pn.SetFrequency (0.041);
+		this->pn.SetPersistence (0.77);
+		this->pn.SetLacunarity (0.8);
 	}
 	
 	
@@ -44,20 +52,19 @@ namespace hCraft {
 	 * Generates on the specified chunk.
 	 */
 	void
-	plains_world_generator::generate (world&  wr, chunk *out, int cx, int cz)
+	islands_world_generator::generate (world&  wr, chunk *out, int cx, int cz)
 	{
-		static const int water_cap = 59;
-		std::minstd_rand rnd (this->gen_seed + cx * 1917 + cz * 3947);
-		std::uniform_int_distribution<> dis (0, 3);
+		static const int water_level = 65;
 		
-		std::uniform_int_distribution<> tdis (0, 3000);
+		std::minstd_rand rnd (this->gen_seed + cx * 1917 + cz * 3947);
+		std::uniform_int_distribution<> dis (0, 3000);
 		
 		int y;
 		for (int x = 0; x < 16; ++x)
 			for (int z = 0; z < 16; ++z)
 				{
 					double n = this->pn.GetValue ((cx << 4) | x, 0, (cz << 4) | z);
-					int l = 64 + (n * 13);
+					int l = 64 + (n * 3);
 					
 					out->set_id (x, 0, z, BT_BEDROCK);
 					for (y = 1; y < (l - 5); ++y)
@@ -65,30 +72,19 @@ namespace hCraft {
 					for (; y < l; ++y)
 						out->set_id (x, y, z, BT_DIRT);
 					
-					if ((y + 1) >= water_cap)
+					if (y > water_level)
 						{
-							if (y == water_cap - 1)
+							out->set_id (x, y++, z, BT_GRASS);
+							if (dis (rnd) < 10)
 								{
-									out->set_id (x, y++, z, BT_SAND);
-								}
-							else
-								{
-									out->set_id (x, y++, z, BT_GRASS);
-									
-									if (tdis (rnd) == 0)
-										{
-											this->gen_trees.generate (wr, (cx << 4) | x, y, (cz << 4) | z);
-										}
-								 	else if (dis (rnd) == 1)
-										out->set_block (x, y, z, BT_TALL_GRASS, 1);
+									this->tree_gen.generate (wr, (cx << 4) | x, y, (cz << 4) | z);
 								}
 						}
+					else if (y == water_level)
+						out->set_id (x, y++, z, BT_SAND);
 					else
-						{
-							out->set_id (x, y++, z, BT_SAND);
-							for (; y < water_cap; ++y)
-								out->set_id (x, y, z, BT_WATER);						
-						}
+						for (; y <= water_level; ++y)
+							out->set_id (x, y, z, BT_WATER);
 				}
 	}
 }

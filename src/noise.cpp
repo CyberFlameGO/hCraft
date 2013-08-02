@@ -19,13 +19,10 @@
 #include "noise.hpp"
 #include <cmath>
 
-#include <iostream> // DEBUG
-#include <random>   // DEBUG
-
 
 namespace hCraft {
 	
-	namespace noise {
+	namespace h_noise {
 		
 		/* 
 		 * Linear interpolation.
