@@ -736,6 +736,135 @@ namespace hCraft {
 					}
 			}
 		};
+		
+		
+		
+		class super_overhang_biome: public biome_generator
+		{
+			long gen_seed;
+			
+			noise::module::Perlin pn1, pn2, pn3;
+			noise::module::Const co1;
+			noise::module::Multiply mu1;
+			noise::module::Select se1;
+			
+			dgen::pine_trees gen_trees;
+			
+		public:
+			super_overhang_biome (long s)
+				: gen_trees (9, 0, {BT_TRUNK, 2}, {BT_LEAVES, 2})
+			{
+				this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
+				this->pn1.SetFrequency (0.022);
+				this->pn1.SetPersistence (0.38);
+				this->pn1.SetLacunarity (2.5);
+				this->pn1.SetOctaveCount (2);
+		
+				this->co1.SetConstValue (12.5);
+				this->mu1.SetSourceModule (0, this->pn1);
+				this->mu1.SetSourceModule (1, this->co1);
+				
+				this->pn2.SetNoiseQuality (noise::QUALITY_FAST);
+				this->pn2.SetFrequency (0.03);
+				this->pn2.SetPersistence (0.3);
+				this->pn2.SetLacunarity (1.3);
+				this->pn2.SetOctaveCount (2);
+				
+				this->pn3.SetNoiseQuality (noise::QUALITY_FAST);
+				this->pn3.SetFrequency (0.021);
+				this->pn3.SetPersistence (0.8);
+				this->pn3.SetLacunarity (3.0);
+				this->pn3.SetOctaveCount (2);
+		
+				this->se1.SetSourceModule (1, this->mu1);
+				this->se1.SetSourceModule (0, this->pn2);
+				this->se1.SetControlModule (this->pn3);
+				this->se1.SetBounds (-1.0, -0.0);
+				this->se1.SetEdgeFalloff (0.34);
+				
+				this->seed (s);
+			}
+			
+			virtual bool is_3d () override { return true; }
+			virtual int min_y () { return 40; }
+			virtual int max_y () { return 120; }
+		
+			virtual void
+			seed (long s)
+			{
+				this->gen_seed = s;
+				
+				this->pn1.SetSeed (s & 0x7FFFFFFF);
+				this->pn2.SetSeed ((s + 1) & 0x7FFFFFFF);
+				this->pn3.SetSeed ((s + 2) & 0x7FFFFFFF);
+			}
+			
+			virtual double
+			generate (int x, int y, int z)
+			{
+				if (y == 57)
+					{
+						double h = h_noise::fractal_noise_2d (this->gen_seed, x / 32.0 + 0.5, z / 32.0 + 0.5, 3, 0.56);
+						if (h > 0.0 || this->generate (x, y + 1, z) > 0.0)
+							return 0.2;
+						return 0.0;
+					}
+				else if (y <= 56)
+					return 0.2;
+				
+				return
+					this->se1.GetValue (x * 0.45, y, z * 0.68) + ((60 - y) * 0.05);
+			}
+			
+			virtual void
+			decorate (world &w, chunk *ch, int x, int z, std::minstd_rand& rnd)
+			{
+				int y, ymin = this->min_y (), depth = 0;
+				
+				int bx = x & 0xF, bz = z & 0xF;
+				
+				std::uniform_int_distribution<> tall_grass_dis (0, 256);
+				std::uniform_int_distribution<> tree_dis (0, 256);
+				std::uniform_int_distribution<> waterfall_dis (0, 1000);
+				
+				ch->set_biome (bx, bz, BI_EXTREME_HILLS);
+				for (y = this->max_y (); y >= ymin; --y)
+					{
+						if (ch->get_id (bx, y, bz) == BT_STONE)
+							{
+								if (depth == 0)
+									{
+										if (y > 55)
+											{
+												ch->set_id (bx, y, bz, BT_GRASS);
+												if (tall_grass_dis (rnd) > 160)
+													{
+														if (tall_grass_dis (rnd) < 5)
+															ch->set_id (bx, y + 1, bz, BT_DANDELION);
+														else
+															ch->set_block (bx, y + 1, bz, BT_TALL_GRASS, 1);
+													}
+												else if (y >= 83 && tree_dis (rnd) > 253)
+													{
+														// spawn tree
+														this->gen_trees.generate (w, x, y + 1, z);
+													}
+											}
+										else if (y == 55)
+											ch->set_id (bx, y, bz, BT_SAND);
+										else
+											ch->set_id (bx, y, bz, BT_DIRT);
+									}
+								else if (depth < 5)
+									ch->set_id (bx, y, bz, BT_DIRT);
+								
+								++ depth;
+							}
+						else
+							depth = 0;
+					}
+			}
+		};
 	}
 	
 	
@@ -748,7 +877,7 @@ namespace hCraft {
 	{
 		this->seed (seed);
 		
-		this->biome_gen.add (new overhang_biome (seed), 19.0);
+		this->biome_gen.add (new overhang_biome (seed), 18.0);
 		this->biome_gen.add (new flatlands_biome (seed), 4.0);
 		this->biome_gen.add (new ocean_biome (seed), 43.0);
 		this->biome_gen.add (new wasteland_biome (seed), 1.0);
@@ -756,7 +885,8 @@ namespace hCraft {
 		this->biome_gen.add (new taiga_biome (seed), 8.0);
 		this->biome_gen.add (new steppe_biome (seed), 4.0);
 		this->biome_gen.add (new alps_biome (seed), 4.0);
-		this->biome_gen.add (new forest_biome (seed), 10.0);
+		this->biome_gen.add (new forest_biome (seed), 7.0);
+		this->biome_gen.add (new super_overhang_biome (seed), 4.0);
 	}
 	
 	
