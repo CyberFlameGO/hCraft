@@ -755,12 +755,12 @@ namespace hCraft {
 				: gen_trees (9, 0, {BT_TRUNK, 2}, {BT_LEAVES, 2})
 			{
 				this->pn1.SetNoiseQuality (noise::QUALITY_FAST);
-				this->pn1.SetFrequency (0.022);
+				this->pn1.SetFrequency (0.03);
 				this->pn1.SetPersistence (0.38);
 				this->pn1.SetLacunarity (2.5);
 				this->pn1.SetOctaveCount (2);
 		
-				this->co1.SetConstValue (12.5);
+				this->co1.SetConstValue (14.8);
 				this->mu1.SetSourceModule (0, this->pn1);
 				this->mu1.SetSourceModule (1, this->co1);
 				
@@ -779,7 +779,7 @@ namespace hCraft {
 				this->se1.SetSourceModule (1, this->mu1);
 				this->se1.SetSourceModule (0, this->pn2);
 				this->se1.SetControlModule (this->pn3);
-				this->se1.SetBounds (-1.0, -0.0);
+				this->se1.SetBounds (-1.0, 2.5);
 				this->se1.SetEdgeFalloff (0.34);
 				
 				this->seed (s);
@@ -813,7 +813,7 @@ namespace hCraft {
 					return 0.2;
 				
 				return
-					this->se1.GetValue (x * 0.45, y, z * 0.68) + ((60 - y) * 0.05);
+					this->se1.GetValue (x * 0.32, y, z * 0.52) + ((60 - y) * 0.05);
 			}
 			
 			virtual void
@@ -877,16 +877,16 @@ namespace hCraft {
 	{
 		this->seed (seed);
 		
-		this->biome_gen.add (new overhang_biome (seed), 18.0);
+		this->biome_gen.add (new overhang_biome (seed), 17.0);
 		this->biome_gen.add (new flatlands_biome (seed), 4.0);
-		this->biome_gen.add (new ocean_biome (seed), 43.0);
+		this->biome_gen.add (new ocean_biome (seed), 44.0);
 		this->biome_gen.add (new wasteland_biome (seed), 1.0);
 		this->biome_gen.add (new desert_biome (seed), 7.0);
-		this->biome_gen.add (new taiga_biome (seed), 8.0);
+		this->biome_gen.add (new taiga_biome (seed), 7.0);
 		this->biome_gen.add (new steppe_biome (seed), 4.0);
-		this->biome_gen.add (new alps_biome (seed), 4.0);
+		this->biome_gen.add (new alps_biome (seed), 2.0);
 		this->biome_gen.add (new forest_biome (seed), 7.0);
-		this->biome_gen.add (new super_overhang_biome (seed), 4.0);
+		this->biome_gen.add (new super_overhang_biome (seed), 7.0);
 	}
 	
 	
