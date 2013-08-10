@@ -42,7 +42,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_line (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
+	draw_ops::line (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
 	{
 		/* 
 		 * Bresenham's line algorithm modified to work in three dimensions.
@@ -200,7 +200,7 @@ namespace hCraft {
 	 * in the specified material. Returns the total numebr of blocks modified.
 	 */
 	int
-	draw_ops::draw_bezier (std::vector<vector3>& points, blocki material, int max_blocks)
+	draw_ops::bezier (std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		if (points.size () == 1)
 			this->es.set (points[0].x, points[0].y, points[0].z, material.id, material.meta);
@@ -213,7 +213,7 @@ namespace hCraft {
 		while (t <= 1.0)
 			{
 				vector3 pt = bezier_curve (points, t, 0, points.size () - 1);
-				modified += this->draw_line (last_pt, pt, material);
+				modified += this->line (last_pt, pt, material);
 				last_pt = pt;
 				t += inc;
 			}
@@ -297,7 +297,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
+	draw_ops::circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
 	{
 		/* 
 		 * Bresenham's 2D circle algorithm. 
@@ -395,7 +395,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
+	draw_ops::ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		long x = -a, z = 0;
@@ -431,7 +431,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_polygon (const std::vector<vector3>& points, blocki material, int max_blocks)
+	draw_ops::polygon (const std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		if (points.empty ()) return 0;
 		if (points.size () == 1)
@@ -442,8 +442,8 @@ namespace hCraft {
 		
 		int modified = 0;
 		for (int i = 0; i < ((int)points.size () - 1); ++i)
-			modified += this->draw_line (points[i], points[i + 1], material);
-		modified += this->draw_line (points[points.size () - 1], points[0], material);
+			modified += this->line (points[i], points[i + 1], material);
+		modified += this->line (points[points.size () - 1], points[0], material);
 		
 		return modified;
 	}
@@ -471,7 +471,7 @@ namespace hCraft {
 		while (t <= 1.0)
 			{
 				vector3 next = catmull_spline (p0, p1, p2, p3, t);
-				modified += draw.draw_line (last, next, material);
+				modified += draw.line (last, next, material);
 				last = next;
 				t += t_inc;
 			}
@@ -486,7 +486,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::draw_curve (const std::vector<vector3>& points, blocki material, int max_blocks)
+	draw_ops::curve (const std::vector<vector3>& points, blocki material, int max_blocks)
 	{
 		int modified = 0;
 		
@@ -500,7 +500,7 @@ namespace hCraft {
 					this->es.set (points[1].x, points[1].y, points[1].z, material.id, material.meta);
 					return 1;
 				case 3:
-					return this->draw_line (points[1], points[2], material);
+					return this->line (points[1], points[2], material);
 			}
 		
 		int j = points.size () - 3;
@@ -523,7 +523,7 @@ namespace hCraft {
 	 * block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_cuboid (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
+	draw_ops::filled_cuboid (vector3 pt1, vector3 pt2, blocki material, int max_blocks)
 	{
 		int sx = utils::min ((int)pt1.x, (int)pt2.x);
 		int sy = utils::min ((int)pt1.y, (int)pt2.y);
@@ -655,7 +655,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
+	draw_ops::filled_circle (vector3 pt, double radius, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		int iradius = std::round (radius);
@@ -744,7 +744,7 @@ namespace hCraft {
 	 * Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
+	draw_ops::filled_ellipse (vector3 pt, double a, double b, blocki material, plane pn, int max_blocks)
 	{
 		int modified = 0;
 		long x = -a, z = 0;
@@ -780,7 +780,7 @@ namespace hCraft {
 	 * given block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_sphere (vector3 pt, double radius, blocki material, int max_blocks)
+	draw_ops::filled_sphere (vector3 pt, double radius, blocki material, int max_blocks)
 	{
 		int rad = std::round (radius);
 		int srad = rad * rad;
@@ -809,50 +809,27 @@ namespace hCraft {
 	 * given block. Returns the total number of blocks modified.
 	 */
 	int
-	draw_ops::fill_hollow_sphere (vector3 pt, double radius, blocki material, int max_blocks)
+	draw_ops::sphere (vector3 pt, double radius, blocki material, int max_blocks)
 	{
 		int srad = std::round (radius * radius);
 		int rad = std::round (radius);
+		int sradm1 = (rad - 1) * (rad - 1);
 		int cx = pt.x, cy = pt.y, cz = pt.z;
 		
-		enum {
-			ST_BEFORE,
-			ST_IN,
-			ST_AFTER,
-		} state = ST_BEFORE;
-		
 		int modified = 0;
+		int v;
 		for (int y = -rad; y <= rad; ++y)
 			for (int x = -rad; x <= rad; ++x)
-				{
-					state = ST_BEFORE;
-					for (int z = -rad; z <= rad; ++z)
-						{
-							switch (state)
-								{
-								case ST_BEFORE:
-									if ((x*x + y*y + z*z) <= srad)
-										{
-											this->es.set (x + cx, y + cy, z + cz, material.id, material.meta);
-											state = ST_IN;
-											++ modified;
-										}
-									break;
-								
-								case ST_IN:
-									if ((x*x + y*y + z*z) > srad)
-										{
-											this->es.set (x + cx, y + cy, z + cz - 1, material.id, material.meta);
-											state = ST_AFTER;
-											++ modified;
-										}
-									break;
-								
-								case ST_AFTER: break;
-								}
-						}
-				}
-		
+				for (int z = -rad; z <= rad; ++z)
+					{
+						v = x*x + y*y + z*z;
+						if (v <= srad && v > sradm1)
+							{
+								this->es.set (x + cx, y + cy, z + cz, material.id, material.meta);
+								++ modified;
+							}
+					}
+
 		return modified;
 	}
 }

@@ -56,9 +56,9 @@ namespace hCraft {
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
-				blocks = draw.fill_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
+				blocks = draw.filled_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			else
-				blocks = draw.draw_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
+				blocks = draw.circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			if (blocks == -1)
 				{
 					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));

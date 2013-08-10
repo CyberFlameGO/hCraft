@@ -844,7 +844,7 @@ namespace hCraft {
 														else
 															ch->set_block (bx, y + 1, bz, BT_TALL_GRASS, 1);
 													}
-												else if (y >= 83 && tree_dis (rnd) > 253)
+												else if (y >= 64 && tree_dis (rnd) > 253)
 													{
 														// spawn tree
 														this->gen_trees.generate (w, x, y + 1, z);

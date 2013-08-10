@@ -50,12 +50,15 @@ namespace hCraft {
 	
 		enum value_type
 		{
-			CFG_GROUP,
+			CFG_NONE = -1,
+			
+			CFG_GROUP = 0,
 			CFG_STRING,
 			CFG_INTEGER,
 			CFG_FLOATING,
 			CFG_BOOLEAN,
 			CFG_ARRAY,
+			CFG_SEPARATOR,
 		};
 	
 		class value
@@ -146,6 +149,16 @@ namespace hCraft {
 			virtual value_type type () override { return CFG_BOOLEAN; }
 			virtual void write_to (std::ostream& strm, int indent = 0) override;
 		};
+		
+		
+		class separator: public value
+		{
+		public:
+			separator () { }
+			
+			virtual value_type type () override { return CFG_SEPARATOR; }
+			virtual void write_to (std::ostream& strm, int indent = 0) override;
+		};
 	
 	
 		class array: public value
@@ -216,6 +229,8 @@ namespace hCraft {
 			// we store the settings in a vector (and not, say, an unordered_map) so
 			// that the order will be kept the same when iterating through the elements.
 			std::vector<setting> settings;
+			
+			int sep_index;
 		
 		public:
 			int lines_between;
@@ -252,6 +267,7 @@ namespace hCraft {
 			void add_floating (const std::string& name, double val);
 			void add_string (const std::string& name, const std::string& val);
 			void add_boolean (const std::string& name, bool val);
+			void add_separator ();
 			
 			void attach_comment (const std::string& name, const std::string& comment);
 		
@@ -278,6 +294,8 @@ namespace hCraft {
 			bool try_get_floating (const std::string& name, double& out);
 			bool try_get_string (const std::string& name, std::string& out);
 			bool try_get_boolean (const std::string& name, bool& out);
+			
+			bool exists (const std::string& name, value_type typ = CFG_NONE);
 			
 		
 			int size () { return this->settings.size (); }

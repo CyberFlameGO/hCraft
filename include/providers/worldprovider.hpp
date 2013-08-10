@@ -20,6 +20,7 @@
 #define _hCraft__WORLDPROVIDER_H_
 
 #include "position.hpp"
+#include "portal.hpp"
 #include <vector>
 #include <utility>
 #include <string>
@@ -126,6 +127,18 @@ namespace hCraft {
 		 * Updates world information for a given world. 
 		 */
 		virtual void save_info (world &w, const world_information &info) = 0;
+		
+		
+		
+		/* 
+		 * Saves the specified list of portals to disk.
+		 */
+		virtual void save_portals (world &wr, const std::vector<portal *>& portals) = 0;
+		
+		/* 
+		 * Loads the portal list from disk into the given vector.
+		 */
+		virtual void load_portals (world &wr, std::vector<portal *>& portals) = 0;
 		
 		
 		

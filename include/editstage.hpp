@@ -58,6 +58,7 @@ namespace hCraft {
 		edit_stage (world *w = nullptr)
 			: w (w)
 			{ }
+		virtual ~edit_stage () { }
 		
 		
 		// @{w} can be null

@@ -55,9 +55,9 @@ namespace hCraft {
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
-				blocks = draw.fill_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
+				blocks = draw.filled_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			else
-				blocks = draw.draw_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
+				blocks = draw.ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
 			if (blocks == -1)
 				{
 					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));

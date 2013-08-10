@@ -222,6 +222,7 @@ namespace hCraft {
 				
 		std::chrono::steady_clock::time_point last_tick;
 		std::chrono::steady_clock::time_point last_heart_regen;
+		std::chrono::steady_clock::time_point last_portal_use;
 		std::chrono::milliseconds heal_delay;
 		long long tick_counter;
 		
@@ -321,6 +322,8 @@ namespace hCraft {
 		bool handle_crafting (unsigned char wid);
 		
 		void handle_death ();
+		
+		void handle_portals ();
 		
 	//----
 		

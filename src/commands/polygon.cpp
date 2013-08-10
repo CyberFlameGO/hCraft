@@ -94,7 +94,7 @@ namespace hCraft {
 					
 					if (i > 0)
 						{
-							draw.draw_line ({lx, pt.y, lz}, {x, pt.y, z}, material);
+							draw.line ({lx, pt.y, lz}, {x, pt.y, z}, material);
 						}
 					else
 						{
@@ -106,7 +106,7 @@ namespace hCraft {
 					lz = z;
 					curr += cang;
 				}
-			draw.draw_line ({lx, pt.y, lz}, {sx, pt.y, sz}, material);
+			draw.line ({lx, pt.y, lz}, {sx, pt.y, sz}, material);
 			
 			if (radius >= 2.0 && fill)
 				{
@@ -155,7 +155,7 @@ namespace hCraft {
 					data->es.clear ();
 				}
 			draw_ops draw (data->es);
-			draw.draw_polygon (data->points, data->bl);
+			draw.polygon (data->points, data->bl);
 			data->es.preview_to (pl);
 			
 			return false;
@@ -191,7 +191,7 @@ namespace hCraft {
 			es.clear ();
 			
 			draw_ops draw (es);
-			draw.draw_polygon (data->points, data->bl);
+			draw.polygon (data->points, data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();

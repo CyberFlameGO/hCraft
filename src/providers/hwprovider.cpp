@@ -26,8 +26,7 @@
 #include <cctype>
 #include <zlib.h>
 #include <stdexcept>
-
-#include <iostream> // DEBUG
+#include <iostream>
 
 
 namespace hCraft {
@@ -1425,6 +1424,7 @@ namespace hCraft {
 				init_page_offset = _create_layer_page (writer);
 				
 				// link this page to the layer table.
+				ly_index = this->layers.size ();
 				writer.seek (HW_LAYER_TABLE_OFFSET + 8 + (this->layers.size () * HW_LAYER_SIZE));
 				writer.write_int (init_page_offset / 512);
 				writer.write_int (layer_size);
@@ -1452,6 +1452,27 @@ namespace hCraft {
 			{
 				ly = &this->layers[ly_index];
 				init_page_offset = ly->offsets[0] * 512;
+				
+				// update layer size
+				if (ly->size != layer_size)
+					{
+						int old_page_count = ly->size / HW_LAYER_PAGE_DATA_SIZE + !!(ly->size % HW_LAYER_PAGE_DATA_SIZE);
+						int new_page_count = layer_size / HW_LAYER_PAGE_DATA_SIZE + !!(layer_size % HW_LAYER_PAGE_DATA_SIZE);
+						
+						int i;
+						unsigned int *new_offsets = new unsigned int [new_page_count];
+						for (i = 0; i < old_page_count && i < new_page_count; ++i)
+							new_offsets[i] = ly->offsets[i];
+						for (; i < new_page_count; ++i)
+							new_offsets[i] = 0;
+						
+						delete[] ly->offsets;
+						ly->offsets = new_offsets;
+						
+						ly->size = layer_size;
+						writer.seek (HW_LAYER_TABLE_OFFSET + 8 + (ly_index * HW_LAYER_SIZE) + 4);
+						writer.write_int (layer_size);
+					}
 			}
 		
 		int page_index = 0;
@@ -1491,15 +1512,16 @@ namespace hCraft {
 							}
 						else
 							writer.seek (ly->offsets[page_index] * 512 + 4);
+						
+						curr_page_offset = ly->offsets[page_index] * 512;
 					}
 			}
 		
 		writer.flush ();
 	}
 	
-	void
-	hw_provider::read_layer (const char *layer_name, unsigned char *data,
-		unsigned int& data_size)
+	unsigned char*
+	hw_provider::read_layer (const char *layer_name, unsigned int& data_size)
 	{
 		int ly_index = -1;
 		for (size_t i = 0; i < this->layers.size (); ++i)
@@ -1509,8 +1531,10 @@ namespace hCraft {
 		if (ly_index == -1 || this->layers[ly_index].size == 0)
 			{
 				data_size = 0;
-				return;
+				return nullptr;
 			}
+		
+		unsigned char *data = new unsigned char [this->layers[ly_index].size];
 		
 		hw_layer &ly = this->layers[ly_index];
 		binary_reader reader {this->strm};
@@ -1518,7 +1542,7 @@ namespace hCraft {
 		int page_index = 0;
 		unsigned int left = ly.size;
 		unsigned int read = 0;
-		reader.seek (ly.offsets[0] + 4);
+		reader.seek (ly.offsets[0] * 512 + 4);
 		while (left > 0)
 			{
 				int need = (left > HW_LAYER_PAGE_DATA_SIZE) ? HW_LAYER_PAGE_DATA_SIZE : left;
@@ -1531,9 +1555,225 @@ namespace hCraft {
 					{
 						// fetch next page
 						++ page_index;
-						reader.seek (ly.offsets[page_index] + 4);
+						reader.seek (ly.offsets[page_index] * 512 + 4);
 					}
 			}
+		
+		data_size = read;
+		return data;
+	}
+	
+	
+	
+//-----
+
+	static int
+	_write_int (unsigned char *data, int val)
+	{
+		data[0] = val & 0xFF;
+		data[1] = (val >> 8) & 0xFF;
+		data[2] = (val >> 16) & 0xFF;
+		data[3] = (val >> 24) & 0xFF;
+		return 4;
+	}
+	
+	static int
+	_write_float (unsigned char *data, float val)
+	{
+		unsigned int v = *((unsigned int *)&val);
+		data[0] = v & 0xFF;
+		data[1] = (v >> 8) & 0xFF;
+		data[2] = (v >> 16) & 0xFF;
+		data[3] = (v >> 24) & 0xFF;
+		return 4;
+	}
+	
+	static int
+	_write_double (unsigned char *data, double val)
+	{
+		unsigned long long v = *((unsigned long long *)&val);
+		data[0] = v & 0xFF;
+		data[1] = (v >> 8) & 0xFF;
+		data[2] = (v >> 16) & 0xFF;
+		data[3] = (v >> 24) & 0xFF;
+		data[4] = (v >> 32) & 0xFF;
+		data[5] = (v >> 40) & 0xFF;
+		data[6] = (v >> 48) & 0xFF;
+		data[7] = (v >> 56) & 0xFF;
+		return 8;
+	}
+	
+	static int
+	_write_string (unsigned char *data, const std::string& str)
+	{
+		data[0] =  str.size () & 0xFF;
+		data[1] = (str.size () >> 8) & 0xFF;
+		int n = 2;
+		
+		for (char c : str)
+			data[n++] = c;
+		
+		return n;
+	}
+	
+	
+	
+	static int
+	_read_int (const unsigned char *data, unsigned int& pos)
+	{
+		pos += 4;
+		return (unsigned int)(data[0])
+				| ((unsigned int)(data[1]) << 8)
+				| ((unsigned int)(data[2]) << 16)
+				| ((unsigned int)(data[3]) << 24);
+	}
+	
+	static float
+	_read_float (const unsigned char *data, unsigned int& pos)
+	{
+		pos += 4;
+		unsigned int v = ((unsigned int)(data[0])
+			| ((unsigned int)(data[1]) << 8)
+			| ((unsigned int)(data[2]) << 16)
+			| ((unsigned int)(data[3]) << 24));
+		return *((float *)&v);
+	}
+	
+	static double
+	_read_double (const unsigned char *data, unsigned  int& pos)
+	{
+		pos += 8;
+		unsigned long long v = ((unsigned long long)(data[0])
+			| ((unsigned long long)(data[1]) << 8)
+			| ((unsigned long long)(data[2]) << 16)
+			| ((unsigned long long)(data[3]) << 24)
+			| ((unsigned long long)(data[4]) << 32)
+			| ((unsigned long long)(data[5]) << 40)
+			| ((unsigned long long)(data[6]) << 48)
+			| ((unsigned long long)(data[7]) << 56));
+		return *((double *)&v);
+	}
+	
+	static std::string
+	_read_string (const unsigned char *data, unsigned int& pos)
+	{
+		unsigned short len = ((unsigned short)data[0]) | ((unsigned short)(data[1]) << 8);
+		pos += 2 + len;
+		std::string str;
+		str.reserve (len);
+		for (int i = 0; i < len; ++i)
+			str.push_back (data[2 + i]);
+		return str;
+	}
+	
+	
+	/* 
+	 * Saves the specified list of portals to disk.
+	 */
+	void
+	hw_provider::save_portals (world &wr, const std::vector<portal *>& portals)
+	{
+		unsigned int data_size = 4; // portal count
+		for (const portal *p : portals)
+			{
+				data_size += 32; // dest pos (double, double, double, float, float)
+				data_size += 2 + p->dest_world.size ();
+				data_size += 9*2; // range minimum & maximum (int, byte, int)
+				
+				// affected blocks
+				data_size += 4;   // count
+				data_size += p->affected.size () * 9;
+			}
+			
+		unsigned char *data = new unsigned char[data_size];
+		unsigned int pos = 0;
+		
+		pos += _write_int (data + pos, portals.size ());
+		for (const portal *p : portals)
+			{
+				// dest pos
+				pos += _write_double (data + pos, p->dest_pos.x);
+				pos += _write_double (data + pos, p->dest_pos.y);
+				pos += _write_double (data + pos, p->dest_pos.z);
+				pos += _write_float (data + pos, p->dest_pos.r);
+				pos += _write_float (data + pos, p->dest_pos.l);
+				
+				// dest world
+				pos += _write_string (data + pos, p->dest_world);
+				
+				// range
+				pos += _write_int (data + pos, p->r_min.x);
+				data[pos++] = p->r_min.y;
+				pos += _write_int (data + pos, p->r_min.z);
+				pos += _write_int (data + pos, p->r_max.x);
+				data[pos++] = p->r_max.y;
+				pos += _write_int (data + pos, p->r_max.z);
+				
+				// affected blocks
+				pos += _write_int (data + pos, p->affected.size ());
+				for (block_pos bp : p->affected)
+					{
+						pos += _write_int (data + pos, bp.x);
+						data[pos++] = bp.y;
+						pos += _write_int (data + pos, bp.z);
+					}
+			}
+		
+		this->write_layer ("portals", data, data_size);
+	}
+	
+	/* 
+	 * Loads the portal list from disk into the given vector.
+	 */
+	void
+	hw_provider::load_portals (world &wr, std::vector<portal *>& portals)
+	{
+		unsigned int data_size = 0;
+		unsigned char *data = this->read_layer ("portals", data_size);
+		if (!data || data_size == 0)
+			return;
+		
+		unsigned int pos = 0;
+		
+		unsigned int portal_count = _read_int (data + pos, pos);
+		
+		for (unsigned int i = 0; i < portal_count; ++i)
+			{
+				portal *ptl = new portal ();
+				
+				// dest pos
+				ptl->dest_pos.x = _read_double (data + pos, pos);
+				ptl->dest_pos.y = _read_double (data + pos, pos);
+				ptl->dest_pos.z = _read_double (data + pos, pos);
+				ptl->dest_pos.r = _read_float (data + pos, pos);
+				ptl->dest_pos.l = _read_float (data + pos, pos);
+				
+				// dest world
+				ptl->dest_world = _read_string (data + pos, pos);
+				
+				// range
+				ptl->r_min.x = _read_int (data + pos, pos);
+				ptl->r_min.y = data[pos++];
+				ptl->r_min.z = _read_int (data + pos, pos);
+				ptl->r_max.x = _read_int (data + pos, pos);
+				ptl->r_max.y = data[pos++];
+				ptl->r_max.z = _read_int (data + pos, pos);
+				
+				// affected blocks
+				int block_count = _read_int (data + pos, pos);
+				for (int j = 0; j < block_count; ++j)
+					{
+						block_pos bp;
+						bp.x = _read_int (data + pos, pos);
+						bp.y = data[pos++];
+						bp.z = _read_int (data + pos, pos);
+						ptl->affected.push_back (bp);
+					}
+				
+				portals.push_back (ptl);
+			}
+		
+		delete[] data;
 	}
 }
 

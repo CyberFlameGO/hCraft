@@ -165,8 +165,7 @@ namespace hCraft {
 		void write_layer (const char *layer_name, const unsigned char *data,
 			unsigned int layer_size);
 		
-		void read_layer (const char *layer_name, unsigned char *data,
-			unsigned int& data_size);
+		unsigned char* read_layer (const char *layer_name, unsigned int& data_size);
 		
 	public:
 		/* 
@@ -219,6 +218,18 @@ namespace hCraft {
 		 * Updates world information for a given world. 
 		 */
 		virtual void save_info (world &w, const world_information &info);
+		
+		
+		
+		/* 
+		 * Saves the specified list of portals to disk.
+		 */
+		virtual void save_portals (world &wr, const std::vector<portal *>& portals);
+		
+		/* 
+		 * Loads the portal list from disk into the given vector.
+		 */
+		virtual void load_portals (world &wr, std::vector<portal *>& portals);
 		
 		
 		

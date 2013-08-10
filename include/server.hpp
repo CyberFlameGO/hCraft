@@ -33,6 +33,7 @@
 #include "authentication.hpp"
 #include "generator.hpp"
 #include "world_list.hpp"
+#include "messages.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -187,6 +188,8 @@ namespace hCraft {
 		physics_manager global_physics; // initially shared between all worlds
 		authenticator auth;
 		chunk_generator cgen;
+		
+		server_messages msgs;
 		
 	private:
 		// <init, destroy> functions:

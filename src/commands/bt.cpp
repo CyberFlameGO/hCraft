@@ -35,6 +35,7 @@ namespace hCraft {
 		{
 			static std::unordered_map<cistring, int> _map {
 				{ "door", BE_DOOR },
+				{ "portal", BE_PORTAL },
 			};
 			
 			auto itr = _map.find (str.c_str ());

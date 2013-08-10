@@ -87,7 +87,7 @@ namespace hCraft {
 							int r;
 							for (int i = 0; i < ((int)points.size () - 1); ++i)
 								{
-									r = draw.draw_line (points[i], points[i + 1], data->bl);
+									r = draw.line (points[i], points[i + 1], data->bl);
 									if (r == -1 || ((data->modified + (r - 1)) > pl->get_rank ().fill_limit ()))
 										{
 											pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
@@ -105,7 +105,7 @@ namespace hCraft {
 				}
 			
 			draw_ops draw (es);
-			blocks = draw.draw_line (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
+			blocks = draw.line (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
 			if (blocks == -1)
 				{
 					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));
@@ -165,7 +165,7 @@ namespace hCraft {
 			
 			draw_ops draw (es);
 			for (int i = 0; i < ((int)points.size () - 1); ++i)
-				draw.draw_line (points[i], points[i + 1], data->bl);
+				draw.line (points[i], points[i + 1], data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();

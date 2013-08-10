@@ -47,7 +47,7 @@ namespace hCraft {
 			
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
-			bc = draw.fill_cuboid (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
+			bc = draw.filled_cuboid (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
 			if (bc == -1)
 				{
 					pl->message (messages::over_fill_limit (pl->get_rank ().fill_limit ()));

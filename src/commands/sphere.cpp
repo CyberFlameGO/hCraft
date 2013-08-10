@@ -55,13 +55,13 @@ namespace hCraft {
 			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
-				blocks = draw.fill_sphere (marked[0], radius, data->bl);
+				blocks = draw.filled_sphere (marked[0], radius, data->bl);
 			else
-				blocks = draw.fill_hollow_sphere (marked[0], radius, data->bl);
+				blocks = draw.sphere (marked[0], radius, data->bl);
 			es.commit ();
 			
 			std::ostringstream ss;
-			ss << "§3Sphere complete §7(§3Radius§7: §b" << radius << "§7, §3Modified§7: §b" <<  blocks << " §3blocks§7)";
+			ss << "§7 | Circle complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
 			
 			pl->delete_data ("sphere");
@@ -129,15 +129,18 @@ namespace hCraft {
 			pl->get_nth_marking_callback ((radius == -1) ? 2 : 1) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Sphere §7(";
-			if (radius != -1)
-				ss << "§8Radius§7: §b" << radius << "§7, ";
-			ss << "§8Block§7: §b" << str << "§7):";
+			ss << "§5Draw§f: §3" << (do_fill ? "filled" : "hollow")
+				 << " sphere §f[§7block§f: §8" << str << "§f, §7radius§f: §8";
+			if (radius == -1)
+				ss << "?";
+			else
+				ss << radius;
+			ss << "§f]:";
 			pl->message (ss.str ());
 			
-			ss.str (std::string ()); ss.clear ();
-			ss << "§8 * §7Please mark §b" << ((radius == -1) ? 2 : 1) << " §7block"
-				 << ((radius == -1) ? "s" : "") << "§7.";
+			ss.str (std::string ());
+			ss << "§7 | §ePlease mark §b" << ((radius == -1) ? "two" : "one") << " §eblock"
+				 << ((radius == -1) ? "s" : "") << "§f.";
 			pl->message (ss.str ());
 		}
 	}

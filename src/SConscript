@@ -34,6 +34,7 @@ hCraft_sources = Split("""
 		config.cpp
 		world_list.cpp
 		noise.cpp
+		portal.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -89,6 +90,7 @@ hCraft_sources = Split("""
 		commands/bp.cpp
 		commands/wconfig.cpp
 		commands/bt.cpp
+		commands/portal.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

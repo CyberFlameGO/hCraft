@@ -76,7 +76,7 @@ namespace hCraft {
 				}
 			
 			draw_ops draw (es);
-			draw.draw_bezier (points, data->bl);
+			draw.bezier (points, data->bl);
 			
 			if (points.size () < (size_t)(data->order + 1))
 				{

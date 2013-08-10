@@ -97,6 +97,15 @@ namespace hCraft {
 		double end;
 	};
 	
+	namespace internal {
+		
+		struct interp_entry
+			{
+				int x, z;
+				double h;
+			};
+	}
+	
 	class biome_selector
 	{
 		int water_level;
@@ -106,6 +115,8 @@ namespace hCraft {
 		bool bedrock;
 		
 		double next_start;
+		
+		internal::interp_entry interp_cache[24];
 		
 	private:
 		biome_generator* find_biome (double t);

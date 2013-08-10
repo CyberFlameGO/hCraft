@@ -390,7 +390,7 @@ namespace hCraft {
 	server::player_by_id (int id)
 	{
 		entity *e = this->entity_by_id (id);
-		if (e->get_type () != ET_PLAYER)
+		if (!e || e->get_type () != ET_PLAYER)
 			return nullptr;
 		return (player *)e;
 	}
@@ -784,7 +784,7 @@ namespace hCraft {
 			}
 		catch (const std::exception& ex)
 			{
-				log (LT_WARNING) << "Config: Group \"server.general\" not found, using defaults" << std::endl;
+				log (LT_WARNING) << "Config: Group \"general\" not found or invalid, using defaults" << std::endl;
 			}
 		
 		try
@@ -795,7 +795,7 @@ namespace hCraft {
 			}
 		catch (const std::exception& ex)
 			{
-				log (LT_WARNING) << "Config: Group \"server.network\" not found, using defaults" << std::endl;
+				log (LT_WARNING) << "Config: Group \"network\" not found or invalid, using defaults" << std::endl;
 			}
 		
 		try
@@ -806,7 +806,7 @@ namespace hCraft {
 			}
 		catch (const std::exception& ex)
 			{
-				log (LT_WARNING) << "Config: Group \"server.chat\" not found, using defaults" << std::endl;
+				log (LT_WARNING) << "Config: Group \"chat\" not found or invalid, using defaults" << std::endl;
 			}
 	}
 	
@@ -825,26 +825,142 @@ namespace hCraft {
 	}
 	
 	
+	
+	static void
+	default_messages (server_messages& msgs)
+	{
+		msgs.server_join  = "§e[§a+§e] %target-col-nick §ehas joined the server";
+		msgs.server_leave = "§e[§c-§e] %target-col-nick §ehas left the server";
+		
+		msgs.world_join_self = "§9 -- %target-col-nick §7went to %curr-world-col";
+		msgs.world_join = "§9 -- %target-col-nick §7went to %curr-world-col";
+		msgs.world_enter = "§9 -- %target-col-nick §7went to %curr-world-col";
+		msgs.world_depart = "§9 -- %target-col-nick §7went to %curr-world-col";
+	}
+	
+	static void
+	write_messages (server &srv)
+	{
+		logger &log = srv.get_logger ();
+		
+		cfg::group root {1};
+		
+		{
+			cfg::group *grp_messages = new cfg::group ();
+			
+			grp_messages->add_string ("server-join", srv.msgs.server_join);
+			grp_messages->add_string ("server-leave", srv.msgs.server_leave);
+			
+			grp_messages->add_separator ();
+			grp_messages->add_string ("world-join", srv.msgs.world_join);
+			grp_messages->add_string ("world-join-self", srv.msgs.world_join_self);
+			grp_messages->add_string ("world-enter", srv.msgs.world_enter);
+			grp_messages->add_string ("world-depart", srv.msgs.world_depart);
+			
+			root.add ("messages", grp_messages);
+		}
+		
+		try
+			{
+				std::ofstream fs {"data/messages.cfg"};
+				if (!fs) throw server_error ("failed to save messages file");
+				root.write_to (fs);
+				fs.close ();
+			}
+		catch (const std::exception&)
+			{
+				log (LT_ERROR) << "Failed to save messages file to \"data/messages.cfg\"" << std::endl;
+			}
+	}
+	
+	
+	
+	static void
+	_cfg_msgs_read_messages_grp (logger& log, cfg::group *grp_messages, server_messages& out)
+	{
+		out.server_join = grp_messages->exists ("server-join", cfg::CFG_STRING)
+			? grp_messages->get_string ("server-join") : "";
+		out.server_leave = grp_messages->exists ("server-leave", cfg::CFG_STRING)
+			? grp_messages->get_string ("server-leave") : "";
+		
+		out.world_join = grp_messages->exists ("world-join", cfg::CFG_STRING)
+			? grp_messages->get_string ("world-join") : "";
+		out.world_join_self = grp_messages->exists ("world-join-self", cfg::CFG_STRING)
+			? grp_messages->get_string ("world-join-self") : "";
+		out.world_enter = grp_messages->exists ("world-enter", cfg::CFG_STRING)
+			? grp_messages->get_string ("world-enter") : "";
+		out.world_depart = grp_messages->exists ("world-depart", cfg::CFG_STRING)
+			? grp_messages->get_string ("world-depart") : "";
+	}
+	
+	static void
+	_cfg_msgs_read_root_grp (logger& log, cfg::group *root, server_messages& out)
+	{
+		try
+			{
+				cfg::group *grp_messages = root->find_group ("messages");
+				if (!grp_messages) throw server_error ("not found");
+				_cfg_msgs_read_messages_grp (log, grp_messages, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"messages\" not found or invalid, using defaults" << std::endl;
+			}
+	}
+	
+	static void
+	read_messages (logger& log, std::ifstream& fs, server_messages& out)
+	{
+		try
+			{
+				cfg::group *root = cfg::group::read_from (fs);
+				_cfg_msgs_read_root_grp (log, root, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"server\" not found, using defaults" << std::endl;
+			}
+	}
+	
+	
 	void
 	server::init_config ()
 	{
-		default_config (this->cfg);
-		
-		log () << "Loading configuration from \"data/config.cfg\"" << std::endl;
-		
-		// check if the file exists
+		// data/server.cfg
 		{
+			default_config (this->cfg);
+			log () << "Loading server configuration from \"data/config.cfg\"" << std::endl;
+			
 			std::ifstream strm ("data/config.cfg");
 			if (strm.is_open ())
 				{
 					read_config (this->log, strm, this->cfg);
 					strm.close ();
-					return;
+				}
+			else
+				{
+					log () << "Configuration file does not exist, saving default." << std::endl;
+					write_config (this->log, this->cfg);
 				}
 		}
 		
-		log () << "Configuration file does not exist, creating one with default settings." << std::endl;
-		write_config (this->log, this->cfg);
+		// data/messages.cfg
+		{
+			default_messages (this->msgs);
+			log () << "Loading messages from \"data/messages.cfg\"" << std::endl;
+			
+			std::ifstream strm ("data/messages.cfg");
+			if (strm.is_open ())
+				{
+					read_messages (this->log, strm, this->msgs);
+					strm.close ();
+				}
+			else
+				{
+					log () << "Messages file does not exist, saving default." << std::endl;
+					write_messages (*this);
+				}
+		}
 	}
 	
 	void
@@ -1054,6 +1170,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "block-physics");
 		_add_command (this->perms, this->commands, "wconfig");
 		_add_command (this->perms, this->commands, "block-type");
+		_add_command (this->perms, this->commands, "portal");
 	}
 	
 	void
@@ -1156,6 +1273,7 @@ namespace hCraft {
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
 		grp_admin->add ("command.chat.say.*");
+		grp_admin->add ("command.world.portal.*");
 		grp_admin->text_color = 'c';
 		grp_admin->msuffix = "§f:";
 		grp_admin->color_codes = true;

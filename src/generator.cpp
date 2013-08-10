@@ -125,9 +125,6 @@ namespace hCraft {
 						if (!ch) continue; // shouldn't happen :X
 						
 						// deliver
-						// TODO: If the player disconnects at the right moment... this might
-						//       cause some problems, since the player pointer will remain
-						//       dangling...
 						if (!(flags & GFL_NODELIVER))
 							pl->deliver_chunk (w, req.cx, req.cz, ch, GFL_NONE, req.extra);
 					}

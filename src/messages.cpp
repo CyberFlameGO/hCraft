@@ -19,12 +19,84 @@
 #include "messages.hpp"
 #include "rank.hpp"
 #include "permissions.hpp"
+#include "server.hpp"
+#include "player.hpp"
 #include <sstream>
 #include <vector>
 #include <algorithm>
 
 
 namespace hCraft {
+
+	/* 
+	 * Constructs a default environment for the specified player.
+	 */
+	messages::environment::environment (player *pl)
+		: srv (pl->get_server ())
+	{
+		this->target = pl;
+		
+		this->curr_world = pl->get_world ();
+		this->prev_world = nullptr;
+	}
+	
+	
+	static void
+	_replace_all (std::string& str, const std::string& from, const std::string& to)
+	{
+		size_t start_pos = 0;
+		while ((start_pos = str.find (from, start_pos)) != std::string::npos)
+			{
+				str.replace (start_pos, from.length (), to);
+				start_pos += to.length ();
+			}
+	}
+	
+	/* 
+	 * %target          = Player username
+	 * %target-nick     = Player nickname
+	 * %target-col      = Colored player username
+	 * %target-col-nick = Colored player nickname
+	 * 
+	 * %curr-world      = Target player's current world name
+	 * %curr-world-col  = Colored world name
+	 * %prev-world      = Target player's previous world name
+	 * %prev-world-col  = COlored previous world name
+	 */
+	std::string
+	messages::compile (std::string input, const messages::environment& env)
+	{
+		/* 
+		 * TODO: Switch to a better replacement method... :X
+		 *       If the number of variables becomes large, doing it this way will
+		 *       be terribly inefficient.
+		 */
+		 
+		// from longest to shortest
+		if (env.target)
+			{
+				_replace_all (input, "%target-col-nick", env.target->get_colored_nickname ());
+				_replace_all (input, "%target-nick", env.target->get_nickname ());
+				_replace_all (input, "%target-col", env.target->get_colored_username ());
+				_replace_all (input, "%target", env.target->get_username ());
+			}
+		
+		if (env.curr_world)
+			{
+				_replace_all (input, "%curr-world-col", env.curr_world->get_colored_name ());
+				_replace_all (input, "%curr-world", env.curr_world->get_name ());
+			}
+		
+		if (env.prev_world)
+			{
+				_replace_all (input, "%prev-world-col", env.prev_world->get_colored_name ());
+				_replace_all (input, "%prev-world", env.prev_world->get_name ());
+			}
+		
+		return input;
+	}
+
+//----
 	
 	std::string
 	messages::insufficient_permissions (group_manager& groups, const char *perm)

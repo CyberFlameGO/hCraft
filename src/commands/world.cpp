@@ -117,27 +117,48 @@ namespace hCraft {
 			
 			pl->join_world (wr);
 			
-			std::ostringstream leave_ss;
-			leave_ss << "§c << §" << pl->get_colored_nickname () << " §7has departed to " << wr->get_colored_name ();
-			std::string leave_msg = leave_ss.str ();
-			prev_world->get_players ().all (
-				[&leave_msg] (player *pl)
-					{
-						pl->message (leave_msg);
-					});
+			messages::environment env {pl};
+			env.prev_world = prev_world;
+			env.curr_world = wr;
 			
-			std::ostringstream enter_ss;
-			enter_ss << "§a >> §" << pl->get_colored_nickname () << " §7has entered the world";
-			std::string enter_msg = enter_ss.str ();
-			wr->get_players ().all (
-				[&enter_msg] (player *pl)
-					{
-						pl->message (enter_msg);
-					}, pl);
+			std::vector<player *> new_players;
+			std::vector<player *> old_players;
+			std::vector<player *> others;
 			
-			enter_ss.clear (); enter_ss.str (std::string ());
-			enter_ss << "§a >> §" << pl->get_colored_nickname () << " §7has entered the world " << wr->get_colored_name ();
-			pl->message (enter_ss.str ());
+			
+			
+			// fill the vectors
+			pl->get_server ().get_players ().populate (others);
+			prev_world->get_players ().populate (old_players);
+			wr->get_players ().populate (new_players);
+			others.erase (std::remove_if (others.begin (), others.end (),
+				[&old_players, &new_players] (const player *pl) -> bool
+					{
+						return (std::find (old_players.begin (), old_players.end (), pl) != old_players.end ())
+							  || (std::find (new_players.begin (), new_players.end (), pl) != new_players.end ());
+					}), others.end ());
+			new_players.erase (std::remove (new_players.begin (), new_players.end (), pl), new_players.end ());
+			
+			std::string msg;
+			
+			// self
+			msg = messages::compile (pl->get_server ().msgs.world_join_self, env);
+			pl->message (msg);
+			
+			// new players
+			msg = messages::compile (pl->get_server ().msgs.world_enter, env);
+			for (player *p : new_players)
+				p->message (msg);
+			
+			// old players
+			msg = messages::compile (pl->get_server ().msgs.world_depart, env);
+			for (player *p : old_players)
+				p->message (msg);
+			
+			// others
+			msg = messages::compile (pl->get_server ().msgs.world_join, env);
+			for (player *p : others)
+				p->message (msg);
 		}
 	}
 }

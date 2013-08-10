@@ -25,10 +25,76 @@
 #include "generation/worldgenerator.hpp"
 #include <chrono>
 #include <functional>
+#include <thread>
 
 
 namespace hCraft {
 	namespace commands {
+		
+		
+		static void
+		_pregen_worker (player *pl, world *w, bool load)
+		{
+			pl->message ("§d | §5World generation started");
+			
+			int x_chunks = w->get_width () / 16;
+			int z_chunks = w->get_depth () / 16;
+			int done = 0;
+			int left = x_chunks * z_chunks;
+			
+			int upmod = x_chunks * z_chunks / 64 / 10;
+			if (upmod == 0) upmod = 1;
+			int batches_done = 0;
+			
+			// populate the world in batches of 8x8 (64) chunks
+			for (int xb = 0; xb < x_chunks; xb += 8)
+				for (int zb = 0; zb < z_chunks; zb += 8)
+					{
+						for (int cx = xb; cx < (xb + 8) && cx < x_chunks; ++cx)
+							for (int cz = zb; cz < (zb + 8) && cz < z_chunks; ++cz)
+								{
+									w->load_chunk (cx, cz);
+									++ done;
+									-- left;
+								}
+						
+						w->clear_chunks (true);
+						if (batches_done++ % upmod == 0)
+							{
+								std::ostringstream ss;
+								ss << "§d |   §a%" << (batches_done / (x_chunks * z_chunks / 64.0) * 100.0) << " §5- §a" << done << "§5/§a" << (x_chunks * z_chunks) << " §5chunks done";
+								pl->message (ss.str ());
+							}
+					}
+			
+			w->prepare_spawn (0, true);
+			w->save_all ();
+			pl->message ("§d | §5Done");
+			
+			if (load)
+				{
+					if (!pl->get_server ().get_worlds ().add (w))
+						{
+							delete w;
+							pl->message ("§cFailed to load world§7.");
+						}
+					
+					w->start ();
+					pl->get_server ().get_players ().message (
+						std::string ("§3World §b") + w->get_colored_name () + " §3has been loaded§b!");
+				}
+			else
+				{
+					delete w;
+				}
+		}
+		
+		static void
+		_pregen_world (player *pl, world *w, bool load)
+		{
+			// do this in a separate thread
+			std::thread (_pregen_worker, pl, w, load).detach ();
+		}
 		
 		/* 
 		 * /wcreate -
@@ -53,6 +119,7 @@ namespace hCraft {
 			reader.add_option ("provider", "p", true, true);
 			reader.add_option ("generator", "g", true, true);
 			reader.add_option ("seed", "s", true, true);
+			reader.add_option ("pre-generate", "a");
 			if (!reader.parse (this, pl))
 				return;
 			
@@ -74,8 +141,10 @@ namespace hCraft {
 					return;
 				}
 			
+			bool do_pregen = reader.opt ("pre-generate")->found ();
+			
 			// world type
-			world_type wtyp;
+			world_type wtyp = WT_NORMAL;
 			auto opt_type = reader.opt ("type");
 			if (opt_type->found ())
 				{
@@ -161,6 +230,12 @@ namespace hCraft {
 			
 		//----
 			
+			if (do_pregen && ((world_width <= 0) || (world_depth <= 0)))
+				{
+					pl->message ("§c * §7Infinite worlds cannot be pre-generated§f.");
+					return;
+				}
+			
 			if (load_world && (pl->get_server ().get_worlds ().find (world_name.c_str ()) != nullptr))
 				{
 					pl->message ("§c * §7A world with the same name is already loaded§f.");
@@ -231,8 +306,14 @@ namespace hCraft {
 				pl->get_logger (), gen, prov);
 			wr->set_width (world_width);
 			wr->set_depth (world_depth);
-			wr->prepare_spawn (10, true);
 			
+			if (do_pregen)
+				{
+					_pregen_world (pl, wr, load_world);
+					return;
+				}
+			
+			wr->prepare_spawn (10, true);
 			wr->save_all ();
 			
 			if (load_world)

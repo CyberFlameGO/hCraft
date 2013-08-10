@@ -25,14 +25,59 @@
 namespace hCraft {
 	
 	class group_manager;
+	class player;
+	class server;
+	class world;
+	
+	
+	struct server_messages
+	{
+		std::string server_join;
+		std::string server_leave;
+		
+		std::string world_enter;     // displayed to players in the world a player is trying to enter
+		std::string world_depart;    // displayed to players in the world a player is leaving
+		std::string world_join;      // displayed to all other players not in either world
+		std::string world_join_self; // displayed to the player who is performing the world switch
+	};
 	
 	
 	/* 
 	 * A utility class that constructs messages that are used often.
 	 */
-	class messages
+	struct messages
 	{
-	public:
+		struct environment
+		{
+			server &srv;
+			
+			player *target;
+			
+			world *curr_world;
+			world *prev_world;
+			
+		//----
+			
+			/* 
+			 * Constructs a default environment for the specified player.
+			 */
+			environment (player *pl);
+		};
+		
+		/* 
+		 * %target          = Player username
+		 * %target-nick     = Player nickname
+		 * %target-col      = Colored player username
+		 * %target-col-nick = Colored player nickname
+		 * 
+		 * %curr-world      = Target player's current world name
+		 * %curr-world-col  = Colored world name
+		 * %prev-world      = Target player's previous world name
+		 * %prev-world-col  = COlored previous world name
+		 */
+		static std::string compile (std::string input, const environment& env);
+		
+	//----
 		static std::string insufficient_permissions (group_manager& groups,
 			const char *perm);
 		

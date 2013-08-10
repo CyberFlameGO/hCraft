@@ -101,7 +101,7 @@ namespace hCraft {
 			if (w.get_id (x, y - 2, z) == BT_STILL_LAVA)
 				w.queue_update (x, y - 2, z, BT_AIR);
 			
-			w.queue_update (x, y + 1, z, this->id (), 0, data + 1);
+			w.queue_update (x, y + 1, z, this->id (), 0, 0, data + 1);
 		}
 		
 		void

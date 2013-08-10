@@ -62,7 +62,7 @@ namespace hCraft {
 			if (points.size () > 1)
 				{
 					draw_ops draw (es);
-					draw.draw_curve (points, data->bl);
+					draw.curve (points, data->bl);
 					
 					vector3 last = points[points.size () - 1];
 					if ( ((int)first.x == (int)last.x) && 
@@ -105,7 +105,7 @@ namespace hCraft {
 			es.clear ();
 			
 			draw_ops draw (es);
-			draw.draw_curve (points, data->bl);
+			draw.curve (points, data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();

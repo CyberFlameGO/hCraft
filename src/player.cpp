@@ -109,6 +109,8 @@ namespace hCraft {
 		this->last_ping = std::chrono::system_clock::now ();
 		this->keep_alives_received = 0;
 		
+		this->last_portal_use = std::chrono::steady_clock::now ();
+		
 		this->evbase = evbase;
 		this->bufev  = bufferevent_socket_new (evbase, sock,
 			BEV_OPT_CLOSE_ON_FREE);
@@ -241,11 +243,13 @@ namespace hCraft {
 				tl = pl->total_read;
 				pl->total_read += n;
 				
-				//// DEBUG
-				//if (pl->total_read == 1)
-				//	{
-				//		pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
-				//	}
+				/*
+				// DEBUG
+				if (pl->total_read == 1)
+					{
+						pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
+					}
+				*/
 				
 				if (pl->encrypted)
 					{
@@ -439,10 +443,9 @@ namespace hCraft {
 				
 						if (this->handshake && !silent)
 							{
-								std::ostringstream ss;
-								ss << "§e[§c-§e] §" << this->get_colored_nickname ()
-									<< " §ehas left the server";
-								this->get_server ().get_players ().message (ss.str ());
+								// leave message
+								this->get_server ().get_players ().message (
+									messages::compile (this->get_server ().msgs.server_leave, messages::environment (this)));;
 							}
 				
 						chunk *curr_chunk = this->curr_world->get_chunk (
@@ -630,6 +633,10 @@ namespace hCraft {
 				this->remove_from_tab_list (false);
 				this->curr_world->get_players ().remove (this);
 				
+				chunk *prev_chunk = this->curr_world->get_chunk (this->chcurr.x, this->chcurr.z);
+				if (prev_chunk)
+					prev_chunk->remove_entity (this);
+				
 				// destroy selections
 				for (auto itr = this->selections.begin (); itr != this->selections.end (); ++itr)
 					{
@@ -805,7 +812,7 @@ namespace hCraft {
 										for (int xx = (cx - 1); xx <= (cx + 1); ++xx)
 											for (int zz = (cz - 1); zz <= (cz + 1); ++zz)
 												if (!(xx == cx && zz == cz))
-													this->srv.cgen.request (w, xx, zz, this->eid, GFL_NODELIVER);
+													this->srv.cgen.request (w, xx, zz, this->eid, GFL_NODELIVER | GFL_NOABORT);
 										
 										this->srv.cgen.request (w, cx, cz, this->eid);
 										this->pending_chunks.push_back ({w, cx, cz});
@@ -968,6 +975,55 @@ namespace hCraft {
 			}
 	}
 	
+	void
+	player::handle_portals ()
+	{
+		if (this->is_dead ())
+			return;
+		
+		world *w = this->get_world ();
+		block_pos pos = this->pos;
+		for (int y = pos.y + 1; y >= pos.y; --y)
+			{
+				if (w->get_extra (pos.x, y, pos.z) == BE_PORTAL)
+					{
+						int elapsed = std::chrono::duration_cast<std::chrono::seconds> (
+							std::chrono::steady_clock::now () - this->last_portal_use).count ();
+						if (elapsed < 1)
+							break;
+						
+						this->last_portal_use = std::chrono::steady_clock::now ();
+						
+						portal *ptl = w->get_portal (pos.x, y, pos.z);
+						if (ptl)
+							{
+								world *w = this->get_server ().get_worlds ().find (ptl->dest_world.c_str ());
+								if (!w)
+									{
+										this->message ("§4Error§7: §cDestination world not loaded");
+										continue;
+									}
+								else if (!this->has_access (w->get_join_perms ()))
+									{
+										this->message ("§cYou are not allowed to go through this portal.");
+										continue;
+									}
+								
+								if (w == this->get_world ())
+									this->teleport_to (ptl->dest_pos);
+								else
+									this->join_world_at (w, ptl->dest_pos);
+								
+								break;
+							}
+						else
+							{
+								this->message ("§4Error§7: §cDestination not found");
+							}
+					}
+			}
+	}
+	
 	/* 
 	 * Moves the player to the specified position.
 	 */
@@ -1080,6 +1136,7 @@ namespace hCraft {
 			}
 		
 		this->handle_falls_and_jumps (prev_pos.on_ground, this->pos.on_ground, prev_pos);
+		this->handle_portals ();
 	}
 	
 	/* 
@@ -2256,12 +2313,9 @@ namespace hCraft {
 				return;
 			}
 
-		{
-			std::ostringstream ss;
-			ss << "§e[§a+§e] " << this->get_colored_nickname ()
-				 << " §ehas joined the server§f!";
-			this->get_server ().get_players ().message (ss.str ());
-		}
+		// join message
+		this->get_server ().get_players ().message (
+			messages::compile (this->get_server ().msgs.server_join, messages::environment (this)));
 		
 		this->inv.subscribe (this);
 		this->inv.add (slot_item (IT_FEATHER, 0, 1));

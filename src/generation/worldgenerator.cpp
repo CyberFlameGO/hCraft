@@ -133,6 +133,10 @@ namespace hCraft {
 		this->next_start = 0.0;
 		this->gen_seed = 0;
 		this->bedrock = bedrock;
+		
+		// initialize interpolation cache
+		for (int i = 0; i < 24; ++i)
+			this->interp_cache[i].x = this->interp_cache[i].z = 0x7FFFFFFE;
 	}
 	
 	/* 
@@ -251,6 +255,12 @@ namespace hCraft {
 		return b->generate (x, 0, z);
 	}
 	
+	static int
+	_interp_cache_index (int x, int z)
+	{
+		return ((unsigned int)(((2166136261 ^ (x & 0xFF) * 16777619) ^ (z & 0xFF)) * 16777619)) % 24;
+	}
+	
 	double
 	biome_selector::get_value_3d (double x, double y, double z)
 	{
@@ -272,11 +282,24 @@ namespace hCraft {
 					{
 						double t2 = std::abs (mdist) * (1.0 / this->edge_falloff);
 				
-						// get approximate height
+						// get height
 						double h = y;
-						for (int i = 1; i < 7 && ((y + (i * 5)) < 256); ++i) // take a few samples
-							if (b1->generate (x, y + (i * 5), z) > 0.0)
-								h = y + (i * 5);
+						
+						// try to retrieve the height from our cache
+						unsigned int index = _interp_cache_index (x, z);
+						internal::interp_entry ent = this->interp_cache[index];
+						if (ent.x == x && ent.z == z)
+							h = ent.h;
+						else
+							{
+								// calculate it.. :X
+								// this is a very expensive operation
+								for (int i = y; i <= 120; ++i)
+									if (b1->generate (x, i, z) > 0.0)
+										h = i;
+								
+								this->interp_cache[index] = {(int)x, (int)z, h};
+							}
 						
 						double h2 = h_noise::lerp (b2_v, h, t2);
 						if (y > h2)

@@ -229,12 +229,27 @@ namespace hCraft {
 		}
 	
 	//----
-
+	
+	
+	
+	//----
+		/* 
+		 * cfg::separator:
+		 */
+		
+		void
+		separator::write_to (std::ostream& strm, int indent)
+		{
+			
+		}
+		
+	//----
+	
 
 
 	//----
 		/* 
-		 * cfg:array:
+		 * cfg::array:
 		 */
 		 
 		array::array (int elems_per_line, int word_wrap)
@@ -458,6 +473,7 @@ namespace hCraft {
 		group::group (int lines_between)
 		{
 			this->lines_between = lines_between;
+			this->sep_index = 0;
 		}
 	
 		group::~group ()
@@ -520,6 +536,14 @@ namespace hCraft {
 		group::add_boolean (const std::string& name, bool val)
 		{
 			this->add (name, new cfg::boolean (val));
+		}
+		
+		void
+		group::add_separator ()
+		{
+			std::ostringstream ss;
+			ss << "sep$" << (this->sep_index++);
+			this->settings.emplace_back (ss.str (), new cfg::separator ());
 		}
 		
 		
@@ -684,6 +708,18 @@ namespace hCraft {
 			out = cv->val ();
 			return true;
 		}
+		
+		
+		bool
+		group::exists (const std::string& name, value_type typ)
+		{
+			value *val = this->find (name);
+			if (!val)
+				return false;
+			if ((typ != CFG_NONE) && (val->type () != typ))
+				return false;
+			return true;
+		}
 	
 	
 	
@@ -795,6 +831,12 @@ namespace hCraft {
 								}
 						
 							indent_with_spaces (strm, indent + 2);
+							if (itr->val->type () == CFG_SEPARATOR)
+								{
+									strm << "\n";
+									continue;
+								}
+							
 							strm << itr->name << ": ";
 						
 							if (itr->val->type () == CFG_ARRAY)

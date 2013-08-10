@@ -430,6 +430,51 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /portal - 
+		 * 
+		 * Turns blocks in the user's selected area to portals.
+		 * 
+		 * Permissions:
+		 *   - command.world.portal
+		 *       Needed to execute the command.
+		 *   - command.world.portal.interworld
+		 *       Needed to place portals between different worlds.
+		 */
+		class c_portal : public command
+		{
+		public:
+			const char* get_name () { return "portal"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						"ptl",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Turns blocks in the user's selected area to portals."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.portal"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

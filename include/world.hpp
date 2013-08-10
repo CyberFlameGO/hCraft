@@ -27,6 +27,7 @@
 #include "physics/blocks/physics_block.hpp"
 #include "physics/physics.hpp"
 #include "editstage.hpp"
+#include "portal.hpp"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -153,6 +154,9 @@ namespace hCraft {
 		
 		std::string build_perms, join_perms;
 		char colored_name[65];
+		
+		std::vector<portal *> portals;
+		std::mutex portal_lock;
 		
 	public:
 		bool auto_lighting;
@@ -294,6 +298,17 @@ namespace hCraft {
 		chunk* load_chunk_at (int bx, int bz);
 		
 		/* 
+		 * Unloads and saves (if save = true) the chunk located at the specified
+		 * coordinates.
+		 */
+		void remove_chunk (int x, int z, bool save);
+		
+		/* 
+		 * Removes all chunks from the world and optionally saves them to disk.
+		 */
+		void clear_chunks (bool save);
+		
+		/* 
 		 * Checks whether a block exists at the given coordinates.
 		 */
 		bool in_bounds (int x, int y, int z);
@@ -385,6 +400,20 @@ namespace hCraft {
 		void start_physics ();
 		void stop_physics ();
 		void pause_physics ();
+		
+		
+	//----
+		
+		/* 
+		 * Finds and returns the portal located at the given block coordinates,
+		 * or null, if one is not found.
+		 */
+		portal* get_portal (int x, int y, int z);
+		
+		/* 
+		 * Adds the specified portal to the world's portal list
+		 */
+		void add_portal (portal *ptl);
 	};
 }
 

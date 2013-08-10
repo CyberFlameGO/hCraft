@@ -98,7 +98,12 @@ namespace hCraft {
 					chunk *ch = itr->second;
 					delete ch;
 				}
-			this->chunks.clear ();
+		}
+		
+		{
+			std::lock_guard<std::mutex> guard {this->portal_lock};
+			for (portal *ptl : this->portals)
+				delete ptl;
 		}
 	}
 	
@@ -151,6 +156,12 @@ namespace hCraft {
 		wr->set_spawn (winf.spawn_pos);
 		wr->set_build_perms (winf.build_perms);
 		wr->set_join_perms (winf.join_perms);
+		
+		// load portals
+		wr->prov->open (*wr);
+		wr->prov->load_portals (*wr, wr->portals);
+		wr->prov->close ();
+		
 		wr->prepare_spawn (10, false);
 		
 		return wr;
@@ -658,6 +669,9 @@ namespace hCraft {
 		this->get_information (inf);
 		this->prov->save_info (*this, inf);
 		
+		// portals
+		this->prov->save_portals (*this, this->portals);
+		
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
 				chunk *ch = itr->second;
@@ -902,6 +916,66 @@ namespace hCraft {
 		this->lm.relight_chunk (ch);
 		return ch;
 	}
+	
+	
+	/* 
+	 * Unloads and saves (if save = true) the chunk located at the specified
+	 * coordinates.
+	 */
+	void 
+	world::remove_chunk (int x, int z, bool save)
+	{
+		if (!this->chunk_in_bounds (x, z))
+			return;
+		
+		unsigned long long key = chunk_key (x, z);
+		
+		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		auto itr = this->chunks.find (key);
+		if (itr != this->chunks.end ())
+			{
+				chunk *ch = itr->second;
+				delete ch;
+				
+				if (save)
+					{
+						this->prov->open (*this);
+						this->prov->save (*this, ch, x, z);
+						this->prov->close ();
+					}
+				
+				this->chunks.erase (itr);
+			}
+	}
+	
+	/* 
+	 * Removes all chunks from the world and optionally saves them to disk.
+	 */
+	void
+	world::clear_chunks (bool save)
+	{
+		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		
+		if (save)
+			this->prov->open (*this);
+		
+		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+			{
+				chunk *ch = itr->second;
+				if (save)
+					{
+						int x, z;
+						chunk_coords (itr->first, &x, &z);
+						this->prov->save (*this, ch, x, z);
+					}
+				delete ch;
+			}
+		this->chunks.clear ();
+		
+		if (save)
+			this->prov->close ();
+	}
+	
 	
 	
 	/* 
@@ -1316,6 +1390,42 @@ namespace hCraft {
 		if (this->typ == WT_LIGHT) return;
 		if (this->ph_state == PHY_PAUSED) return;
 		this->ph_state = PHY_PAUSED;
+	}
+	
+	
+	
+//-----
+	
+	/* 
+	 * Finds and returns the portal located at the given block coordinates,
+	 * or null, if one is not found.
+	 */
+	portal* 
+	world::get_portal (int x, int y, int z)
+	{
+		std::lock_guard<std::mutex> guard {this->portal_lock};
+		
+		for (portal *p : this->portals)
+			{
+				if (p->in_range (x, y, z))
+					{
+						for (block_pos bp : p->affected)
+							if (bp.x == x && bp.y == y && bp.z == z)
+								return p;
+					}
+			}
+		
+		return nullptr;
+	}
+	
+	/* 
+	 * Adds the specified portal to the world's portal list
+	 */
+	void
+	world::add_portal (portal *ptl)
+	{
+		std::lock_guard<std::mutex> guard {this->portal_lock};
+		this->portals.push_back (ptl);
 	}
 }
 

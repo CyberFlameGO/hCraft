@@ -55,31 +55,31 @@ namespace hCraft {
 		 * Draws a line from @{pt1} to @{pt2} using the specified material.
 		 * Returns the total number of blocks modified.
 		 */
-		int draw_line (vector3 pt1, vector3 pt2, blocki material, int max_blocks = -1);
+		int line (vector3 pt1, vector3 pt2, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Draws an N-th order bezier curve using the given list of N control points
 		 * in the specified material. Returns the total numebr of blocks modified.
 		 */
-		int draw_bezier (std::vector<vector3>& points, blocki material, int max_blocks = -1);
+		int bezier (std::vector<vector3>& points, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Draws a 2D circle centered at @{pt} with the given radius and material.
 		 * Returns the total number of blocks modified.
 		 */
-		int draw_circle (vector3 pt, double radius, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
+		int circle (vector3 pt, double radius, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
 		
 		/* 
 		 * Draws a 2D ellipse centered at @{pt} with the given radius and material.
 		 * Returns the total number of blocks modified.
 		 */
-		int draw_ellipse (vector3 pt, double a, double b, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
+		int ellipse (vector3 pt, double a, double b, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
 		
 		/* 
 		 * Connects all specified points with lines to form a shape.
 		 * Returns the total number of blocks modified.
 		 */
-		int draw_polygon (const std::vector<vector3>& points, blocki material, int max_blocks = -1);
+		int polygon (const std::vector<vector3>& points, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Approximates a curve between the given vector of points.
@@ -87,7 +87,7 @@ namespace hCraft {
 		 * points.
 		 * Returns the total number of blocks modified.
 		 */
-		int draw_curve (const std::vector<vector3>& points, blocki material, int max_blocks = -1);
+		int curve (const std::vector<vector3>& points, blocki material, int max_blocks = -1);
 		
 		
 		
@@ -95,31 +95,31 @@ namespace hCraft {
 		 * Fills the cuboid bounded between the two specified points with the given
 		 * block. Returns the total number of blocks modified.
 		 */
-		int fill_cuboid (vector3 pt1, vector3 pt2, blocki material, int max_blocks = -1);
+		int filled_cuboid (vector3 pt1, vector3 pt2, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Fills the sphere centered at @{pt} with the radius of @{radius} with the
 		 * given block. Returns the total number of blocks modified.
 		 */
-		int fill_sphere (vector3 pt, double radius, blocki material, int max_blocks = -1);
+		int filled_sphere (vector3 pt, double radius, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Fills a hollow sphere centered at @{pt} with the radius of @{radius} with the
 		 * given block. Returns the total number of blocks modified.
 		 */
-		int fill_hollow_sphere (vector3 pt, double radius, blocki material, int max_blocks = -1);
+		int sphere (vector3 pt, double radius, blocki material, int max_blocks = -1);
 		
 		/* 
 		 * Fills a 2D circle centered at @{pt} with the given radius and material.
 		 * Returns the total number of blocks modified.
 		 */
-		int fill_circle (vector3 pt, double radius, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
+		int filled_circle (vector3 pt, double radius, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
 		
 		/* 
 		 * Fills a 2D ellipse centered at @{pt} with the given radius and material.
 		 * Returns the total number of blocks modified.
 		 */
-		int fill_ellipse (vector3 pt, double a, double b, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
+		int filled_ellipse (vector3 pt, double a, double b, blocki material, plane pn = XZ_PLANE, int max_blocks = -1);
 	};
 }
 
