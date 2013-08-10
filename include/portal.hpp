@@ -20,6 +20,7 @@
 #define _hCraft__PORTAL_H_
 
 #include "position.hpp"
+#include <string>
 #include <vector>
 
 
