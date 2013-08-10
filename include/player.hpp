@@ -182,6 +182,7 @@ namespace hCraft {
 		int read_rem;
 		std::atomic_int handlers_scheduled;
 		CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption *decryptor;
+		int rej_mov; // movement rejection
 		
 		unsigned char vtoken[4];
 		unsigned char ssec[16]; // shared secret

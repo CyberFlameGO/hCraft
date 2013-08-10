@@ -75,6 +75,7 @@ namespace hCraft {
 		this->authenticated = false;
 		this->encrypted = false;
 		this->banned = false;
+		this->rej_mov = 0;
 		
 		this->disconnecting = false;
 		this->reading = false;
@@ -858,6 +859,7 @@ namespace hCraft {
 								entity_pos epos = this->pos;
 								this->send (packet::make_player_pos_and_look (
 									epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+								this->rej_mov = 3; // reject the next 3 movement packets
 								
 								this->update_home_chunk ();
 								
@@ -2690,6 +2692,14 @@ namespace hCraft {
 		if (pl->is_dead ()) return 0;
 		if (pl->joining_world) return 0;
 		
+		if (pl->rej_mov > 0)
+			{
+				pl->send (packet::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				-- pl->rej_mov;
+				return 0;
+			}
+		
 		bool on_ground;
 		
 		on_ground = reader.read_byte ();
@@ -2711,6 +2721,14 @@ namespace hCraft {
 		if (pl->is_dead ()) return 0;
 		if (pl->joining_world) return 0;
 		
+		if (pl->rej_mov > 0)
+			{
+				pl->send (packet::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				-- pl->rej_mov;
+				return 0;
+			}
+		
 		double x, y, z;
 		bool on_ground;
 		
@@ -2719,6 +2737,7 @@ namespace hCraft {
 		reader.read_double (); // stance
 		z = reader.read_double ();
 		on_ground = reader.read_byte ();
+		
 		
 		entity_pos curr_pos = pl->pos;
 		entity_pos new_pos {x, y, z, curr_pos.r, curr_pos.l, on_ground};
@@ -2735,6 +2754,14 @@ namespace hCraft {
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
 		if (pl->joining_world) return 0;
+		
+		if (pl->rej_mov > 0)
+			{
+				pl->send (packet::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				-- pl->rej_mov;
+				return 0;
+			}
 		
 		float r, l;
 		bool on_ground;
@@ -2758,6 +2785,14 @@ namespace hCraft {
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
 		if (pl->joining_world) return 0;
+		
+		if (pl->rej_mov > 0)
+			{
+				pl->send (packet::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				-- pl->rej_mov;
+				return 0;
+			}
 		
 		double x, y, z;
 		float r, l;
