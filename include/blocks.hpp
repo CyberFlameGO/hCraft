@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -225,6 +225,25 @@ namespace hCraft {
 		BS_FLUID,
 	};
 	
+	// TODO: remove this structure
+	struct block_data
+	{
+		unsigned short id;
+		unsigned char meta;
+		char bl; // block light
+		char sl; // sky light
+		unsigned char ex; // extra
+		
+		block_data (unsigned short id = 0, char meta = 0, char bl = 0, char sl = 15, unsigned char ex = 0)
+		{
+			this->id = id;
+			this->meta = meta;
+			this->bl = bl;
+			this->sl = sl;
+			this->ex = ex;
+		}
+	};
+	
 	struct blocki
 	{
 		unsigned short id;
@@ -233,10 +252,15 @@ namespace hCraft {
 		
 		blocki (unsigned short i, unsigned char m = 0, unsigned char ex = 0)
 			{ this->set (i, m, ex); }
+		blocki (block_data bd)
+			{ this->set (bd); }
 		blocki () : blocki (0, 0, 0) { }
 		
 		void set (unsigned short i, unsigned char m = 0, unsigned char ex = 0)
 			{ this->id = i; this->meta = m; this->ex = ex; }
+		
+		void set (block_data bd)
+			{ this->set (bd.id, bd.meta, bd.ex); }
 		
 		bool valid ()
 			{ return ((this->id != BT_UNKNOWN) && (this->meta <= 0xF)); }
@@ -312,25 +336,6 @@ namespace hCraft {
 		is_vanilla_id (unsigned short id)
 		{
 			return ((id <= 0x9F) || (id >= 0xAA && id <= 0xAD));
-		}
-	};
-	
-	
-	struct block_data
-	{
-		unsigned short id;
-		unsigned char meta;
-		char bl; // block light
-		char sl; // sky light
-		unsigned char ex; // extra
-		
-		block_data (unsigned short id = 0, char meta = 0, char bl = 0, char sl = 15, unsigned char ex = 0)
-		{
-			this->id = id;
-			this->meta = meta;
-			this->bl = bl;
-			this->sl = sl;
-			this->ex = ex;
 		}
 	};
 	

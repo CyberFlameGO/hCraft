@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 #include "rank.hpp"
 #include "position.hpp"
+#include <soci/soci.h>
 #include <ctime>
 
 
@@ -28,9 +29,6 @@ namespace hCraft {
 	
 	// forward decs
 	class server;
-	namespace sql {
-		class connection;
-	}
 	
 	
 	/* 
@@ -68,24 +66,33 @@ namespace hCraft {
 		/* 
 		 * Total number of players registered in the database.
 		 */
-		static int player_count (sql::connection& conn);
+		static int player_count (soci::session& sql);
 		
 		/* 
 		 * Checks whether the database has a player with the given name registered.
 		 */
-		static bool player_exists (sql::connection& conn, const char *name);
+		static bool player_exists (soci::session& sql, const char *name);
 		
 		/* 
 		 * Fills the specified player_info structure with information about
 		 * the given player. Returns true if the player found, false otherwise.
 		 */
-		static bool player_data (sql::connection& conn, const char *name,
+		static bool player_data (soci::session& sql, const char *name,
+			server &srv, player_info& out);
+		
+		// uses PID instead
+		static bool player_data (soci::session& sql, int pid,
 			server &srv, player_info& out);
 		
 		/* 
 		 * Returns the rank of the specified player.
 		 */
-		static rank player_rank (sql::connection& conn, const char *name, server& srv);
+		static rank player_rank (soci::session& sql, const char *name, server& srv);
+		
+		/* 
+		 * Returns the database PID of the specified player, or -1 if not found.
+		 */
+		static int player_id (soci::session& sql, const char *name);
 		
 		
 		
@@ -100,25 +107,27 @@ namespace hCraft {
 		/* 
 		 * Recording bans\kicks:
 		 */
-		static void record_kick (sql::connection& conn, const char *target,
+		static void record_kick (soci::session& sql, const char *target,
 			const char *kicker, const char *reason);
 		
-		static void record_ban (sql::connection& conn, const char *target,
+		static void record_ban (soci::session& sql, const char *target,
 			const char *banner, const char *reason);
-		static void record_unban (sql::connection& conn, const char *target,
+		static void record_unban (soci::session& sql, const char *target,
 			const char *unbanner, const char *reason);
 		
-		static void modify_ban_status (sql::connection& conn, const char *username, bool ban);
-		static bool is_banned (sql::connection& conn, const char *username);
+		static void modify_ban_status (soci::session& sql, const char *username, bool ban);
+		static bool is_banned (soci::session& sql, const char *username);
 		
 		
 		/* 
 		 * Player name-related:
 		 */
-		static std::string player_name (sql::connection& conn, const char *name);
-		static std::string player_colored_name (sql::connection& conn, const char *name, server &srv);
-		static std::string player_nick (sql::connection& conn, const char *name);
-		static std::string player_colored_nick (sql::connection& conn, const char *name, server &srv);
+		static std::string player_name (soci::session& sql, const char *name);
+		static std::string player_name (soci::session& sql, int pid);
+		
+		static std::string player_colored_name (soci::session& sql, const char *name, server &srv);
+		static std::string player_nick (soci::session& sql, const char *name);
+		static std::string player_colored_nick (soci::session& sql, const char *name, server &srv);
 		
 		
 		
@@ -130,22 +139,22 @@ namespace hCraft {
 		 * 
 		 * Returns true if the player already existed before the function was called.
 		 */
-		static bool save_player_data (sql::connection& conn, const char *name,
+		static bool save_player_data (soci::session& sql, const char *name,
 			server &srv, const player_info& in);
 		
 		/* 
 		 * Changes the rank of the player that has the specified name.
 		 */
-		static void modify_player_rank (sql::connection& conn, const char *name,
+		static void modify_player_rank (soci::session& sql, const char *name,
 			const char *rankstr);
 		
 		
 		/* 
 		 * Money-related:
 		 */
-		static void set_money (sql::connection& conn, const char *name, double amount);
-		static void add_money (sql::connection& conn, const char *name, double amount);
-		static double get_money (sql::connection& conn, const char *name);
+		static void set_money (soci::session& sql, const char *name, double amount);
+		static void add_money (soci::session& sql, const char *name, double amount);
+		static double get_money (soci::session& sql, const char *name);
 	};
 }
 

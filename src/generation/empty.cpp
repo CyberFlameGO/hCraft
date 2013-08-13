@@ -16,47 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__NOISE_H_
-#define _hCraft__NOISE_H_
+#include "generation/empty.hpp"
 
 
 namespace hCraft {
 	
 	/* 
-	 * Our own noise functions.
+	 * Constructs a new empty world generator.
 	 */
-	namespace h_noise {
+	empty_world_generator::empty_world_generator (long seed)
+	{
+		this->gen_seed = seed;
+	}
+	
+	
+	
+	/* 
+	 * Generates on the specified chunk.
+	 */
+	void
+	empty_world_generator::generate (world& wr, chunk *out, int cx, int cz)
+	{
+		int x, z;
 		
-		/* 
-		 * Linear interpolation.
-		 */
-		double lerp (double a, double b, double t);
-		
-		
-		/* 
-		 * Basic noise.
-		 */
-		double int_noise_1d (int seed, int n);
-		double int_noise_2d (int seed, int x, int y);
-		double int_noise_3d (int seed, int x, int y, int z);
-		
-		
-		
-		/* 
-		 * Perlin noise.
-		 */
-		double perlin_noise_2d (int seed, double x, double y);
-		double perlin_noise_3d (int seed, double x, double y, double z);
-		
-		
-		
-		/* 
-		 * Fractal noise.
-		 */
-		double fractal_noise_2d (int seed, double x, double y, int oct, double persist);
-		double fractal_noise_3d (int seed, double x, double y, double z, int oct, double persist);
+		for (x = 0; x < 16; ++x)
+			for (z = 0; z < 16; ++z)
+				{
+					out->set_id (x, 0, z, BT_BEDROCK);
+				}
 	}
 }
-
-#endif
 

@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ namespace hCraft {
 		LT_SYSTEM,
 		
 		LT_CHAT,
+		LT_DRAW,
 		LT_CONSOLE,
 		
 		LT_INFO,   // usually information about an error.

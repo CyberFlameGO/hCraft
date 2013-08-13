@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,11 +27,12 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <event2/thread.h>
+#include <soci/mysql/soci-mysql.h>
 
 
 namespace hCraft {
 	
-	static const size_t sql_pool_size = 8;
+#define SQL_POOL_SIZE 8
 	
 	// constructor.
 	server::initializer::initializer (std::function<void ()>&& init,
@@ -73,7 +74,7 @@ namespace hCraft {
 	 */
 	server::server (logger &log)
 		: log (log), 
-			spool (sql_pool_size, "data/database.sqlite"),
+			spool (SQL_POOL_SIZE),
 			perms (),
 			groups (perms)
 	{
@@ -542,6 +543,12 @@ namespace hCraft {
 		
 		out.self_highlight_color = 'a';
 		out.name_highlight_color = 'd';
+		
+		out.db_name = "hCraftDB1";
+		out.db_user = "root";
+		out.db_pass = "";
+		out.db_host = "localhost";
+		out.db_port = 3306;
 	}
 	
 	static void
@@ -578,8 +585,20 @@ namespace hCraft {
 			grp_chat->add_string ("name-highlight-color",
 				(in.name_highlight_color == 0) ? "" : std::string (1, in.name_highlight_color));
 			
-			root.add ("chat",grp_chat);
+			root.add ("chat", grp_chat);
 		}
+		
+			{
+				cfg::group *grp_sql = new cfg::group ();
+			
+				grp_sql->add_string ("database", in.db_name);
+				grp_sql->add_string ("user", in.db_user);
+				grp_sql->add_string ("pass", in.db_pass);
+				grp_sql->add_string ("host", in.db_host);
+				grp_sql->add_integer ("port", in.db_port);
+			
+				root.add ("sql", grp_sql);
+			}
 		
 		try
 			{
@@ -774,6 +793,78 @@ namespace hCraft {
 	}
 	
 	static void
+	_cfg_read_sql_grp (logger& log, cfg::group *grp_sql, server_config& out)
+	{
+		std::string str;
+		long long int num;
+		bool error = false;
+		
+		// database
+		if (grp_sql->try_get_string ("database", str))
+			{
+				if (str.empty ())
+					{
+						if (!error)
+							log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+						log (LT_INFO) << " - \"database\" cannot be empty." << std::endl;
+						error = true;
+					}
+				out.db_name = str;
+			}
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+				log (LT_INFO) << " - \"database\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// user
+		if (grp_sql->try_get_string ("user", str))
+			out.db_user = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+				log (LT_INFO) << " - \"user\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// pass
+		if (grp_sql->try_get_string ("pass", str))
+			out.db_pass = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+				log (LT_INFO) << " - \"pass\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// host
+		if (grp_sql->try_get_string ("host", str))
+			out.db_host = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+				log (LT_INFO) << " - \"host\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// port
+		if (grp_sql->try_get_integer ("port", num))
+			out.db_port = num;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"sql\":" << std::endl;
+				log (LT_INFO) << " - \"port\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+	}
+	
+	static void
 	_cfg_read_root_grp (logger& log, cfg::group *root, server_config& out)
 	{
 		try
@@ -807,6 +898,17 @@ namespace hCraft {
 		catch (const std::exception& ex)
 			{
 				log (LT_WARNING) << "Config: Group \"chat\" not found or invalid, using defaults" << std::endl;
+			}
+		
+		try
+			{
+				cfg::group *grp_sql = root->find_group ("sql");
+				if (!grp_sql) throw server_error ("not found");
+				_cfg_read_sql_grp (log, grp_sql, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"sql\" not found or invalid, using defaults" << std::endl;
 			}
 	}
 	
@@ -977,69 +1079,82 @@ namespace hCraft {
 	void
 	server::init_sql ()
 	{
-		log () << "Opening SQL database (at \"database.sqlite\")" << std::endl;
+		log () << "Opening SQL database" << std::endl;
 		
-		sql::connection& conn = this->sql ().pop ();
-		conn.execute (
+		std::string conn_str;
+		{
+			std::ostringstream ss;
+			ss << "dbname=" << this->cfg.db_name << " user=" << this->cfg.db_user
+			   << " pass='" << this->cfg.db_pass << "' host=" << this->cfg.db_host
+			   << " port=" << this->cfg.db_port;
+			conn_str.assign (ss.str ());
+		}
+		
+		// initialize pool sessions
+		for (size_t i = 0; i < SQL_POOL_SIZE; ++i)
+			{
+				soci::session& sql = this->spool.at (i);
+				sql.open (soci::mysql, conn_str);
+			}
+		
+		{
+			soci::session sql (this->spool);
 			
-			"CREATE TABLE IF NOT EXISTS `players` ("
-				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
-				"`name` TEXT COLLATE NOCASE, "
+			sql.once << "CREATE TABLE IF NOT EXISTS `players` ("
+				"`id` INT UNSIGNED UNIQUE AUTO_INCREMENT PRIMARY KEY, "
+				"`name` TEXT, "
 				"`nick` TEXT, "
 				"`ip` TEXT, "
-				"`op` INTEGER, "
+				"`op` TINYINT, "
 				"`rank` TEXT, "
 				"`blocks_destroyed` INTEGER, "
 				"`blocks_created` INTEGER, "
 				"`messages_sent` INTEGER, "
-				"`first_login` UNSIGNED BIG INT, "
-				"`last_login` UNSIGNED BIG INT, "
+				"`first_login` BIGINT UNSIGNED, "
+				"`last_login` BIGINT UNSIGNED, "
 				"`login_count` INTEGER, "
 				"`balance` DOUBLE, "
-				"`banned` INTEGER); "
+				"`banned` TINYINT)";
 			
-			"CREATE TABLE IF NOT EXISTS `kicks` ("
-				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
-				"`target` TEXT COLLATE NOCASE, "
-				"`kicker` TEXT COLLATE NOCASE, "
+			sql.once << "CREATE TABLE IF NOT EXISTS `kicks` ("
+				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
+				"`target` TEXT , "
+				"`kicker` TEXT , "
 				"`reason` TEXT, "
-				"`kick_time` INTEGER); "
+				"`kick_time` BIGINT UNSIGNED)";
 			
-			"CREATE TABLE IF NOT EXISTS `bans` ("
-				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
-				"`target` TEXT COLLATE NOCASE, "
-				"`banner` TEXT COLLATE NOCASE, "
+			sql.once << "CREATE TABLE IF NOT EXISTS `bans` ("
+				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
+				"`target` TEXT , "
+				"`banner` TEXT , "
 				"`reason` TEXT, "
-				"`ban_time` INTEGER); "
+				"`ban_time` BIGINT UNSIGNED)";
 			
-			"CREATE TABLE IF NOT EXISTS `unbans` ("
-				"`id` INTEGER PRIMARY KEY AUTOINCREMENT, "
-				"`target` TEXT COLLATE NOCASE, "
-				"`unbanner` TEXT COLLATE NOCASE, "
+			sql.once << "CREATE TABLE IF NOT EXISTS `unbans` ("
+				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
+				"`target` TEXT , "
+				"`unbanner` TEXT , "
 				"`reason` TEXT, "
-				"`unban_time` INTEGER); "
+				"`unban_time` BIGINT UNSIGNED)";
 			
-			"CREATE TABLE IF NOT EXISTS `player-logout-data` ("
-				"`name` TEXT COLLATE NOCASE, "
+			sql.once << "CREATE TABLE IF NOT EXISTS `player-logout-data` ("
+				"`name` TEXT , "
 				"`world` TEXT, "
 				"`pos_x` DOUBLE, "
 				"`pos_y` DOUBLE, "
 				"`pos_z` DOUBLE, "
 				"`pos_r` DOUBLE, "
 				"`pos_l` DOUBLE, "
-				"`gm` INTEGER); "
+				"`gm` INTEGER)";
 				
-			
-			"CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT);");
-		
-		
-		this->sql ().push (conn); 
+			sql.once << "CREATE TABLE IF NOT EXISTS `autoload-worlds` (`name` TEXT)";
+		}
 	}
 	
 	void
 	server::destroy_sql ()
 	{
-		this->sql ().clear ();
+		// TODO: clear SQL pool
 	}
 	
 	
@@ -1171,6 +1286,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "wconfig");
 		_add_command (this->perms, this->commands, "block-type");
 		_add_command (this->perms, this->commands, "portal");
+		_add_command (this->perms, this->commands, "whodid");
 	}
 	
 	void
@@ -1257,6 +1373,7 @@ namespace hCraft {
 		grp_moderator->add ("command.info.status.logins");
 		grp_moderator->add ("command.admin.mute");
 		grp_moderator->add ("command.admin.unmute");
+		grp_moderator->add ("command.info.whodid");
 		grp_moderator->msuffix = "§f:";
 		grp_moderator->fill_limit = 8000;
 		grp_moderator->select_limit = 8000;
@@ -1413,14 +1530,13 @@ namespace hCraft {
 		
 		// load worlds from the autoload list.
 		{
-			auto& conn = this->sql ().pop ();
-			auto stmt = conn.query ("SELECT * FROM `autoload-worlds`");
+			soci::session sql (this->spool);
+			soci::row r;
 			
-			sql::row row;
-			while (stmt.step (row))
-				to_load.push_back (row.at (0).as_cstr ());
-			
-			this->sql ().push (conn);
+			sql << "SELECT * FROM `autoload-worlds`", soci::into (r);
+			if (sql.got_data ())
+				for (size_t i = 0; i < r.size (); ++i)
+					to_load.push_back (r.get<std::string> (i));
 		}
 		for (std::string& wname : to_load)
 			{

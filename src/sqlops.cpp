@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,10 @@
  */
 
 #include "sqlops.hpp"
-#include "sql.hpp"
 #include "server.hpp"
 #include <ctime>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -28,27 +29,23 @@ namespace hCraft {
 	 * Total number of players registered in the database.
 	 */
 	int
-	sqlops::player_count (sql::connection& conn)
+	sqlops::player_count (soci::session& sql)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT Count(*) FROM `players`");
-		if (stmt.step (row))
-			return row.at (0).as_int ();
-		return 0;
+		int count;
+		sql << "SELECT Count(*) FROM `players`", soci::into (count);
+		return count;
 	}
 	
 	/* 
 	 * Checks whether the database has a player with the given name registered.
 	 */
 	bool
-	sqlops::player_exists (sql::connection& conn, const char *name)
+	sqlops::player_exists (soci::session& sql, const char *name)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT Count(*) FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
-		if (stmt.step (row))
-			return (row.at (0).as_int () == 1);
-		return false;
+		int count;
+		sql << "SELECT Count(*) FROM `players` WHERE `name`=:n",
+			soci::into (count), soci::use (std::string (name));
+		return (count == 1);
 	}
 	
 	
@@ -62,121 +59,146 @@ namespace hCraft {
 	 * Returns true if the player already existed before the function was called.
 	 */
 	bool
-	sqlops::save_player_data (sql::connection& conn, const char *name,
+	sqlops::save_player_data (soci::session& sql, const char *name,
 		server &srv, const player_info& in)
 	{
+		std::string rank_str;
+		in.rnk.get_string (rank_str);
+		
 		bool exists;
-		sql::statement stmt {conn};
-		if ((exists = player_exists (conn, name)))
+		if ((exists = player_exists (sql, name)))
 			{
-				stmt.prepare ("UPDATE `players`  SET `name`=?, `nick`=?, `ip`=?, `op`=?, "
-					"`rank`=?, `blocks_destroyed`=?, `blocks_created`=?, "
-					"`messages_sent`=?, `first_login`=?, `last_login`=?, "
-					"`login_count`=?, `balance`=?, `banned`=?   WHERE `name`=?");
+				sql.once <<
+					"UPDATE `players` SET `nick`=:nick, "
+					"`ip`=:ip, `op`=:op, `rank`=:rank, `blocks_destroyed`=:blocks_destroyed, "
+					"`blocks_created`=:blocks_created, `messages_sent`=:messages_sent, "
+					"`first_login`=:first_login, `last_login`=:last_login, "
+					"`login_count`=:login_count, `balance`=:balance, `banned`=:banned WHERE "
+					"`name`=:name",
+					soci::use (in.nick),
+					soci::use (in.ip),
+					soci::use (in.op ? 1 : 0),
+					soci::use (rank_str),
+					soci::use (in.blocks_destroyed),
+					soci::use (in.blocks_created),
+					soci::use (in.messages_sent),
+					soci::use ((long long)in.first_login),
+					soci::use ((long long)in.last_login),
+					soci::use (in.login_count),
+					soci::use (in.balance),
+					soci::use (in.banned ? 1 : 0),
+					soci::use (std::string (name));
 			}
 		else
 			{
-				stmt.prepare ("INSERT INTO `players` (`name`, `nick`, "
+				sql.once <<
+					"INSERT INTO `players` (`name`, `nick`, "
 					"`ip`, `op`, `rank`, `blocks_destroyed`, `blocks_created`, "
 					"`messages_sent`, `first_login`, `last_login`, "
-					"`login_count`, `balance`, `banned`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+					"`login_count`, `balance`, `banned`) VALUES (:name, :nick, "
+					":ip, :op, :rank, :blocks_destroyed, :blocks_created, :messages_sent, "
+					":first_login, :last_login, :login_count, :balance, :banned)",
+					soci::use (std::string (name)),
+					soci::use (in.nick),
+					soci::use (in.ip),
+					soci::use (in.op ? 1 : 0),
+					soci::use (rank_str),
+					soci::use (in.blocks_destroyed),
+					soci::use (in.blocks_created),
+					soci::use (in.messages_sent),
+					soci::use ((unsigned long long)in.first_login),
+					soci::use ((unsigned long long)in.last_login),
+					soci::use (in.login_count),
+					soci::use (in.balance),
+					soci::use (in.banned ? 1 : 0);
 			}
-		
-		int i = 1;
-		
-		stmt.bind (i++, name);
-		stmt.bind (i++, in.nick.c_str ());
-		stmt.bind (i++, in.ip.c_str ());
-		stmt.bind (i++, in.op ? 1 : 0);
-		
-		std::string rank_str;
-		in.rnk.get_string (rank_str);
-		stmt.bind (i++, rank_str.c_str ());
-		
-		stmt.bind (i++, in.blocks_destroyed);
-		stmt.bind (i++, in.blocks_created);
-		stmt.bind (i++, in.messages_sent);
-		stmt.bind (i++, (long long)in.first_login);
-		stmt.bind (i++, (long long)in.last_login);
-		stmt.bind (i++, in.login_count);
-		stmt.bind (i++, in.balance);
-		stmt.bind (i++, in.banned ? 1 : 0);
-		
-		if (exists)
-			stmt.bind (i++, name);
-		
-		sql::row row;
-		while (stmt.step (row))
-			;
 		
 		return exists;
 	}
 		
+		
+	
+	static bool
+	_fill_player_info (soci::row& r, server &srv, sqlops::player_info& out)
+	{
+		out.id = r.get<unsigned int> (0);
+		out.name = r.get<std::string> (1);
+		out.nick = r.get<std::string> (2);
+		out.ip = r.get<std::string> (3);
+		out.op = (r.get<int> (4) == 1);
+		
+		try
+			{
+				out.rnk.set (r.get<std::string> (5).c_str (), srv.get_groups ());
+			}
+		catch (const std::exception& str)
+			{
+				// invalid rank
+				out.rnk.set (srv.get_groups ().default_rank);
+				srv.get_logger () (LT_ERROR) << "Player \"" << out.name << "\" has an invalid rank." << std::endl;
+			}
+		
+		out.blocks_destroyed = r.get<int> (6);
+		out.blocks_created = r.get<int> (7);
+		out.messages_sent = r.get<int> (8);
+		
+		out.first_login = (std::time_t)r.get<unsigned long long> (9);
+		out.first_login = (std::time_t)r.get<unsigned long long> (10);
+		out.login_count = r.get<int> (11);
+		
+		out.balance = r.get<double> (12);
+		out.banned = (r.get<int> (13) == 1);
+		return true;
+	}
+	
 	/* 
 	 * Fills the specified player_info structure with information about
 	 * the given player. Returns true if the player found, false otherwise.
 	 */
 	bool
-	sqlops::player_data (sql::connection& conn, const char *name,
+	sqlops::player_data (soci::session& sql, const char *name,
 		server &srv, sqlops::player_info& out)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT * FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
-		if (stmt.step (row))
-			{
-				out.id = row.at (0).as_int ();
-				out.name.assign (row.at (1).as_cstr ());
-				out.nick.assign (row.at (2).as_cstr ());
-				out.ip.assign (row.at (3).as_cstr ());
-				
-				out.op = (row.at (4).as_int () == 1);
-				
-				try
-					{
-						out.rnk.set (row.at (5).as_cstr (), srv.get_groups ());
-					}
-				catch (const std::exception& str)
-					{
-						// invalid rank
-						out.rnk.set (srv.get_groups ().default_rank);
-						srv.get_logger () (LT_ERROR) << "Player \"" << name << "\" has an invalid rank." << std::endl;
-					}
-				
-				out.blocks_destroyed = row.at (6).as_int ();
-				out.blocks_created = row.at (7).as_int ();
-				out.messages_sent = row.at (8).as_int ();
-				
-				out.first_login = (std::time_t)row.at (9).as_int ();
-				out.last_login = (std::time_t)row.at (10).as_int ();
-				out.login_count = row.at (11).as_int ();
-				
-				out.balance = row.at (12).as_double ();
-				
-				out.banned = (row.at (13).as_int () == 1);
-				
-				return true;
-			}
-		return false;
+		soci::row r;
+		sql << "SELECT * FROM `players` WHERE `name`=:name", soci::into (r), soci::use (std::string (name));
+		if (!sql.got_data ())
+			return false;
+			
+		return _fill_player_info (r, srv, out);
 	}
+	
+	// uses PID instead
+  bool
+  sqlops::player_data (soci::session& sql, int pid, server &srv,
+  	sqlops::player_info& out)
+  {
+  	soci::row r;
+		sql << "SELECT * FROM `players` WHERE `id`=" << pid, soci::into (r);
+		if (!sql.got_data ())
+			return false;
+		
+		return _fill_player_info (r, srv, out);
+  }
+	
+	
 	
 	/* 
 	 * Returns the rank of the specified player.
 	 */
 	rank
-	sqlops::player_rank (sql::connection& conn, const char *name, server& srv)
+	sqlops::player_rank (soci::session& sql, const char *name, server& srv)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT `rank` FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
+		std::string rank_str;
 		
-		if (!stmt.step (row))
+		sql << "SELECT `rank` FROM `players` WHERE `name`=:name",
+			soci::into (rank_str), soci::use (std::string (name));
+		if (!sql.got_data ())
 			return srv.get_groups ().default_rank;
 		
 		rank rnk;
 		try
 			{
-				rnk.set (row.at (0).as_cstr (), srv.get_groups ());
+				rnk.set (rank_str.c_str (), srv.get_groups ());
 			}
 		catch (const std::exception& str)
 			{
@@ -186,6 +208,20 @@ namespace hCraft {
 			}
 		
 		return rnk;
+	}
+	
+	/* 
+	 * Returns the database PID of the specified player, or -1 if not found.
+	 */
+	int
+	sqlops::player_id (soci::session& sql, const char *name)
+	{
+		int id;
+		sql << "SELECT id FROM `players` WHERE `name`='" << name << "'",
+			soci::into (id);
+		if (!sql.got_data ())
+			return -1;
+		return id;
 	}
 	
 	
@@ -220,46 +256,57 @@ namespace hCraft {
 	 */
 	
 	std::string
-	sqlops::player_name (sql::connection& conn, const char *name)
+	sqlops::player_name (soci::session& sql, const char *name)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT `name` FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
-		if (stmt.step (row))
-			return row.at (0).as_str ();
-		return "";
+		std::string n;
+		sql << "SELECT `name` FROM `players` WHERE `name`=:name",
+			soci::into (n), soci::use (std::string (name));
+		if (!sql.got_data ())
+			return "";
+		return n;
 	}
 	
 	std::string
-	sqlops::player_colored_name (sql::connection& conn, const char *name, server &srv)
+	sqlops::player_name (soci::session& sql, int pid)
 	{
-		rank rnk = player_rank (conn, name, srv);
+		std::string n;
+		sql << "SELECT `name` from `players` WHERE `id`=" << pid,
+			soci::into (n);
+		if (!sql.got_data ())
+			return "";
+		return n;
+	}
+	
+	std::string
+	sqlops::player_colored_name (soci::session& sql, const char *name, server &srv)
+	{
+		rank rnk = player_rank (sql, name, srv);
 		std::string str;
 		str.append ("§");
 		str.push_back (rnk.main ()->color);
-		str.append (player_name (conn, name));
+		str.append (player_name (sql, name));
 		return str;
 	}
 	
 	std::string
-	sqlops::player_nick (sql::connection& conn, const char *name)
+	sqlops::player_nick (soci::session& sql, const char *name)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT `nick` FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
-		if (stmt.step (row))
-			return row.at (0).as_str ();
-		return "";
+		std::string n;
+		sql << "SELECT `nick` FROM `players` WHERE `name`=:name",
+			soci::into (n), soci::use (std::string (name));
+		if (!sql.got_data ())
+			return "";
+		return n;
 	}
 	
 	std::string
-	sqlops::player_colored_nick (sql::connection& conn, const char *name, server &srv)
+	sqlops::player_colored_nick (soci::session& sql, const char *name, server &srv)
 	{
-		rank rnk = player_rank (conn, name, srv);
+		rank rnk = player_rank (sql, name, srv);
 		std::string str;
 		str.append ("§");
 		str.push_back (rnk.main ()->color);
-		str.append (player_nick (conn, name));
+		str.append (player_nick (sql, name));
 		return str;
 	}
 	
@@ -269,15 +316,10 @@ namespace hCraft {
 	 * Changes the rank of the player that has the specified name.
 	 */
 	void
-	sqlops::modify_player_rank (sql::connection& conn, const char *name,
+	sqlops::modify_player_rank (soci::session& sql, const char *name,
 		const char *rankstr)
 	{
-		auto stmt = conn.query ("UPDATE `players` SET `rank`=? WHERE `name`=?");
-		stmt.bind (1, rankstr, sql::pass_transient);
-		stmt.bind (2, name, sql::pass_transient);
-
-		while (stmt.step ())
-			;
+		sql.once << "UPDATE `players` SET `rank`='" << rankstr << "' WHERE `name`='" << name << "'";
 	}
 	
 	
@@ -287,34 +329,26 @@ namespace hCraft {
 	 */
 	
 	void
-	sqlops::set_money (sql::connection& conn, const char *name, double amount)
+	sqlops::set_money (soci::session& sql, const char *name, double amount)
 	{
-		auto stmt = conn.query ("UPDATE `players` SET `balance`=? WHERE `name`=?");
-		stmt.bind (1, amount);
-		stmt.bind (2, name, sql::pass_transient);
-		while (stmt.step ())
-			;
+		sql.once << "UPDATE `players` SET `balance`=" << amount << " WHERE `name`='" << name << "'";
 	}
 	
 	void
-	sqlops::add_money (sql::connection& conn, const char *name, double amount)
+	sqlops::add_money (soci::session& sql, const char *name, double amount)
 	{
-		auto stmt = conn.query ("UPDATE `players` SET `balance`=`balance`+? WHERE `name`=?");
-		stmt.bind (1, amount);
-		stmt.bind (2, name, sql::pass_transient);
-		while (stmt.step ())
-			;
+		sql.once << "UPDATE `players` SET `balance`=`balance`+" << amount << " WHERE `name`='" << name << "'";
 	}
 	
 	double
-	sqlops::get_money (sql::connection& conn, const char *name)
+	sqlops::get_money (soci::session& sql, const char *name)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT `balance` FROM `players` WHERE `name`=?");
-		stmt.bind (1, name, sql::pass_transient);
-		if (stmt.step (row))
-			return row.at (0).as_double ();
-		return 0.0;
+		double amount;
+		sql <<  "SELECT `balance` FROM `players` WHERE `name`=:n",
+			soci::into (amount), soci::use (std::string (name));
+		if (!sql.got_data ())
+			return 0.0;
+		return amount;
 	}
 	
 	
@@ -324,72 +358,50 @@ namespace hCraft {
 	 */
 	
 	void
-	sqlops::record_kick (sql::connection& conn, const char *target,
+	sqlops::record_kick (soci::session& sql, const char *target,
 		const char *kicker, const char *reason)
 	{
-		auto stmt = conn.query ("INSERT INTO `kicks` (`target`, `kicker`, `reason`, "
-			"`kick_time`) VALUES (?, ?, ?, ?)");
 		std::time_t t = std::time (nullptr);
-		
-		stmt.bind (1, target);
-		stmt.bind (2, kicker);
-		stmt.bind (3, reason);
-		stmt.bind (4, (long long)t);
-		while (stmt.step ())
-			;
+		sql << "INSERT INTO `kicks` (`target`, `kicker`, `reason`, "
+			"`kick_time`) VALUES (:tar, :kic, :rea, :tim)",
+			soci::use (std::string (target)), soci::use (std::string (kicker)), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
-	sqlops::record_ban (sql::connection& conn, const char *target,
+	sqlops::record_ban (soci::session& sql, const char *target,
 		const char *banner, const char *reason)
 	{
-		auto stmt = conn.query ("INSERT INTO `bans` (`target`, `banner`, `reason`, "
-			"`ban_time`) VALUES (?, ?, ?, ?)");
 		std::time_t t = std::time (nullptr);
-		
-		stmt.bind (1, target);
-		stmt.bind (2, banner);
-		stmt.bind (3, reason);
-		stmt.bind (4, (long long)t);
-		while (stmt.step ())
-			;
+		sql << "INSERT INTO `bans` (`target`, `banner`, `reason`, "
+			"`ban_time`) VALUES (:tar, :ban, :rea, :tim)",
+			soci::use (std::string (target)), soci::use (std::string (banner)), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
-	sqlops::record_unban (sql::connection& conn, const char *target,
+	sqlops::record_unban (soci::session& sql, const char *target,
 		const char *unbanner, const char *reason)
 	{
-		auto stmt = conn.query ("INSERT INTO `unbans` (`target`, `unbanner`, `reason`, "
-			"`unban_time`) VALUES (?, ?, ?, ?)");
 		std::time_t t = std::time (nullptr);
-		
-		stmt.bind (1, target);
-		stmt.bind (2, unbanner);
-		stmt.bind (3, reason);
-		stmt.bind (4, (long long)t);
-		while (stmt.step ())
-			;
+		sql << "INSERT INTO `unbans` (`target`, `unbanner`, `reason`, "
+			"`unban_time`) VALUES (:tar, :unb, :rea, :tim)",
+			soci::use (std::string (target)), soci::use (std::string (unbanner)), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
-	sqlops::modify_ban_status (sql::connection& conn, const char *username, bool ban)
+	sqlops::modify_ban_status (soci::session& sql, const char *username, bool ban)
 	{
-		auto stmt = conn.query ("UPDATE `players` SET `banned`=? WHERE `name`=?");
-		stmt.bind (1, ban ? 1 : 0);
-		stmt.bind (2, username, sql::pass_transient);
-		while (stmt.step ())
-			;
+		sql.once << "UPDATE `players` SET `banned`=" << (ban ? 1 : 0) << " WHERE `name`='" << username << "'";
 	}
 	
 	bool
-	sqlops::is_banned (sql::connection& conn, const char *username)
+	sqlops::is_banned (soci::session& sql, const char *username)
 	{
-		sql::row row;
-		auto stmt = conn.query ("SELECT `banned` FROM `players` WHERE `name`=?");
-		stmt.bind (1, username, sql::pass_transient);
-		if (stmt.step (row))
-			return (row.at (0).as_int () == 1);
-		return false;
+		int banned;
+		sql << "SELECT `banned` FROM `players` WHERE `name`=:n",
+			soci::into (banned), soci::use (std::string (username));
+		if (!sql.got_data ())
+			return false;
+		return (banned == 1);
 	}
 }
 

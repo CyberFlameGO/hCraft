@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,7 +75,8 @@ namespace hCraft {
 
 			// record ban
 			{
-				auto& conn = pl->get_server ().sql ().pop ();
+				soci::session sql (srv.sql_pool ());
+				
 				try
 					{
 						if (target)
@@ -85,12 +86,12 @@ namespace hCraft {
 							}
 						else
 							{
-								if (!sqlops::player_exists (conn, target_name.c_str ()))
+								if (!sqlops::player_exists (sql, target_name.c_str ()))
 									{
 										sqlops::player_info pd;
 										sqlops::default_player_data (target_name.c_str (), pl->get_server (), pd);
 										pd.banned = true;
-										sqlops::save_player_data (conn, target_name.c_str (), pl->get_server (), pd);
+										sqlops::save_player_data (sql, target_name.c_str (), pl->get_server (), pd);
 										
 										target_colored_nick.assign ("§");
 										target_colored_nick.push_back (pl->get_server ().get_groups ().default_rank.main ()->color);
@@ -100,27 +101,25 @@ namespace hCraft {
 									}
 								else
 									{
-										if (sqlops::is_banned (conn, target_name.c_str ()))
+										if (sqlops::is_banned (sql, target_name.c_str ()))
 											{
 												pl->message ("§c * §7Player is already banned§c.");
 												return;
 											}
 										
-										target_name = sqlops::player_name (conn, target_name.c_str ());
-										target_colored_nick = sqlops::player_colored_nick (conn, target_name.c_str (), pl->get_server ());
+										target_name = sqlops::player_name (sql, target_name.c_str ());
+										target_colored_nick = sqlops::player_colored_nick (sql, target_name.c_str (), pl->get_server ());
 									}
 							}
 						
-						sqlops::modify_ban_status (conn, target_name.c_str (), true);
-						sqlops::record_ban (conn, target_name.c_str (),
+						sqlops::modify_ban_status (sql, target_name.c_str (), true);
+						sqlops::record_ban (sql, target_name.c_str (),
 							pl->get_username (), reason.c_str ());
 					}
 				catch (const std::exception& ex)
 					{
 						pl->message ("§4 * §cAn error has occurred while recording ban message");
 					}
-				
-				pl->get_server ().sql ().push (conn);
 				
 				std::ostringstream ss;
 				ss << "§7 | §eRecorded ban message§7: §c\"" << reason << "§c\"";

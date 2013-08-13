@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,12 +46,26 @@ namespace hCraft {
 	
 	
 	
+	static void
+	_init_sql_tables (world *w, server &srv)
+	{
+		soci::session sql (srv.sql_pool ());
+		
+		// block history table
+		sql.once <<
+			"CREATE TABLE IF NOT EXISTS `block_history_" << w->get_name () << "` ("
+			"`x` INT, `y` INT, `z` INT, " // pos
+			"`old_id` SMALLINT UNSIGNED, `old_meta` TINYINT UNSIGNED, `old_ex` TINYINT UNSIGNED, " // old value
+			"`new_id` SMALLINT UNSIGNED, `new_meta` TINYINT UNSIGNED, `new_ex` TINYINT UNSIGNED, " // new value
+			"`pid` INTEGER UNSIGNED, `time` BIGINT UNSIGNED)";
+	}
+	
 	/* 
 	 * Constructs a new empty world.
 	 */
 	world::world (world_type typ, server &srv, const char *name, logger &log,
 		world_generator *gen, world_provider *provider)
-		: srv (srv), log (log), lm (log, this), estage (this)
+		: srv (srv), log (log), lm (log, this), blhi (*this), estage (this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -74,6 +88,8 @@ namespace hCraft {
 		
 		this->ph_state = PHY_OFF;
 		//this->physics.set_thread_count (0);
+		
+		_init_sql_tables (this, srv);
 	}
 	
 	/* 
@@ -519,6 +535,11 @@ namespace hCraft {
 										}
 									
 									this->set_block (u.x, u.y, u.z, u.id, u.meta, u.extra);
+									if (u.pl)
+										{
+											// block history
+											this->blhi.insert (u.x, u.y, u.z, old_bd, {u.id, u.meta, (unsigned char)u.extra}, u.pl);
+										}
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);
 									if (new_inf->opaque != old_inf->opaque)
@@ -1381,7 +1402,8 @@ namespace hCraft {
 		if (this->ph_state == PHY_OFF) return;
 		this->ph_state = PHY_OFF;
 		
-		// TODO
+		if (this->physics.get_thread_count () != 0)
+			this->physics.stop ();
 	}
 	
 	void

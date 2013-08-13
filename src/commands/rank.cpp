@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -144,8 +144,8 @@ namespace hCraft {
 			player *target = nullptr;
 			sqlops::player_info pinf;
 			{
-				auto& conn = pl->get_server ().sql ().pop ();
-				if (!sqlops::player_data (conn, target_name.c_str (), pl->get_server (), pinf))
+				soci::session sql (pl->get_server ().sql_pool ());
+				if (!sqlops::player_data (sql, target_name.c_str (), pl->get_server (), pinf))
 					{
 						pl->message ("§c * §7Unknown player§f: §c" + target_name);
 						return;
@@ -182,7 +182,7 @@ namespace hCraft {
 					{
 						std::string rank_str;
 						new_rank.get_string (rank_str);
-						sqlops::modify_player_rank (conn, target_name.c_str (), rank_str.c_str ());
+						sqlops::modify_player_rank (sql, target_name.c_str (), rank_str.c_str ());
 					}
 				catch (const std::exception& ex)
 					{
@@ -210,8 +210,6 @@ namespace hCraft {
 					ss << "§7 | The database has been updated.";
 					pl->message (ss.str ());
 				}
-				
-				pl->get_server ().sql ().push (conn);
 			}
 		}
 	}

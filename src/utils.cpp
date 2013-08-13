@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -97,8 +97,6 @@ namespace hCraft {
 					out.assign (ss.str ());
 					return;
 				}
-			else if (d == 1)
-				{ out = "Yesterday"; return; }
 			
 			if (d >= 365)
 				{

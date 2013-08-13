@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,35 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__WORLDGENERATOR__D3_NORMAL_H_
-#define _hCraft__WORLDGENERATOR__D3_NORMAL_H_
+#ifndef _hCraft__WORLDGENERATOR__EMPTY_H_
+#define _hCraft__WORLDGENERATOR__EMPTY_H_
 
 #include "worldgenerator.hpp"
-#include <random>
 
 
 namespace hCraft {
 	
 	/* 
-	 * A generator borrowed from D3 (Old classic server software).
+	 * A generator that basically does nothing.
 	 */
-	class d3_normal_world_generator: public world_generator
+	class empty_world_generator: public world_generator
 	{
-		std::minstd_rand rnd;
 		long gen_seed;
 		
 	public:
 		/* 
-		 * Constructs a new D3 normal world generator.
+		 * Constructs a new empty world generator.
 		 */
-		d3_normal_world_generator (long seed);
+		empty_world_generator (long seed);
 		
 		
 		/* 
 		 * Returns the name of this generator.
 		 */
 		virtual const char* name ()
-			{ return "d3-normal"; }
+			{ return "empty"; }
 		
 		virtual long seed () override
 			{ return this->gen_seed; }
@@ -54,7 +52,7 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Generates terrain on the specified chunk.
+		 * Generates on the specified chunk.
 		 */
 		virtual void generate (world& wr, chunk *out, int cx, int cz);
 	};

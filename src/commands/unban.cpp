@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,35 +67,31 @@ namespace hCraft {
 
 			// record unban
 			{
-				auto& conn = pl->get_server ().sql ().pop ();
+				soci::session sql (srv.sql_pool ());
 				try
 					{
-						if (!sqlops::player_exists (conn, target_name.c_str ()))
+						if (!sqlops::player_exists (sql, target_name.c_str ()))
 							{
 								pl->message ("§c * §7No such player§f: §c" + target_name);
-								pl->get_server ().sql ().push (conn);
 								return;
 							}
 						
-						if (!sqlops::is_banned (conn, target_name.c_str ()))
+						if (!sqlops::is_banned (sql, target_name.c_str ()))
 							{
 								pl->message ("§c * §7Player is not banned§c.");
-								pl->get_server ().sql ().push (conn);
 								return;
 							}
 						
-						target_name = sqlops::player_name (conn, target_name.c_str ());
-						target_colored_nick = sqlops::player_colored_nick (conn, target_name.c_str (), pl->get_server ());
-						sqlops::modify_ban_status (conn, target_name.c_str (), false);
-						sqlops::record_unban (conn, target_name.c_str (),
+						target_name = sqlops::player_name (sql, target_name.c_str ());
+						target_colored_nick = sqlops::player_colored_nick (sql, target_name.c_str (), pl->get_server ());
+						sqlops::modify_ban_status (sql, target_name.c_str (), false);
+						sqlops::record_unban (sql, target_name.c_str (),
 							pl->get_username (), reason.c_str ());
 					}
 				catch (const std::exception& ex)
 					{
 						pl->message ("§4 * §cAn error has occurred while recording unban message");
 					}
-				
-				pl->get_server ().sql ().push (conn);
 				
 				std::ostringstream ss;
 				ss << "§7 | §eRecorded unban message§7: §c\"" << reason << "§c\"";

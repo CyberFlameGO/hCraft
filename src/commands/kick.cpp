@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,18 +70,16 @@ namespace hCraft {
 			
 			// record kick
 			{
-				auto& conn = pl->get_server ().sql ().pop ();
+				soci::session sql (srv.sql_pool ());
 				try
 					{
-						sqlops::record_kick (conn, target->get_username (),
+						sqlops::record_kick (sql, target->get_username (),
 							pl->get_username (), reason.c_str ());
 					}
 				catch (const std::exception& ex)
 					{
 						pl->message ("§4 * §cAn error has occurred while recording kick message");
 					}
-				
-				pl->get_server ().sql ().push (conn);
 				
 				std::ostringstream ss;
 				ss << "§7 | §eRecorded kick message§7: §c\"" << reason << "§c\"";

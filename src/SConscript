@@ -22,7 +22,6 @@ hCraft_sources = Split("""
 		window.cpp
 		items.cpp
 		slot.cpp
-		sql.cpp
 		lighting.cpp
 		manual.cpp
 		crafting.cpp
@@ -35,6 +34,7 @@ hCraft_sources = Split("""
 		world_list.cpp
 		noise.cpp
 		portal.cpp
+		block_history.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -48,9 +48,9 @@ hCraft_sources = Split("""
 		generation/plains.cpp
 		generation/overhang.cpp
 		generation/flatplains.cpp
-		generation/d3_normal.cpp
 		generation/experiment.cpp
 		generation/islands.cpp
+		generation/empty.cpp
 		
 		generation/detail/trees.cpp
 		
@@ -91,6 +91,7 @@ hCraft_sources = Split("""
 		commands/wconfig.cpp
 		commands/bt.cpp
 		commands/portal.cpp
+		commands/whodid.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp
@@ -115,13 +116,22 @@ hCraft_libs = Split("""
 		event_pthreads
 		m
 		z
-		sqlite3
 		noise
 		tbb
 		cryptopp
 		curl
+		
+		soci_core
+		soci_mysql
+		mysqlclient
 		""")
 
 Import('env')
-env.Program(target = 'hCraft', source = hCraft_sources, LIBS = hCraft_libs)
+
+lib_paths = []
+lib_paths.append (env['soci_lib_path'])
+lib_paths.append (env['mysql_lib_path'])
+
+env.Program(target = 'hCraft', source = hCraft_sources, LIBS = hCraft_libs,
+	LIBPATH=lib_paths)
 

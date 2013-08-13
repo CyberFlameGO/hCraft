@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -106,14 +106,14 @@ namespace hCraft {
 					world_selection *sel = new cuboid_selection (curr_pos, curr_pos);
 					pl->selections[name.c_str ()] = sel;
 					pl->curr_sel = sel;
-					pl->message ("§eCreated new selection §b@§9" + name + " §eof type§f: §9cuboid");
+					pl->message ("§7Select§f: §eCreated new selection §b@§e" + name + " §eof type§f: §acuboid");
 				}
 			else if (sutils::iequals (sel_type, "sphere") || sutils::iequals (sel_type, "s"))
 				{
 					world_selection *sel = new sphere_selection (curr_pos, curr_pos);
 					pl->selections[name.c_str ()] = sel;
 					pl->curr_sel = sel;
-					pl->message ("§eCreated new selection §b@§9" + name + " §eof type§f: §9sphere");
+					pl->message ("§7Select§f: §eCreated new selection §b@§e" + name + " §eof type§f: §asphere");
 				}
 			else
 				{
@@ -151,7 +151,7 @@ namespace hCraft {
 			if (itr->second->visible ())
 				itr->second->hide (pl);
 			delete itr->second;
-			pl->message ("§eSelection §b@§9" + std::string (itr->first.c_str ()) + " §ehas been deleted§f.");
+			pl->message ("§7Select§f: §eSelection §b@§6" + std::string (itr->first.c_str ()) + " §ehas been deleted§f.");
 			pl->selections.erase (itr);
 			
 			if (adjust_curr_sel)
@@ -182,6 +182,7 @@ namespace hCraft {
 			
 			// clear all selections
 			bool curr_deleted = false;
+			int count = 0;
 			for (auto itr = pl->selections.begin (); itr != pl->selections.end ();)
 				{
 					world_selection *sel = itr->second;
@@ -193,6 +194,7 @@ namespace hCraft {
 					if (pl->curr_sel == sel)
 						curr_deleted = true;
 					delete sel;
+					++ count;
 					
 					itr = pl->selections.erase (itr);
 				}
@@ -206,12 +208,17 @@ namespace hCraft {
 				}
 			pl->sb_commit ();
 			
+			std::ostringstream ss;
+			ss << "§7Select§f: §e";
 			switch (op)
 				{
-					case VISIBLE: pl->message ("§eAll §9visible §eselections have been cleared"); break;
-					case HIDDEN: pl->message ("§eAll §8hidden §eselections have been cleared"); break;
-					case ALL: pl->message ("§eAll selections have been cleared"); break;
+					case VISIBLE: ss << "Visible selections"; break;
+					case HIDDEN: ss << "Hidden selections"; break;
+					case ALL: ss << "Selections"; break;
 				}
+			ss << " cleared [§f"
+				 << count << " §7selection" << (count == 1 ? "" : "s") << "§e]";
+			pl->message (ss.str ());
 		}
 		
 		static void
@@ -305,8 +312,8 @@ namespace hCraft {
 			pl->sb_commit ();
 			
 			std::ostringstream ss;
-			ss << "§eAll §9visible §eselections have been §bmoved §e(§c"
-				 << sels.size () << " §eselections)";
+			ss << "§7Select§f: §eVisible selections moved [§f"
+				 << sels.size () << " §7selection" << (sels.size () == 1 ? "" : "s") << "§e]";
 			pl->message (ss.str ());
 		}
 		
@@ -350,6 +357,11 @@ namespace hCraft {
 						pl->message (messages::over_select_limit (pl->get_rank ().select_limit ()));
 						return;
 					}
+				else if (collective_vol > 30000 && pl->sb_block.id == BT_STILL_WATER)
+					{
+						pl->sb_block = BT_GLASS;
+						pl->message ("§c * §eSelection block changed to glass [§7>§c30,000§e]");
+					}
 				delete test;
 			}
 	
@@ -358,8 +370,8 @@ namespace hCraft {
 	
 			{
 				std::ostringstream ss;
-				ss << "§eSetting point §b#" << num << " §eto {§9x: §a"
-					 << curr_pos.x << "§e, §9y: §a" << curr_pos.y << "§e, §9z: §a"
+				ss << "§7 | §ePoint §8#" << num << " §eset to {§7x: §a"
+					 << curr_pos.x << "§e, §7y: §a" << curr_pos.y << "§e, §7z: §a"
 					 << curr_pos.z << "§e}";
 				pl->message (ss.str ());
 			}
@@ -403,6 +415,7 @@ namespace hCraft {
 					return;
 				}
 			
+			int s_count = 0;
 			int sx, sy, sz, ex, ey, ez;
 			sx = sy = sz =  2147483647;
 			ex = ey = ez = -2147483648;
@@ -411,6 +424,7 @@ namespace hCraft {
 					world_selection *sel = itr->second;
 					if (sel->visible ())
 						{
+							++ s_count;
 							block_pos pmin = sel->min (), pmax = sel->max ();
 							if (pmin.x < sx)
 								sx = pmin.x;
@@ -434,8 +448,11 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
-				ss << "§eSelection boundaries§f: §b{" << sx << ", " << sy << ", " << sz
-					 << "} §eto §b{" << ex << ", " << ey << ", " << ez << "}§f.";
+				ss << "§7Select§f: §eApplying filter on §f" << s_count << " §eselections";
+				pl->message (ss.str ());
+				ss.str (std::string ());
+				ss << "§7 | §eBoundaries§f: §e{§7" << sx << "§e, §7" << sy << "§e, §7" << sz
+					 << "§e} -> {§7" << ex << "§e, §7" << ey << "§e, §7" << ez << "§e}";
 				pl->message (ss.str ());
 			}
 			
@@ -496,7 +513,7 @@ namespace hCraft {
 			
 			if (counter == 0)
 				{
-					pl->message ("§bNothing §ehas been selected");
+					pl->message ("§7 | §eNo blocks have been selected");
 					return;
 				}
 			
@@ -515,13 +532,13 @@ namespace hCraft {
 				}
 			
 			std::ostringstream ss;
-			ss << "@" << get_next_selection_number (pl);
+			ss << get_next_selection_number (pl);
 			std::string bsel_name = ss.str ();
 			pl->selections[bsel_name.c_str ()] = bsel;
 			pl->curr_sel = bsel;
 			
 			ss.str (std::string ()); ss.clear ();
-			ss << "§eCreated new selection §9" << bsel_name << "§f: §a" << counter << " §eblocks";
+			ss << "§7 | §eCreated new selection §b@§6" << bsel_name << "§f: §7" << counter << " §eblocks";
 			pl->message (ss.str ());
 			
 			bsel->show (pl);
@@ -613,9 +630,9 @@ namespace hCraft {
 			pl->sb_commit ();
 			
 			std::ostringstream ss;
-			ss << "§eAll §9visible §eselections have been §b"
-				 << (do_expand ? "expanded" : "contracted") << " §e(§c"
-				 << sels.size () << " §eselections)";
+			ss << "§7Select§f: §eVisible selections "
+				 << (do_expand ? "expanded" : "contracted") << " [§f"
+				 << sels.size () << " §7selections§e]";
 			pl->message (ss.str ());
 		}
 		
@@ -705,10 +722,10 @@ namespace hCraft {
 			
 			// message
 			std::ostringstream ss;
-			ss << "§c" << count << " §eselection"
+			ss << "§7Select§f: §f" << count << " §eselection"
 				 << (count == 1 ? " " : "s ")
-		   	 << (count == 1 ? "has" : "have") << " been made "
-				 << (do_show ? "§9visible" : "§8hidden");
+		   	 << (count == 1 ? "has" : "have") << " been "
+				 << (do_show ? "made visible" : "hidden");
 			pl->message (ss.str ());
 		}
 		
@@ -743,7 +760,7 @@ namespace hCraft {
 			
 			block_info *binf = block_info::from_id (blk.id);
 			std::ostringstream ss;
-			ss << "§eSelection block type changed to §a" << binf->name << "§f:§a" << (int)blk.meta;
+			ss << "§7Select: §eSelection block changed to §a" << binf->name << "§f:§a" << (int)blk.meta;
 			pl->message (ss.str ());
 		}
 		
@@ -777,7 +794,7 @@ namespace hCraft {
 				}
 			
 			std::ostringstream ss;
-			ss << "§eApproximate volume (§c" << sel_count << " §eselections)§f: §a" << total_vol << " §eblocks";
+			ss << "§7Select§f: §eApproximate volume [§f" << sel_count << " §7selections§e]§f: §f" << total_vol << " §eblocks";
 			pl->message (ss.str ());
 		}
 		

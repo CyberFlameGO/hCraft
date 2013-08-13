@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,12 +29,12 @@
 #include "commands/command.hpp"
 #include "permissions.hpp"
 #include "rank.hpp"
-#include "sql.hpp"
 #include "authentication.hpp"
 #include "generator.hpp"
 #include "world_list.hpp"
 #include "messages.hpp"
 
+#include <soci/soci.h>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -79,6 +79,12 @@ namespace hCraft {
 		
 		char self_highlight_color;
 		char name_highlight_color;
+		
+		std::string db_name;
+		std::string db_user;
+		std::string db_pass;
+		std::string db_host;
+		int db_port;
 	};
 	
 	
@@ -144,7 +150,9 @@ namespace hCraft {
 		logger& log;
 		server_config cfg;
 		
-		sql::connection_pool spool;
+		//sql::connection_pool spool;
+		soci::connection_pool spool;
+		
 		permission_manager perms;
 		group_manager groups;
 		
@@ -317,13 +325,7 @@ namespace hCraft {
 		
 		inline std::mutex& get_player_lock () { return this->player_lock; }
 		
-		inline sql::connection_pool& sql () { return this->spool; }
-		inline void execute_sql (const std::string& str)
-		{
-			auto& conn = this->sql ().pop ();
-			conn.execute (str);
-			this->sql ().push (conn);
-		}
+		inline soci::connection_pool& sql_pool () { return this->spool; }
 		
 		inline const std::string& auth_id () { return this->server_id; }
 		inline CryptoPP::RSA::PublicKey public_key ()

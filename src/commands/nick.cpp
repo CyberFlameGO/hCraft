@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,31 +51,34 @@ namespace hCraft {
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 			if (target)
 				target_name.assign (target->get_username ());
-			auto& conn = pl->get_server ().sql ().pop ();
-			auto stmt = conn.query (
-				"SELECT * FROM `players` WHERE `name` LIKE ?");
-			sql::row row;
+				
+			std::string name, nick, rank_str;
+			soci::session sql (pl->get_server ().sql_pool ());
 			
-			stmt.bind (1, target_name.c_str (), sql::pass_transient);
-			if (!stmt.step (row))
+			try
+				{
+					sql << "SELECT name,nick,rank FROM `players` WHERE `name` LIKE :n",
+						soci::into (name), soci::into (nick), soci::into (rank_str), soci::use (target_name);
+				}
+			catch (const std::exception& ex)
 				{
 					pl->message ("§c * §7Unable to find player§f: §c" + target_name);
 					return;
 				}
 			
-			rank rnk (row.at (5).as_cstr (), pl->get_server ().get_groups ());
-			prev_nickname.assign (row.at (2).as_cstr ());
+			rank rnk (rank_str.c_str (), pl->get_server ().get_groups ());
+			prev_nickname.assign (nick);
 			if (reader.arg_count () >= 2)
 				nickname.assign (reader.all_from (1));
 			else
-				nickname.assign (row.at (1).as_cstr ());
+				nickname.assign (name);
 			if (nickname.empty () || nickname.length () > 36)
 				{
 					pl->message ("§c * §7A nickname cannot have more than §c36 "
 											 "§7characters or be empty§f.");
 					return;
 				}
-			else if (std::strcmp (nickname.c_str (), row.at (2).as_cstr ()) == 0)
+			else if (nickname.compare (nick) == 0)
 				{
 					pl->message ("§ePlayer §a" + target_name + " §ealready has that nickname§f.");
 					return;
@@ -85,10 +88,9 @@ namespace hCraft {
 				std::ostringstream ss;
 				if (target)
 					target->set_nickname (nickname.c_str (), false);
-				ss << "UPDATE `players` SET `nick`='"
-					 << nickname << "' WHERE `name`='"
-					 << target_name << "';";
-				conn.execute (ss.str ());
+				
+				sql << "UPDATE `players` SET `nick`=:nick WHERE `name`=:name",
+					soci::use (nickname), soci::use (target_name);
 						
 				ss.clear (); ss.str (std::string ());
 				ss << "§" << rnk.main ()->color << prev_nickname
@@ -96,8 +98,6 @@ namespace hCraft {
 					 << nickname << "§f!";
 				pl->get_server ().get_players ().message (ss.str ());
 			}
-			
-			pl->get_server ().sql ().push (conn);
 		}
 	}
 }

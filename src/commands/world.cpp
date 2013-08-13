@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -116,49 +116,6 @@ namespace hCraft {
 				}
 			
 			pl->join_world (wr);
-			
-			messages::environment env {pl};
-			env.prev_world = prev_world;
-			env.curr_world = wr;
-			
-			std::vector<player *> new_players;
-			std::vector<player *> old_players;
-			std::vector<player *> others;
-			
-			
-			
-			// fill the vectors
-			pl->get_server ().get_players ().populate (others);
-			prev_world->get_players ().populate (old_players);
-			wr->get_players ().populate (new_players);
-			others.erase (std::remove_if (others.begin (), others.end (),
-				[&old_players, &new_players] (const player *pl) -> bool
-					{
-						return (std::find (old_players.begin (), old_players.end (), pl) != old_players.end ())
-							  || (std::find (new_players.begin (), new_players.end (), pl) != new_players.end ());
-					}), others.end ());
-			new_players.erase (std::remove (new_players.begin (), new_players.end (), pl), new_players.end ());
-			
-			std::string msg;
-			
-			// self
-			msg = messages::compile (pl->get_server ().msgs.world_join_self, env);
-			pl->message (msg);
-			
-			// new players
-			msg = messages::compile (pl->get_server ().msgs.world_enter, env);
-			for (player *p : new_players)
-				p->message (msg);
-			
-			// old players
-			msg = messages::compile (pl->get_server ().msgs.world_depart, env);
-			for (player *p : old_players)
-				p->message (msg);
-			
-			// others
-			msg = messages::compile (pl->get_server ().msgs.world_join, env);
-			for (player *p : others)
-				p->message (msg);
 		}
 	}
 }

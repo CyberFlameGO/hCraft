@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -383,6 +383,7 @@ namespace hCraft {
 		inline const char* get_nickname () { return this->nick; }
 		inline const char* get_colored_nickname () { return this->colored_nick; }
 		
+		inline int pid () { return this->dbid; }
 		inline const rank& get_rank () { return this->rnk; }
 		inline bool is_op () { return this->op; }
 		
@@ -454,12 +455,12 @@ namespace hCraft {
 		/* 
 		 * Sends the player to the given world.
 		 */
-		void join_world (world* w);
+		void join_world (world* w, bool broadcast = true);
 		
 		/* 
 		 * Sends the player to the given world at the specified location.
 		 */
-		void join_world_at (world *w, entity_pos destpos);
+		void join_world_at (world *w, entity_pos destpos, bool broadcast = true);
 		
 		/* 
 		 * Reloads the map for the player.

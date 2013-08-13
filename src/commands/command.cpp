@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ namespace hCraft {
 	static command* create_c_help () { return new commands::c_help (); }
 	static command* create_c_status () { return new commands::c_status (); }
 	static command* create_c_money () { return new commands::c_money (); }
+	static command* create_c_whodid () { return new commands::c_whodid (); }
 	
 	// chat commands:
 	static command* create_c_me () { return new commands::c_me (); }
@@ -132,6 +133,7 @@ namespace hCraft {
 			{ "wconfig", create_c_wconfig },
 			{ "block-type", create_c_block_type },
 			{ "portal", create_c_portal },
+			{ "whodid", create_c_whodid },
 			};
 		
 		auto itr = creators.find (name);
@@ -374,7 +376,7 @@ namespace hCraft {
 								{
 									std::ostringstream ess;
 									if (opts.size () == 1)
-										ess << "§c * §7Option §4\\\\§c" << opts[0]->long_name ()
+										ess << "§c * §7Option §4--§c" << opts[0]->long_name ()
 												<< " §7expects at least §c" << opts[0]->min_args_expected ()
 												<< " §7argument(s)§c.";
 									else
@@ -412,7 +414,7 @@ namespace hCraft {
 								{
 									std::ostringstream ess;
 									if (opts.size () == 1)
-										ess << "§c * §7Option §4\\\\§c" << opts[0]->long_name ()
+										ess << "§c * §7Option §4--§c" << opts[0]->long_name ()
 												<< " §7expects at least §c" << opts[0]->min_args_expected ()
 												<< " §7argument(s)§c.";
 									else
@@ -474,7 +476,7 @@ namespace hCraft {
 					command_reader::option *opt = this->reader.short_opt (c);
 					if (!opt)
 						{
-							err->message ("§c * §7No such command option§f: §4\\§c" + std::string (1, c));
+							err->message ("§c * §7No such command option§f: §4-§c" + std::string (1, c));
 							return -1;
 						}
 					
@@ -521,10 +523,7 @@ namespace hCraft {
 				{
 					c = ss.peek ();
 					if (c == std::istringstream::traits_type::eof ())
-						{
-							err->message ("§c * §7Expected option name§c.");
-							return -1;
-						}
+						break;
 					
 					if (c == ' ')
 						break; // we're done
@@ -555,7 +554,7 @@ namespace hCraft {
 			command_reader::option *opt = reader.opt (name.c_str ());
 			if (!opt)
 				{
-					err->message ("§c * §7No such command option§f: §4\\\\§c" + name);
+					err->message ("§c * §7No such command option§f: §4--§c" + name);
 					return -1;
 				}
 			
@@ -574,7 +573,7 @@ namespace hCraft {
 					if (opt->min_args > 0)
 						{
 							std::ostringstream ess;
-							ess << "§c * §7Option §4\\\\§c" << opt->long_name ()
+							ess << "§c * §7Option §4--§c" << opt->long_name ()
 									<< " §7expects at least §c" << opt->min_args_expected ()
 									<< " §7argument(s)§c.";
 							err->message (ess.str ());
@@ -605,27 +604,37 @@ namespace hCraft {
 					if (c == std::istringstream::traits_type::eof ())
 						break;
 					
-					if (c == '\\')
+					bool arg = false;
+					
+					if (c == '-')
 						{
 							ss.get ();
 							
 							c = ss.peek ();
-							if (c == '\\')
+							if (c == '-')
 								{
 									ss.get ();
 									
 									if (parse_long_opt (err, parsing_options) == -1)
 										return false;
+									this->skip_whitespace ();
 								}
-							else
+							else if (!std::isdigit (c))
 								{
 									if (parse_short_opt (err) == -1)
 										return false;
+									this->skip_whitespace ();
 								}
-							
-							this->skip_whitespace ();
+							else
+								{
+									ss.unget ();
+									arg = true;
+								}
 						}
 					else
+						arg = true;
+					
+					if (arg)
 						{
 							// regular arguments
 							int start = (int)ss.tellg ();

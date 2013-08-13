@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,9 +29,9 @@
 #include "generation/plains.hpp"
 #include "generation/overhang.hpp"
 #include "generation/flatplains.hpp"
-#include "generation/d3_normal.hpp"
 #include "generation/experiment.hpp"
 #include "generation/islands.hpp"
+#include "generation/empty.hpp"
 
 
 namespace hCraft {
@@ -74,16 +74,16 @@ namespace hCraft {
 		{ return new flatplains_world_generator (seed); }
 	
 	static world_generator*
-	create_d3_normal (long seed)
-		{ return new d3_normal_world_generator (seed); }
-	
-	static world_generator*
 	create_experiment (long seed)
 		{ return new experiment_world_generator (seed); }
 	
 	static world_generator*
 	create_islands (long seed)
 		{ return new islands_world_generator (seed); }
+	
+	static world_generator*
+	create_empty (long seed)
+		{ return new empty_world_generator (seed); }
 	
 	
 	/* 
@@ -97,9 +97,9 @@ namespace hCraft {
 				{ "plains", create_plains },
 				{ "overhang", create_overhang },
 				{ "flatplains", create_flatplains },
-				{ "d3-normal", create_d3_normal },
 				{ "experiment", create_experiment },
 				{ "islands", create_islands },
+				{ "empty", create_empty },
 			};
 		
 		auto itr = generators.find (name);

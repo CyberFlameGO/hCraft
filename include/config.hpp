@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#ifndef _hCraft__CONFIG_H_
+#define _hCraft__CONFIG_H_
 
 #include <stdexcept>
 #include <string>
@@ -313,4 +316,6 @@ namespace hCraft {
 		};
 	}
 }
+
+#endif
 

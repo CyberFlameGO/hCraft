@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -191,6 +191,48 @@ namespace hCraft {
 				;}
 			
 			const char* get_exec_permission () { return "command.info.money"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		
+		/* 
+		 * /whodid
+		 * 
+		 * Displays modification records for blocks selected by the user.
+		 * 
+		 * Permissions:
+		 *   - command.info.whodid
+		 *       Needed to execute the command.
+		 */
+		class c_whodid: public command
+		{
+			const char* get_name () { return "whodid"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char* aliases[] =
+					{
+						"wd",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Displays modification records for blocks selected by the user."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.info.whodid"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

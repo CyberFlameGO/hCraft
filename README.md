@@ -1,3 +1,9 @@
+Important
+---------
+
+Be sure to read the new "Building" section, as a lot of things have changed in
+recent versions.
+
 hCraft
 ======
 
@@ -14,64 +20,22 @@ Features
 --------
 
 The _currently_ implemented features are:
-*  The client can connect to the server.
+*  MySQL* integration (used to be SQLite).
 *  Authentication and encryption are supported.
-*  Movement and block modification are relayed between connected players.
 *  Worlds can be loaded from/saved to an experimental world format (*HWv1*) -
    a compact single-file world container.
 *  Players can easily switch between worlds using the /w command (Multiworld!).
 *  A permissions-like rank system.
-*  SQLite support.
-
-*  Players can create and manipulate various types of world selections (spheres, cuboids, etc...),
-   this includes filling them with blocks (large fills cause resending of chunks).
 *  Custom physics (still very experimental)! The current implementation can handle
    around 50,000 falling sand blocks (with 4 physics threads).
    Custom block mechanics can be easily added.
-*  Custom world generation - a very simplistic plains generator is set as default.
-   Current world generators include "plains", "flatgrass", "flatplains" and "overhang"
-   (amazing overhangs!) (more will be added in the future).
-
+*  Custom world generation - currently featuring an experimental world generator
+   that supports 10 biomee, other generators include include "plains", "flatgrass",
+   "flatplains" and "overhang" (amazing overhangs!) (more will be added in the future).
 *  Selections: Players can "select" areas using the implemented selections
-   commands (/select), and then subsequently fill them with any block.
-   Existing selection types:
-   *  Cuboids
-   *  Spheres
-   *  Blocks
-
-Commands
---------
-
-*  /aid
-*  /ban
-*  /bezier
-*  /circle
-*  /cuboid
-*  /curve
-*  /ellipse
-*  /fill
-*  /gm
-*  /help
-*  /kick
-*  /line
-*  /me
-*  /money
-*  /mute
-*  /nick
-*  /physics
-*  /ping
-*  /polygon
-*  /rank
-*  /select
-*  /sphere
-*  /status
-*  /tp
-*  /unban
-*  /unmute
-*  /wcreate
-*  /wload
-*  /world
-*  /wunload
+   commands (/select), and then subsequently fill them with any block (or manipulate
+   them in some way).
+*  Block tracking, players may do /whodid to check who modified certain blocks.
      
 
 Building
@@ -82,12 +46,24 @@ To build hCraft, you will need a C++11-compatible compiler and a copy of
 hCraft, and type `scons`. That will compile and link the source code into
 an executable (can be found in the created "build" directory).
 
+### NEW BUILDING NOTE
+hCraft currently uses a *very* simplistic SCons build files (>.>), so if you
+wish to build hCraft, you *will* have to modify the build files to match
+your computer! (SConstruct and src/SConscript).
+
+Or more specifically, hCraft currently uses pre-set include\lib paths for
+various libraries - such as MySQL and SOCI, so you will have to change those,
+so the compiler would know where to find the libraries on your computer.
+
 ### Dependencies
 *  [libevent](http://libevent.org/)
-*  [sqlite3](http://www.sqlite.org/)
+*  [MySQL](http://www.mysql.com/)
+*  [SOCI](http://www.soci.sourceforge.net/)
+*  [Crypto++](http://www.cryptopp.com/)
 *  [zlib](http://www.zlib.net/)
 *  [libnoise](http://libnoise.sourceforge.net/)
 *  [tbb](http://threadingbuildingblocks.org/)
+*  [curl](http://curl.haxx.se/)
 
 IRC
 ---

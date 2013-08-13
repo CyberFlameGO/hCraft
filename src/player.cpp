@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@
 #include "wordwrap.hpp"
 #include "commands/command.hpp"
 #include "utils.hpp"
-#include "sql.hpp"
 #include "entities/pickup.hpp"
 
 #include <ctime>
@@ -102,7 +101,7 @@ namespace hCraft {
 		this->joining_world = false;
 		this->chcurr = chunk_pos (0, 0);
 		this->ping_waiting = false;
-		this->sb_block.set (BT_GLASS);
+		this->sb_block.set (BT_STILL_WATER);
 		this->need_new_chunks = false;
 		this->streaming_chunks = false;
 		
@@ -162,6 +161,13 @@ namespace hCraft {
 					delete top;
 					this->out_queue.pop ();
 				}
+		}
+		
+		// delete extra data
+		{
+			std::lock_guard<std::mutex> guard {this->data_lock};
+			for (auto itr = this->extra_data.begin (); itr != this->extra_data.end (); ++itr)
+				itr->second.dctor (itr->second.data);
 		}
 	}
 	
@@ -600,20 +606,67 @@ namespace hCraft {
 	 * Sends the player to the given world.
 	 */
 	void
-	player::join_world (world* w)
+	player::join_world (world* w, bool broadcast)
 	{
-		this->join_world_at (w, w->get_spawn ());
+		this->join_world_at (w, w->get_spawn (), broadcast);
 	}
 	
+	
+	static void
+	_broadcast_join_message (player *pl, world *wr, world *prev_world)
+	{
+		messages::environment env {pl};
+		env.prev_world = prev_world;
+		env.curr_world = wr;
+	
+		std::vector<player *> new_players;
+		std::vector<player *> old_players;
+		std::vector<player *> others;
+	
+		// fill the vectors
+		pl->get_server ().get_players ().populate (others);
+		prev_world->get_players ().populate (old_players);
+		wr->get_players ().populate (new_players);
+		others.erase (std::remove_if (others.begin (), others.end (),
+			[&old_players, &new_players] (const player *pl) -> bool
+				{
+					return (std::find (old_players.begin (), old_players.end (), pl) != old_players.end ())
+							|| (std::find (new_players.begin (), new_players.end (), pl) != new_players.end ());
+				}), others.end ());
+		new_players.erase (std::remove (new_players.begin (), new_players.end (), pl), new_players.end ());
+	
+		std::string msg;
+	
+		// self
+		msg = messages::compile (pl->get_server ().msgs.world_join_self, env);
+		pl->message (msg);
+	
+		// new players
+		msg = messages::compile (pl->get_server ().msgs.world_enter, env);
+		for (player *p : new_players)
+			p->message (msg);
+	
+		// old players
+		msg = messages::compile (pl->get_server ().msgs.world_depart, env);
+		for (player *p : old_players)
+			p->message (msg);
+	
+		// others
+		msg = messages::compile (pl->get_server ().msgs.world_join, env);
+		for (player *p : others)
+			p->message (msg);
+	}
 	
 	/* 
 	 * Sends the player to the given world at the specified location.
 	 */
 	void
-	player::join_world_at (world *w, entity_pos destpos)
+	player::join_world_at (world *w, entity_pos destpos, bool broadcast)
 	{
 		if (this->bad ())
 			return;
+			
+		world *prev_world = nullptr;
 		
 		std::lock_guard<std::mutex> guard {this->world_lock};
 		bool had_prev_world = ((this->curr_world != w) && this->curr_world);
@@ -630,6 +683,8 @@ namespace hCraft {
 		this->sb_updates.set_world (w, true);
 		if (had_prev_world)
 			{
+				prev_world = this->curr_world;
+				
 				this->clear_tab_list ();
 				this->remove_from_tab_list (false);
 				this->curr_world->get_players ().remove (this);
@@ -668,6 +723,8 @@ namespace hCraft {
 		this->srv.global_physics.queue_physics (w, this->eid);
 		
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
+		if (had_prev_world)
+			_broadcast_join_message (this, w, prev_world);
 	}
 	
 	/* 
@@ -1567,10 +1624,9 @@ namespace hCraft {
 	player::load_data ()
 	{
 		{
-			sql::row row;
-			auto& conn = this->get_server ().sql ().pop ();
+			soci::session sql (this->get_server ().sql_pool ());
 			
-			if (sqlops::player_count (conn) == 0)
+			if (sqlops::player_count (sql) == 0)
 				{
 					this->message ("§4Congratulations§c!");
 					this->message ("§cYou are the first player to log in§7, §cand thus you have been");
@@ -1587,12 +1643,11 @@ namespace hCraft {
 			bool found_player = false;
 			try
 				{
-					found_player = sqlops::player_data (conn, this->username, this->srv, pd);
+					found_player = sqlops::player_data (sql, this->username, this->srv, pd);
 				}
 			catch (const std::exception& ex)
 				{
 					log (LT_ERROR) << "Failed to load player data! (\"" << this->username << ") [" << ex.what () << "]" << std::endl;
-					this->get_server ().sql ().push (conn);
 					return false;
 				}
 			
@@ -1648,7 +1703,12 @@ namespace hCraft {
 			// save to db
 			try
 				{
-					sqlops::save_player_data (conn, this->username, this->srv, pd);
+					sqlops::save_player_data (sql, this->username, this->srv, pd);
+					if (!found_player)
+						{
+							this->dbid = sqlops::player_id (sql, this->username);
+							std::cout << "!found_player, dbid: " << this->dbid << std::endl;
+						}
 				}
 			catch (const std::exception& ex)
 				{
@@ -1656,33 +1716,30 @@ namespace hCraft {
 					this->message ("§c * §4Failed to save player data§c.");
 				}
 			
-			// reload previous position
+			// load previous position
 			{
-				auto stmt = conn.query ("SELECT * FROM `player-logout-data` WHERE `name`=?");
-				stmt.bind (1, this->get_username (), sql::pass_transient);
+				std::string world;
+				double pos_x, pos_y, pos_z, pos_r, pos_l;
+				int gm;
 				
-				sql::row row;
-				if (stmt.step (row))
+				try
 					{
-						const char *world_name = row.at (1).as_cstr ();
-						entity_pos last_pos = {
-							row.at (2).as_double (),
-							row.at (3).as_double (),
-							row.at (4).as_double (),
-							(float)row.at (5).as_double (),
-							(float)row.at (6).as_double (),
-						};
-						
-						this->curr_world = this->srv.get_worlds ().find (world_name);
-						if (this->curr_world)
-							{
-								this->pos = last_pos;
-								this->curr_gamemode = (row.at (7).as_int () == 1) ? GT_CREATIVE : GT_SURVIVAL;
-							}
+						sql << "SELECT world,pos_x,pos_y,pos_z,pos_r,pos_l,gm FROM `player-logout-data` WHERE `name`='" << this->get_username () << "'",
+							soci::into (world), soci::into (pos_x), soci::into (pos_y),
+							soci::into (pos_z), soci::into (pos_r), soci::into (pos_l), 
+							soci::into (gm);
+					}
+				catch (const std::exception& ex)
+					{ }
+					
+				entity_pos last_pos = {pos_x, pos_y, pos_z, (float)pos_r, (float)pos_l, true};
+				this->curr_world = this->srv.get_worlds ().find (world.c_str ());
+				if (this->curr_world)
+					{
+						this->pos = last_pos;
+						this->curr_gamemode = (gm == 1) ? GT_CREATIVE : GT_SURVIVAL;
 					}
 			}
-			
-			this->get_server ().sql ().push (conn);
 		}
 		
 		
@@ -1701,14 +1758,13 @@ namespace hCraft {
 			return;
 		
 		{
-			sql::row row;
-			auto& conn = this->get_server ().sql ().pop ();
+			soci::session sql (this->get_server ().sql_pool ());
 			
 			sqlops::player_info pd;
 			this->player_data (pd);
 			try
 				{
-					sqlops::save_player_data (conn, this->username, this->srv, pd);
+					sqlops::save_player_data (sql, this->username, this->srv, pd);
 				}
 			catch (const std::exception& ex)
 				{
@@ -1718,46 +1774,34 @@ namespace hCraft {
 			// save current position, world, etc...
 			if (this->logged_in && this->curr_world)
 				{
-					sql::row r;
-					auto stmt = conn.query ("SELECT Count(*) FROM `player-logout-data`");
-					if (stmt.step (r) && (r.at (0).as_int () > 0))
+					int count;
+					sql << "SELECT Count(*) FROM `player-logout-data`", soci::into (count);
+					if (count == 1)
 						{
-							auto stmt = conn.query ("UPDATE `player-logout-data` SET "
-								"`world`=?, `pos_x`=?, `pos_y`=?, `pos_z`=?, `pos_r`=?, `pos_l`=?, "
-								"`gm`=? WHERE `name`=?");
-							
-							stmt.bind (1, this->curr_world->get_name (), sql::pass_transient);
-							stmt.bind (2, this->pos.x);
-							stmt.bind (3, this->pos.y);
-							stmt.bind (4, this->pos.z);
-							stmt.bind (5, this->pos.r);
-							stmt.bind (6, this->pos.l);
-							stmt.bind (7, (this->curr_gamemode == GT_CREATIVE) ? 1 : 0);
-							stmt.bind (8, this->get_username (), sql::pass_transient);
-							
-							while (stmt.step ())
-								;
+							sql.once << "UPDATE `player-logout-data` SET "
+								   "`world`='" << this->curr_world->get_name () << "'"
+								<< ", `pos_x`=" << this->pos.x
+								<< ", `pos_y`=" << this->pos.y
+								<< ", `pos_z`=" << this->pos.z
+								<< ", `pos_r`=" << this->pos.r
+								<< ", `pos_l`=" << this->pos.l
+								<< ", `gm`=" << ((this->curr_gamemode == GT_CREATIVE) ? 1 : 0)
+								<< " WHERE `name`='" << this->get_username () << "'";
 						}
 					else
 						{
-							auto stmt = conn.query ("INSERT INTO `player-logout-data` VALUES "
-								"(?, ?, ?, ?, ?, ?, ?, ?)");
-							
-							stmt.bind (1, this->get_username (), sql::pass_transient);
-							stmt.bind (2, this->curr_world->get_name (), sql::pass_transient);
-							stmt.bind (3, this->pos.x);
-							stmt.bind (4, this->pos.y);
-							stmt.bind (5, this->pos.z);
-							stmt.bind (6, this->pos.r);
-							stmt.bind (7, this->pos.l);
-							stmt.bind (8, (this->curr_gamemode == GT_CREATIVE) ? 1 : 0);
-					
-							while (stmt.step ())
-								;
+							sql.once << "INSERT INTO `player-logout-data` VALUES ("
+								<< "'" << this->get_username () << "'"
+								<< ", '" << this->curr_world->get_name () << "'"
+								<< ", " << this->pos.x
+								<< ", " << this->pos.y
+								<< ", " << this->pos.z
+								<< ", " << this->pos.r
+								<< ", " << this->pos.l
+								<< ", " << ((this->curr_gamemode == GT_CREATIVE) ? 1 : 0)
+								<< ")";
 						}
 				}
-			
-			this->get_server ().sql ().push (conn);
 		}
 	}
 	
@@ -1782,11 +1826,9 @@ namespace hCraft {
 		
 		if (modify_sql)
 			{
-				std::ostringstream ss;
-				ss << "UPDATE `players` SET `nick`='"
-				 << nick << "' WHERE `name`='"
-				 << this->get_username () << "'";
-				this->get_server ().execute_sql (ss.str ());
+				soci::session sql (this->get_server ().sql_pool ());
+				sql.once << "UPDATE `players` SET `nick`='" << nick << "' WHERE `name`='"
+					<< this->get_username () << "'";
 			}
 	}
 	
@@ -2437,7 +2479,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -2445,7 +2487,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -2834,15 +2876,17 @@ namespace hCraft {
 		z = reader.read_int ();
 		face = reader.read_byte (); // face
 		
-		int w_width = pl->get_world ()->get_width ();
-		int w_depth = pl->get_world ()->get_depth ();
+		world& w = *pl->get_world ();
+		
+		int w_width = w.get_width ();
+		int w_depth = w.get_depth ();
 		if (((w_width > 0) && ((x >= w_width) || (x < 0))) ||
 				((w_depth > 0) && ((z >= w_depth) || (z < 0))))
 			{
 				pl->send (packet::make_block_change (
 					x, y, z,
-					pl->get_world ()->get_id (x, y, z),
-					pl->get_world ()->get_meta (x, y, z)));
+					w.get_id (x, y, z),
+					w.get_meta (x, y, z)));
 				return 0;
 			}
 		
@@ -2860,7 +2904,7 @@ namespace hCraft {
 			if (pl->mark_block (x, y, z))
 				return 0;
 		
-		block_data bd = pl->get_world ()->get_block (x, y, z);
+		block_data bd = w.get_block (x, y, z);
 		if (status == 2 || (status == 0 && pl->curr_gamemode == GT_CREATIVE))
 			{
 				/* 
@@ -2874,7 +2918,7 @@ namespace hCraft {
 						pl->send_orig_block (x, y, z);
 						return 0;
 					}
-				else if (!pl->has_access (pl->get_world ()->get_build_perms ()))
+				else if (!pl->has_access (w.get_build_perms ()))
 					{
 						pl->message ("§4 * §cYou are not allowed to build here§4.");
 						pl->send_orig_block (x, y, z);
@@ -2892,7 +2936,7 @@ namespace hCraft {
 					}
 				
 				++ pl->bl_destroyed;
-				pl->get_world ()->queue_update (x, y, z, 0, 0, 0, 0, nullptr, pl);
+				w.queue_update (x, y, z, 0, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
 					{
 						pl->increment_exhaustion (0.025);
@@ -2903,7 +2947,7 @@ namespace hCraft {
 								e_pickup *pick = new e_pickup (pl->srv,
 								slot_item (drop.id, drop.meta, 1));
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
-								pl->get_world ()->spawn_entity (pick);
+								w.spawn_entity (pick);
 							}
 					}
 			}
@@ -3006,6 +3050,12 @@ namespace hCraft {
 				return 0;
 			}
 		
+		/* 
+		 * Handle marking callbacks
+		 */
+		if (pl->mark_block (nx, ny, nz))
+			return 0;
+		
 		if (pl->sb_exists (nx, ny, nz))
 			{
 				// modifying a selection block
@@ -3029,7 +3079,7 @@ namespace hCraft {
 		
 		++ pl->bl_created;
 		pl->get_world ()->queue_update (nx, ny, nz,
-			item.id (), item.damage ());
+			item.id (), item.damage (), 0, 0, nullptr, pl);
 		if (pl->gamemode () != GT_CREATIVE)
 			pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
 				item.amount () - 1));

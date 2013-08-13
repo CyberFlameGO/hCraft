@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 #include "physics/physics.hpp"
 #include "editstage.hpp"
 #include "portal.hpp"
+#include "block_history.hpp"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -162,6 +163,7 @@ namespace hCraft {
 		bool auto_lighting;
 		physics_manager physics;
 		lighting_manager lm;
+		block_history_manager blhi;
 		
 		dense_edit_stage estage;
 		std::mutex estage_lock;

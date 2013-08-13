@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -111,28 +111,26 @@ namespace hCraft {
 			else
 				{
 					// the hard way
-					auto& conn = pl->get_server ().sql ().pop ();
+					soci::session sql (pl->get_server ().sql_pool ());
 					try
 						{
-							if (!sqlops::player_exists (conn, target_name.c_str ()))
+							if (!sqlops::player_exists (sql, target_name.c_str ()))
 								{
 									pl->message ("§c * §7No such player§f: §c" + target_name);
 									return;
 								}
 							if (act == M_PAY)
 								pl->bal -= amount;
-							sqlops::add_money (conn, target_name.c_str (), amount);
-							colored_target_name.assign (sqlops::player_colored_name (conn,
+							sqlops::add_money (sql, target_name.c_str (), amount);
+							colored_target_name.assign (sqlops::player_colored_name (sql,
 								target_name.c_str (), pl->get_server ()));
-							target_name.assign (sqlops::player_name (conn, target_name.c_str ()));
+							target_name.assign (sqlops::player_name (sql, target_name.c_str ()));
 						}
 					catch (const std::exception& ex)
 						{
 							pl->message ("§4 * §cAn error has occurred§4.");
-							pl->get_server ().sql ().push (conn);
 							return;
 						}
-					pl->get_server ().sql ().push (conn);
 				}
 			
 			std::ostringstream ss;
@@ -206,25 +204,23 @@ namespace hCraft {
 			else
 				{
 					// the hard way
-					auto& conn = pl->get_server ().sql ().pop ();
+					soci::session sql (pl->get_server ().sql_pool ());
 					try
 						{
-							if (!sqlops::player_exists (conn, target_name.c_str ()))
+							if (!sqlops::player_exists (sql, target_name.c_str ()))
 								{
 									pl->message ("§c * §7No such player§f: §c" + target_name);
 									return;
 								}
-							sqlops::set_money (conn, target_name.c_str (), amount);
-							colored_target_name.assign (sqlops::player_colored_name (conn,
+							sqlops::set_money (sql, target_name.c_str (), amount);
+							colored_target_name.assign (sqlops::player_colored_name (sql,
 								target_name.c_str (), pl->get_server ()));
 						}
 					catch (const std::exception& ex)
 						{
 							pl->message ("§4 * §cAn error has occurred§4.");
-							pl->get_server ().sql ().push (conn);
 							return;
 						}
-					pl->get_server ().sql ().push (conn);
 				}
 			
 			std::ostringstream ss;
@@ -318,28 +314,24 @@ namespace hCraft {
 								ss << target->get_colored_username () << "§e's balance§f: §a$§f" << utils::format_number (target->bal, 2);
 							else
 								{
-									auto& conn = pl->get_server ().sql ().pop ();
+									soci::session sql (pl->get_server ().sql_pool ());
 									
 									try
 										{
-											if (!sqlops::player_exists (conn, target_name.c_str ()))
+											if (!sqlops::player_exists (sql, target_name.c_str ()))
 												{
 													pl->message ("§c * §7No such player§f: §c" + target_name);
 													return;
 												}
 											
-											ss << sqlops::player_colored_name (conn, target_name.c_str (), pl->get_server ())
-												 << "§2's balance§f: §a$§f" << utils::format_number (sqlops::get_money (conn, target_name.c_str ()), 2);
+											ss << sqlops::player_colored_name (sql, target_name.c_str (), pl->get_server ())
+												 << "§2's balance§f: §a$§f" << utils::format_number (sqlops::get_money (sql, target_name.c_str ()), 2);
 										}
 									catch (const std::exception& ex)
 										{
 											pl->message ("§4 * §cAn error has occurred§4.");
-											pl->get_server ().sql ().push (conn);
-											
 											return;
 										}
-									
-									pl->get_server ().sql ().push (conn);
 								}
 						}
 				}

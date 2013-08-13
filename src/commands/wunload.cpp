@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,17 +29,14 @@ namespace hCraft {
 		static bool
 		remove_from_autoload (server& srv, const std::string& world_name)
 		{
-			auto& conn = srv.sql ().pop ();
-			int count = conn.query (
-				"SELECT count(*) FROM `autoload-worlds` WHERE `name`='"
-				+ world_name + "'").step ().at (0).as_int ();
+			soci::session sql (srv.sql_pool ());
+			int count;
+			sql <<  "SELECT count(*) FROM `autoload-worlds` WHERE `name`='"
+				<< world_name << "'", soci::into (count);
 			if (count == 0)
 				return false;
 			
-			conn.execute (
-				"DELETE FROM `autoload-worlds` WHERE `name`='"
-				+ world_name + "'");
-			srv.sql ().push (conn);
+			sql.once << "DELETE FROM `autoload-worlds` WHERE `name`='" << world_name << "'";
 			return true;
 		}
 		

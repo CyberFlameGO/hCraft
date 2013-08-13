@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,14 +68,14 @@ namespace hCraft {
 				target_name = reader.next ().as_str ();
 			
 			{
-				auto& conn = pl->get_server ().sql ().pop ();
+				soci::session sql (pl->get_server ().sql_pool ());
 				
 				sqlops::player_info pd;
 				
 				player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 				if (target)
 					target->player_data (pd);
-				else if (!sqlops::player_data (conn, target_name.c_str (), pl->get_server (), pd))
+				else if (!sqlops::player_data (sql, target_name.c_str (), pl->get_server (), pd))
 					{
 						pl->message ("§c * §7Player §8" + target_name + " §7does not exist§c.");
 						return;
@@ -202,9 +202,6 @@ namespace hCraft {
 							}
 					}
 			//---
-			
-			
-				pl->get_server ().sql ().push (conn);
 			}
 		}
 	}

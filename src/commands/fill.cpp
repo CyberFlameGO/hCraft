@@ -1,6 +1,6 @@
 /* 
  * hCraft - A custom Minecraft server.
- * Copyright (C) 2012	Jacob Zhitomirsky
+ * Copyright (C) 2012-2013	Jacob Zhitomirsky (BizarreCake)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,14 +19,13 @@
 #include "commands/drawc.hpp"
 #include "player.hpp"
 #include "world.hpp"
+#include "server.hpp"
 #include "stringutils.hpp"
 #include "utils.hpp"
 #include <sstream>
 #include <mutex>
 #include <random>
 #include <stack>
-
-#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -300,10 +299,12 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
-				ss << "§a" << block_counter << " §eblock" << ((block_counter == 1) ? "" : "s")
-					 << " have been replaced (§c" << selection_counter << " §eselection"
-					 << ((selection_counter == 1) ? "" : "s") << ")";
+				ss << "§7 | §a" << block_counter << " §eblock" << ((block_counter == 1) ? "" : "s")
+					 << " replaced [§8" << selection_counter << " §7selection"
+					 << ((selection_counter == 1) ? "" : "s") << "§e]";
 				pl->message (ss.str ());
+				pl->get_server ().get_logger () (LT_DRAW)
+					<< "Player \"" << pl->get_username () << "\" filled " << block_counter << " block(s)." << std::endl;
 			}
 		}
 	}
