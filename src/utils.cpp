@@ -25,6 +25,7 @@
 #include <limits>
 #include <iomanip>
 #include <locale>
+#include <cctype>
 
 
 namespace hCraft {
@@ -130,6 +131,52 @@ namespace hCraft {
 			
 			ss << " ago";
 			out.assign (ss.str ());
+		}
+		
+		/* 
+		 * Input examples:
+		 *   30, 12s, 100s, 4m2s 12h 3d
+		 * Returns -1 if invalid.
+		 */
+		int
+		seconds_from_time_str (const std::string& str)
+		{
+			std::istringstream ss {str};
+			
+			double s = 0.0;
+			double n;
+			for (;;)
+				{
+					char c = ss.peek ();
+					if (c == std::istringstream::traits_type::eof ())
+						break;
+					if (!std::isdigit (c))
+						return -1;
+					
+					ss >> n;
+					if (n < 0.0)
+						return -1;
+					
+					c = ss.peek ();
+					if (std::isalpha (c))
+						{
+							ss.get ();
+							switch (c)
+								{
+									case 's': break;
+									case 'm': n *= 60.0; break;
+									case 'h': n *= 3600.0; break;
+									case 'd': n *= 86400.0; break;
+									
+									default:
+										return -1;
+								}
+						}
+					
+					s += n;
+				}
+			
+			return (int)s;
 		}
 		
 		

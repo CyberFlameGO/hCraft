@@ -107,6 +107,13 @@ namespace hCraft {
 		
 		void relative_time (std::time_t a, std::time_t b, std::string& out);
 		
+		/* 
+		 * Input examples:
+		 *   30, 12s, 100s, 4m2s 12h 3d
+		 * Returns -1 if invalid.
+		 */
+		int seconds_from_time_str (const std::string& str);
+		
 		
 		
 	//----

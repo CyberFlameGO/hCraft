@@ -1287,6 +1287,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "block-type");
 		_add_command (this->perms, this->commands, "portal");
 		_add_command (this->perms, this->commands, "whodid");
+		_add_command (this->perms, this->commands, "undo");
 	}
 	
 	void

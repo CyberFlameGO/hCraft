@@ -474,6 +474,41 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /undo -
+		 * 
+		 * Reverses all block changes made by a selected player in a specified
+		 * time frame.
+		 * 
+		 * Permissions:
+		 *   - command.draw.undo
+		 *       Needed to execute the command.
+		 *   - command.draw.undo.others
+		 *       Whether the user is allowed to undo changes made by other players.
+		 */
+		class c_undo: public command
+		{
+		public:
+			const char* get_name () { return "undo"; }
+			
+			const char*
+			get_summary ()
+				{ return "Reverses all block changes made by a selected player in a specified time frame."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.draw.undo"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

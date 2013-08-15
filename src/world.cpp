@@ -58,6 +58,17 @@ namespace hCraft {
 			"`old_id` SMALLINT UNSIGNED, `old_meta` TINYINT UNSIGNED, `old_ex` TINYINT UNSIGNED, " // old value
 			"`new_id` SMALLINT UNSIGNED, `new_meta` TINYINT UNSIGNED, `new_ex` TINYINT UNSIGNED, " // new value
 			"`pid` INTEGER UNSIGNED, `time` BIGINT UNSIGNED)";
+		{
+			// create index
+			int c;
+			sql << "SELECT Count(1) IndexIsThere FROM INFORMATION_SCHEMA.STATISTICS "
+				"WHERE table_schema=DATABASE() AND table_name='block_history_" << w->get_name ()
+				<< "' AND index_name='bh_index_" << w->get_name () << "'", soci::into (c);
+			if (c == 0)
+				sql.once <<
+					"CREATE INDEX `bh_index_" << w->get_name () << "` ON `block_history_"
+					<< w->get_name () << "` (`x`, `y`, `z`)";
+		}
 	}
 	
 	/* 

@@ -79,6 +79,7 @@ namespace hCraft {
 	static command* create_c_sphere () { return new commands::c_sphere (); }
 	static command* create_c_polygon () { return new commands::c_polygon (); }
 	static command* create_c_curve () { return new commands::c_curve (); }
+	static command* create_c_undo () { return new commands::c_undo (); }
 	
 	// admin commands
 	static command* create_c_gm () { return new commands::c_gm (); }
@@ -134,6 +135,7 @@ namespace hCraft {
 			{ "block-type", create_c_block_type },
 			{ "portal", create_c_portal },
 			{ "whodid", create_c_whodid },
+			{ "undo", create_c_undo },
 			};
 		
 		auto itr = creators.find (name);

@@ -100,7 +100,7 @@ namespace hCraft {
 			generate (int x, int y, int z)
 			{
 				return
-					this->se1.GetValue (x * 0.5, y, z * 0.7) + ((60 - y) * 0.06);
+					this->se1.GetValue (x * 0.5, y, z * 0.7) + ((75 - y) * 0.07);
 			}
 			
 			virtual void
