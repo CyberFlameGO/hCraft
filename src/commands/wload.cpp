@@ -99,7 +99,7 @@ namespace hCraft {
 				}
 			
 			wr->start ();
-			if (!pl->get_server ().get_worlds ().add (wr))
+			if (!pl->get_server ().register_world (wr))
 				{
 					pl->get_logger () (LT_ERROR) << "Failed to load world \"" << world_name << "\": Already loaded." << std::endl;
 					pl->message ("§c * ERROR§f: §eFailed to load world§f.");
@@ -118,7 +118,7 @@ namespace hCraft {
 			
 			wr->start ();
 			pl->get_server ().get_players ().message (
-				"§3World §b" + std::string (wr->get_colored_name ()) + " §3has been loaded§b!");
+				"§9> §3World " + std::string (wr->get_colored_name ()) + " §3has been loaded§9!");
 		}
 	}
 }

@@ -318,7 +318,7 @@ namespace hCraft {
 			
 			if (load_world)
 				{
-					if (!pl->get_server ().get_worlds ().add (wr))
+					if (!pl->get_server ().register_world (wr))
 						{
 							delete wr;
 							pl->message ("§cFailed to load world§7.");

@@ -37,6 +37,7 @@ namespace hCraft {
 	// forward decs:
 	class world;
 	class entity;
+	class server;
 	
 	
 	enum physics_update_type {
@@ -78,7 +79,7 @@ namespace hCraft {
 	
 	struct physics_update	{
 		physics_update_type type;
-		world *w;
+		int wid;
 		
 		union
 			{
@@ -104,9 +105,9 @@ namespace hCraft {
 		
 	//---
 		physics_update () { }
-		physics_update (world *w, int x, int y, int z, int data, int tick,
+		physics_update (int wid, int x, int y, int z, int data, int tick,
 			std::chrono::steady_clock::time_point nt, physics_block_callback cb = nullptr);
-		physics_update (world *w, int eid, bool persistent, int tick,
+		physics_update (int wid, int eid, bool persistent, int tick,
 			std::chrono::steady_clock::time_point nt);
 	};
 	
@@ -196,6 +197,7 @@ namespace hCraft {
 				
 	public:
 		tbb::concurrent_queue<physics_update> updates;
+		server &srv;
 				
 	protected:
 		bool block_exists_nolock (world *w, int x, int y, int z);
@@ -206,6 +208,7 @@ namespace hCraft {
 		void remove_block (world *w, int x, int y, int z);
 		
 	public:
+		physics_manager (server &srv);
 		~physics_manager ();
 		
 		void stop ();
@@ -217,6 +220,7 @@ namespace hCraft {
 		void set_thread_count (unsigned int count);
 		inline int get_thread_count ()
 			{ return workers.size (); }
+		
 		
 		
 		/* 

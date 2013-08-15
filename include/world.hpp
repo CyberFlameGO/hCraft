@@ -169,6 +169,8 @@ namespace hCraft {
 		std::mutex estage_lock;
 		std::mutex update_lock;
 		
+		int id;
+		
 	public:
 		inline server& get_server () const { return this->srv; }
 		inline world_type get_type () const { return this->typ; }

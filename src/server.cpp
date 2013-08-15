@@ -76,7 +76,8 @@ namespace hCraft {
 		: log (log), 
 			spool (SQL_POOL_SIZE),
 			perms (),
-			groups (perms)
+			groups (perms),
+			global_physics (*this)
 	{
 		// add <init, destory> pairs
 		
@@ -349,9 +350,9 @@ namespace hCraft {
 	server::register_entity (entity *e)
 	{
 		std::lock_guard<std::mutex> guard {this->id_lock};
-		int id = this->id_counter ++;
-		if (this->id_counter < 0)
-			this->id_counter = 0; // overflow.
+		int id = this->entity_id_counter ++;
+		if (this->entity_id_counter < 0)
+			this->entity_id_counter = 0; // overflow.
 		this->entity_map[id] = e;
 		return id;
 	}
@@ -394,6 +395,46 @@ namespace hCraft {
 		if (!e || e->get_type () != ET_PLAYER)
 			return nullptr;
 		return (player *)e;
+	}
+	
+	
+	
+	bool
+	server::register_world (world *w)
+	{
+		std::lock_guard<std::mutex> guard {this->id_lock};
+		int id = this->world_id_counter ++;
+		if (this->world_id_counter < 0)
+			this->world_id_counter = 0; // overflow.
+		this->world_map[id] = w;
+		
+		if (!this->get_worlds ().add (w))
+			{
+				this->world_map.erase (id);
+				-- this->world_id_counter;
+				return false;
+			}
+		
+		w->id = id;
+		return true;
+	}
+	
+	void
+	server::deregister_world (world *w)
+	{
+		std::lock_guard<std::mutex> guard {this->id_lock};
+		auto itr = this->world_map.find (w->id);
+		if (itr != this->world_map.end ())
+			this->world_map.erase (itr);
+	}
+	
+	world*
+	server::world_by_id (int id)
+	{
+		auto itr = this->world_map.find (id);
+		if (itr == this->world_map.end ())
+			return nullptr;
+		return itr->second;
 	}
 	
 	
@@ -1198,7 +1239,8 @@ namespace hCraft {
 		this->sched.start ();
 		
 		this->players = new player_list ();
-		this->id_counter = 0;
+		this->entity_id_counter = 0;
+		this->world_id_counter = 0;
 		
 		physics_block::init_blocks ();
 		
@@ -1526,7 +1568,7 @@ namespace hCraft {
 			}
 		
 		main_world->start ();
-		this->worlds.add (main_world);
+		this->register_world (main_world);
 		this->main_world = main_world;
 		
 		// load worlds from the autoload list.

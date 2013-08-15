@@ -48,7 +48,7 @@ namespace hCraft {
 			
 			std::ostringstream ss;
 			ss << "§" << pl->get_rank ().main_group->color << "* "
-				 << pl->get_username () << " " << reader.get_arg_string ();
+				 << pl->get_colored_nickname () << " " << "§" << pl->get_rank ().main_group->color << reader.get_arg_string ();
 			pl->get_world ()->get_players ().message (ss.str ());
 		}
 	}

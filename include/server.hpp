@@ -44,6 +44,7 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 #include <unordered_set>
+#include <map>
 
 #include <cryptopp/rsa.h>
 #include <cryptopp/osrng.h>
@@ -172,9 +173,11 @@ namespace hCraft {
 		std::unordered_set<player *> to_destroy;
 		std::mutex player_lock;
 		
-		int id_counter;
 		std::mutex id_lock;
+		int entity_id_counter;
 		std::unordered_map<int, entity *> entity_map;
+		int world_id_counter;
+		std::map<int, world *> world_map;
 		
 		scheduler sched;
 		thread_pool tpool;
@@ -365,6 +368,7 @@ namespace hCraft {
 		
 		
 		
+//-----
 		/* 
 		 * Returns a unique number that can be used for entity identification.
 		 */
@@ -381,6 +385,19 @@ namespace hCraft {
 		 */
 		entity* entity_by_id (int id);
 		player* player_by_id (int id);
+//-----
+
+		
+//-----
+		/* 
+		 * Same thing for worlds.
+		 */
+		 
+		bool register_world (world *w);
+		void deregister_world (world *w);
+		world* world_by_id (int id);
+
+//-----
 		
 		
 		

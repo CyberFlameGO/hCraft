@@ -32,13 +32,19 @@
 
 namespace hCraft {
 	
-	physics_update::physics_update (world *w, int x, int y, int z, int data, int tick,
+	physics_manager::physics_manager (server &srv)
+		: srv (srv)
+		{ }
+	
+	
+	
+	physics_update::physics_update (int wid, int x, int y, int z, int data, int tick,
 		std::chrono::steady_clock::time_point nt, physics_block_callback cb)
 		: params (), nt (nt)
 	{
 		this->type = PU_BLOCK;
 		
-		this->w = w;
+		this->wid = wid;
 		this->data.blk.x = x;
 		this->data.blk.y = y;
 		this->data.blk.z = z;
@@ -48,13 +54,13 @@ namespace hCraft {
 		this->elapsed = 0;
 	}
 	
-	physics_update::physics_update (world *w, int eid, bool persistent,
+	physics_update::physics_update (int wid, int eid, bool persistent,
 		int tick, std::chrono::steady_clock::time_point nt)
 		: params (), nt (nt)
 	{
 		this->type = PU_ENTITY;
 		
-		this->w = w;
+		this->wid = wid;
 		this->data.ent.eid = eid;
 		this->data.ent.persistent = persistent;
 		this->tick = tick;
@@ -162,12 +168,12 @@ namespace hCraft {
 	
 	
 	static bool
-	handle_param_dissipate (physics_update& u, physics_action& act, std::minstd_rand& rnd)
+	handle_param_dissipate (world *w, physics_update& u, physics_action& act, std::minstd_rand& rnd)
 	{
 		std::uniform_int_distribution<> dis (0, 100);
 		if (dis (rnd) <= act.val)
 			{
-				u.w->queue_update (u.data.blk.x, u.data.blk.y, u.data.blk.z, BT_AIR);
+				w->queue_update (u.data.blk.x, u.data.blk.y, u.data.blk.z, BT_AIR);
 				return false;
 			}
 		
@@ -175,7 +181,7 @@ namespace hCraft {
 	}
 	
 	static bool
-	handle_param_drop (physics_update& u, physics_action& act)
+	handle_param_drop (world *w, physics_update& u, physics_action& act)
 	{
 		int x = u.data.blk.x, y = u.data.blk.y, z = u.data.blk.z;
 		
@@ -184,11 +190,11 @@ namespace hCraft {
 		
 		if (u.elapsed % d == 0)
 			{
-				if ((y > 0) && (u.w->get_id (x, y - 1, z) == BT_AIR))
+				if ((y > 0) && (w->get_id (x, y - 1, z) == BT_AIR))
 					{
-						block_data bd = u.w->get_block (x, y, z);
-						u.w->queue_update (x, y - 1, z, bd.id, bd.meta);
-						u.w->queue_update (x, y, z, BT_AIR);
+						block_data bd = w->get_block (x, y, z);
+						w->queue_update (x, y - 1, z, bd.id, bd.meta);
+						w->queue_update (x, y, z, BT_AIR);
 						
 						-- u.data.blk.y;
 						return true;
@@ -202,10 +208,9 @@ namespace hCraft {
 	
 	// based on MCZall's finite mechanics.
 	static bool
-	handle_param_finite (physics_update& u, physics_action& act, std::minstd_rand& rnd)
+	handle_param_finite (world *w, physics_update& u, physics_action& act, std::minstd_rand& rnd)
 	{
 		int x = u.data.blk.x, y = u.data.blk.y, z = u.data.blk.z;
-		world *w = u.w;
 		
 		block_data bd = w->get_block (x, y, z);
 		if (bd.id == BT_AIR)
@@ -279,7 +284,7 @@ namespace hCraft {
 	}
 	
 	static bool
-	handle_params (physics_update& u, physics_manager &man, std::minstd_rand& rnd)
+	handle_params (world *w, physics_update& u, physics_manager &man, std::minstd_rand& rnd)
 	{
 		int found = 0;
 		
@@ -292,17 +297,17 @@ namespace hCraft {
 				switch (act.type)
 					{
 					case PA_DISSIPATE:
-						if (!handle_param_dissipate (u, act, rnd))
+						if (!handle_param_dissipate (w, u, act, rnd))
 							act.type = PA_NONE;
 						break;
 					
 					case PA_DROP:
-						if (!handle_param_drop (u, act))
+						if (!handle_param_drop (w, u, act))
 							act.type = PA_NONE;
 						break;
 					
 					case PA_FINITE:
-						if (!handle_param_finite (u, act, rnd))
+						if (!handle_param_finite (w, u, act, rnd))
 							act.type = PA_NONE;
 						break;
 					
@@ -367,6 +372,9 @@ namespace hCraft {
 								continue;
 							}
 						
+						world *w = this->man.srv.world_by_id (u.wid);
+						if (!w) continue;
+						
 						if (u.tick < 0) continue;
 						if (u.nt > std::chrono::steady_clock::now ())
 							{
@@ -375,41 +383,41 @@ namespace hCraft {
 							}
 						
 						// parameters
-						if (!handle_params (u, this->man, this->rnd))
+						if (!handle_params (w, u, this->man, this->rnd))
 							continue;
 						
 						if (u.type == PU_BLOCK)
 							{
 								auto blk = u.data.blk;
-								this->man.remove_block (u.w, blk.x, blk.y, blk.z);
+								this->man.remove_block (w, blk.x, blk.y, blk.z);
 								
 								// does this block have a custom callback attached?
 								if (blk.cb)
 									{
-										blk.cb (*u.w, blk.x, blk.y, blk.z, blk.data, rnd);
+										blk.cb (*w, blk.x, blk.y, blk.z, blk.data, rnd);
 									}
 								else
 									{
 										// nope, use the one associated with its ID
-										physics_block *pb = (u.w)->get_physics_at (blk.x, blk.y, blk.z);
+										physics_block *pb = w->get_physics_at (blk.x, blk.y, blk.z);
 										if (pb)
-											pb->tick (*u.w, blk.x, blk.y, blk.z, blk.data, nullptr, rnd);
+											pb->tick (*w, blk.x, blk.y, blk.z, blk.data, nullptr, rnd);
 									}
 							}
 						else if (u.type == PU_ENTITY)
 							{
 								auto ent = u.data.ent;
-								entity *e = (u.w)->get_server ().entity_by_id (ent.eid);
+								entity *e = w->get_server ().entity_by_id (ent.eid);
 								if (!e) continue;
 								
 								if (e->get_type () == ET_PLAYER)
 									{
 										player *pl = dynamic_cast<player *> (e);
-										if (pl->get_world () != u.w)
+										if (pl->get_world () != w)
 											continue;
 									}
 								
-								if (!e->tick (*u.w) && ent.persistent)
+								if (!e->tick (*w) && ent.persistent)
 									{
 										// requeue
 										physics_update nu = u;
@@ -551,7 +559,7 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->lock};
 		this->add_block_nolock (w, x, y, z);
 		
-		physics_update u (w, x, y, z, data, tick_delay,
+		physics_update u (w->id, x, y, z, data, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
@@ -582,7 +590,7 @@ namespace hCraft {
 		//-- tick_delay;
 		
 		this->add_block_nolock (w, x, y, z);
-		physics_update u (w, x, y, z, data, tick_delay,
+		physics_update u (w->id, x, y, z, data, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)),
 			cb);
 		if (params)
@@ -609,7 +617,7 @@ namespace hCraft {
 		
 		std::lock_guard<std::mutex> guard {this->lock};
 		
-		physics_update u (w, eid, persistent, tick_delay,
+		physics_update u (w->id, eid, persistent, tick_delay,
 			std::chrono::steady_clock::now () + std::chrono::milliseconds (50 * ((tick_delay < 0) ? 0 : tick_delay)));
 		if (params)
 			for (int i = 0; i < 8; ++i)

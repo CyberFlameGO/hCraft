@@ -107,7 +107,7 @@ namespace hCraft {
 				}
 			
 			pl->get_server ().get_players ().message (
-				"§cWorld §4" + colname + " §chas been unloaded§c!");
+				"§4> §cWorld " + colname + " §chas been unloaded§c!");
 		}
 	}
 }

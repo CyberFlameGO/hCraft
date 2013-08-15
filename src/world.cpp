@@ -76,7 +76,7 @@ namespace hCraft {
 	 */
 	world::world (world_type typ, server &srv, const char *name, logger &log,
 		world_generator *gen, world_provider *provider)
-		: srv (srv), log (log), lm (log, this), blhi (*this), estage (this)
+		: srv (srv), log (log), lm (log, this), blhi (*this), estage (this), physics (srv)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
@@ -108,6 +108,8 @@ namespace hCraft {
 	 */
 	world::~world ()
 	{
+		this->srv.deregister_world (this);
+		
 		this->stop ();
 		delete this->players;
 		
