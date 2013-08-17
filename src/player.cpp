@@ -638,23 +638,35 @@ namespace hCraft {
 		std::string msg;
 	
 		// self
-		msg = messages::compile (pl->get_server ().msgs.world_join_self, env);
-		pl->message (msg);
+		if (!pl->get_server ().msgs.world_join_self.empty ())
+			{
+				msg = messages::compile (pl->get_server ().msgs.world_join_self, env);
+				pl->message (msg);
+			}
 	
 		// new players
-		msg = messages::compile (pl->get_server ().msgs.world_enter, env);
-		for (player *p : new_players)
-			p->message (msg);
+		if (!pl->get_server ().msgs.world_enter.empty ())
+			{
+				msg = messages::compile (pl->get_server ().msgs.world_enter, env);
+				for (player *p : new_players)
+					p->message (msg);
+			}
 	
 		// old players
-		msg = messages::compile (pl->get_server ().msgs.world_depart, env);
-		for (player *p : old_players)
-			p->message (msg);
+		if (!pl->get_server ().msgs.world_depart.empty ())
+			{
+				msg = messages::compile (pl->get_server ().msgs.world_depart, env);
+				for (player *p : old_players)
+					p->message (msg);
+			}
 	
 		// others
-		msg = messages::compile (pl->get_server ().msgs.world_join, env);
-		for (player *p : others)
-			p->message (msg);
+		if (!pl->get_server ().msgs.world_join.empty ())
+			{
+				msg = messages::compile (pl->get_server ().msgs.world_join, env);
+				for (player *p : others)
+					p->message (msg);
+			}
 	}
 	
 	/* 
@@ -907,7 +919,15 @@ namespace hCraft {
 						if (!this->can_see_chunk (resp.cx, resp.cz))
 							continue;
 						
-						this->send (packet::make_chunk (resp.cx, resp.cz, resp.ch));
+						// selection blocks / editstages
+						std::vector<edit_stage *> es_vec;
+						es_vec.push_back (&this->sb_updates);
+						for (edit_stage *es : this->edstages)
+							if (es->get_world () == w)
+								es_vec.push_back (es);
+							
+						this->send (packet::make_chunk (resp.cx, resp.cz, resp.ch, es_vec));
+						
 						this->known_chunks.push_back ({w, resp.cx, resp.cz});
 						
 						// is this our new home chunk? (When switching between worlds)
@@ -922,12 +942,6 @@ namespace hCraft {
 								
 								this->joining_world = false;
 							}
-					
-						// selection blocks / editstages
-						this->sb_updates.preview_chunk_to (this, resp.cx, resp.cz, false);
-						for (edit_stage *es : this->edstages)
-							if (es->get_world () == w)
-								es->preview_chunk_to (this, resp.cx, resp.cz, true);
 						
 						// spawn entities to self and vice-versa
 						player *me = this;
@@ -1062,7 +1076,7 @@ namespace hCraft {
 										this->message ("§4Error§7: §cDestination world not loaded");
 										continue;
 									}
-								else if (!this->has_access (w->get_join_perms ()))
+								else if (!w->security ().can_join (this))
 									{
 										this->message ("§cYou are not allowed to go through this portal.");
 										continue;
@@ -1707,7 +1721,6 @@ namespace hCraft {
 					if (!found_player)
 						{
 							this->dbid = sqlops::player_id (sql, this->username);
-							std::cout << "!found_player, dbid: " << this->dbid << std::endl;
 						}
 				}
 			catch (const std::exception& ex)
@@ -2479,7 +2492,7 @@ namespace hCraft {
 			}
 		
 		char username[64];
-		///*
+		/*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
 			{
@@ -2487,7 +2500,7 @@ namespace hCraft {
 				return -1;
 			}
 		//*/
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -2918,7 +2931,7 @@ namespace hCraft {
 						pl->send_orig_block (x, y, z);
 						return 0;
 					}
-				else if (!pl->has_access (w.get_build_perms ()))
+				else if (!w.security ().can_build (pl))
 					{
 						pl->message ("§4 * §cYou are not allowed to build here§4.");
 						pl->send_orig_block (x, y, z);
@@ -3070,7 +3083,7 @@ namespace hCraft {
 				pl->send_orig_block (nx, ny, nz);
 				return 0;
 			}
-		else if (!pl->has_access (pl->get_world ()->get_build_perms ()))
+		else if (!pl->get_world ()->security ().can_build (pl))
 			{
 				pl->message ("§4 * §cYou are not allowed to build here§4.");
 				pl->send_orig_block (nx, ny, nz);

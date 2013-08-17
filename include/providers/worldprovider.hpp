@@ -30,6 +30,7 @@ namespace hCraft {
 	
 	class chunk;
 	class world;
+	class world_security;
 	
 	
 	/* 
@@ -47,9 +48,6 @@ namespace hCraft {
 		
 		std::string generator;
 		int seed;
-		
-		std::string join_perms;
-		std::string build_perms;
 	};
 	
 	
@@ -127,6 +125,18 @@ namespace hCraft {
 		 * Updates world information for a given world. 
 		 */
 		virtual void save_info (world &w, const world_information &info) = 0;
+		
+		
+		
+		/* 
+		 * Updates\saves owner\member list, build\join permissions, etc...
+		 */
+		virtual void save_security (world &w, const world_security& sec) = 0;
+		
+		/* 
+		 * Loads world security information.
+		 */
+		virtual void load_security (world &w, world_security& sec) = 0;
 		
 		
 		

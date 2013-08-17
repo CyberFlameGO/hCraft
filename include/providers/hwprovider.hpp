@@ -234,6 +234,18 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Updates\saves owner\member list, build\join permissions, etc...
+		 */
+		virtual void save_security (world &w, const world_security& sec);
+		
+		/* 
+		 * Loads world security information.
+		 */
+		virtual void load_security (world &w, world_security& sec);
+		
+		
+		
+		/* 
 		 * Opens the file located at path @{path} and performs a check to see if it
 		 * is of the same format created by this exporter.
 		 */

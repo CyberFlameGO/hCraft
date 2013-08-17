@@ -93,6 +93,11 @@ namespace hCraft {
 		subchunk (bool init = true);
 		
 		/* 
+		 * Copy constructor.
+		 */
+		subchunk (const subchunk& sub);
+		
+		/* 
 		 * Class destructor.
 		 */
 		~subchunk ();
@@ -232,6 +237,15 @@ namespace hCraft {
 		 * Calls the specified function on every entity in the chunk's entity list.
 		 */
 		void all_entities (std::function<void (entity *)> f);
+		
+		
+	//----
+		
+		/* 
+		 * Returns a copy of this chunk.
+		 * NOTE: Only block data is copied.
+		 */
+		chunk* duplicate ();
 	};
 	
 	

@@ -55,12 +55,9 @@ namespace hCraft {
 			std::string name, nick, rank_str;
 			soci::session sql (pl->get_server ().sql_pool ());
 			
-			try
-				{
-					sql << "SELECT name,nick,rank FROM `players` WHERE `name` LIKE :n",
-						soci::into (name), soci::into (nick), soci::into (rank_str), soci::use (target_name);
-				}
-			catch (const std::exception& ex)
+			sql << "SELECT name,nick,rank FROM `players` WHERE `name` LIKE :n",
+				soci::into (name), soci::into (nick), soci::into (rank_str), soci::use (target_name);
+			if (!sql.got_data ())
 				{
 					pl->message ("§c * §7Unable to find player§f: §c" + target_name);
 					return;

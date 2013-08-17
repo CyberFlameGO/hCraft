@@ -18,6 +18,7 @@
 
 #include "editstage.hpp"
 #include "world.hpp"
+#include "chunk.hpp"
 #include "player.hpp"
 #include "player_list.hpp"
 #include "physics/blocks/physics_block.hpp"
@@ -198,6 +199,16 @@ namespace hCraft {
 	dense_edit_stage::reset (int x, int y, int z)
 	{
 		this->set (x, y, z, ES_NONE, 0xF);
+	}
+	
+	int
+	dense_edit_stage::mod_count_at (int cx, int cz)
+	{
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr == this->chunks.end ())
+			return 0;
+		else
+			return itr->second.mod_count;
 	}
 	
 	
@@ -530,6 +541,72 @@ namespace hCraft {
 			}
 	}
 	
+	/* 
+	 * Does not notify players, nor does this activate physics blocks.
+	 */
+	void
+	dense_edit_stage::commit_chunk (chunk *wch, int cx, int cz)
+	{
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr == this->chunks.end ())
+			return;
+		des_chunk& ch = itr->second;
+				
+		unsigned short id;
+		unsigned char meta;
+		unsigned ex;
+		int rx, ry, rz;
+		
+		for (int sy = 0; sy < 16; ++sy)
+			{
+				int yy = sy << 4;
+				des_subchunk *sub = ch.subs[sy];
+				if (!sub)
+					continue;
+				
+				for (int mi = 0; mi < 8; ++mi)
+					{
+						des_microchunk *micro = sub->micro[mi];
+						if (!micro)
+							continue;
+						
+						int mx = (mi & 1) << 3;
+						int my = ((mi >> 2) & 1) << 3; 
+						int mz = ((mi >> 1) & 1) << 3;
+						for (int x = 0; x < 8; ++x)
+							for (int z = 0; z < 8; ++z)
+								for (int y = 0; y < 8; ++y)
+									{
+										unsigned int index = (y << 6) | (z << 3) | x;
+								
+										id = micro->data[index] >> 4;
+										if (id != ES_NONE)
+											{
+												rx = mx | x;
+												ry = my | y;
+												rz = mz | z;
+												
+												int wx = (cx << 4) | rx;
+												int wy = yy | ry;
+												int wz = (cz << 4) | rz;
+												
+												meta = micro->data[index] & 0xF;
+												ex   = micro->ex[index];
+												if (id == ES_REM)
+													{
+														block_data bd = this->w->get_block (wx, wy, wz);
+														id = bd.id;
+														meta = bd.meta;
+													}
+								
+												wch->set_block (rx, wy, rz, id, meta, ex);
+												// TODO: lighting?
+											}
+									}
+					}
+			}
+	}
+	
 	
 	
 	/* 
@@ -563,7 +640,7 @@ namespace hCraft {
 		unsigned char bz = z & 15;
 		
 		ses_chunk& ch = this->chunks[{cx, cz}];
-		ch.changes[{bx, y, bz}] = (unsigned int)(ex << 12) | (id << 4) | (meta & 0xF);
+		ch.changes[{bx, y, bz}] = (unsigned int)(ex << 16) | (id << 4) | (meta & 0xF);
 	}
 	
 	
@@ -591,8 +668,8 @@ namespace hCraft {
 				return {bd.id, bd.meta};
 			}
 		
-		unsigned short id = (bitr->second >> 4) & 0xFF;
-		unsigned char  ex = bitr->second >> 12;
+		unsigned short id = (bitr->second >> 4) & 0xFFF;
+		unsigned char  ex = bitr->second >> 16;
 		if (id == ES_REM)
 			{
 				block_data bd = this->w->get_block (x, y, z);
@@ -622,6 +699,16 @@ namespace hCraft {
 			return;
 		
 		ch.changes.erase (bitr);
+	}
+	
+	int
+	sparse_edit_stage::mod_count_at (int cx, int cz)
+	{
+		auto itr = this->chunks.find ({cx, cz});
+		if (itr == this->chunks.end ())
+			return 0;
+		else
+			return itr->second.changes.size ();
 	}
 	
 	
@@ -673,14 +760,14 @@ namespace hCraft {
 						if ((pl->get_world () == this->w) && pl->sb_exists ((cx << 4) | x, y, (cz << 4) | z))
 							corrections.emplace_back (pl, (cx << 4) | x, y, (cz << 4) | z);
 				
-				if (restore || (((bitr->second) >> 4) == ES_REM))
+				if (restore || ((((bitr->second) >> 4) & 0xFFF) == ES_REM))
 					{
 						block_data bd = this->w->get_block ((cx << 4) | x, y, (cz << 4) | z);
 						records.push_back ({x, y, z, bd.id, bd.meta});
 					}
 				else
 					records.push_back ({x, y, z,
-						(unsigned short)((bitr->second) >> 4), (unsigned char)((bitr->second) & 0xF)});
+						(unsigned short)(((bitr->second) >> 4) & 0xFFF), (unsigned char)((bitr->second) & 0xF)});
 			}
 		
 		if (players.size () == 1)
@@ -799,9 +886,9 @@ namespace hCraft {
 						x = bitr->first.x;
 						y = bitr->first.y;
 						z = bitr->first.z;
-						id = ((bitr->second) >> 4) & 0xFF;
+						id = ((bitr->second) >> 4) & 0xFFF;
 						meta = (bitr->second) & 0xF;
-						ex = (bitr->second) >> 12;
+						ex = (bitr->second) >> 16;
 						
 						wx = (cx << 4) | x;
 						wz = (cz << 4) | z;
@@ -861,6 +948,25 @@ namespace hCraft {
 				// resend modified selection blocks
 				for (sb_correction& sbc : corrections)
 					sbc.pl->sb_send (sbc.x, sbc.y, sbc.z);
+			}
+	}
+	
+	/* 
+	 * Does not notify players, nor does this activate physics blocks.
+	 */
+	void
+	sparse_edit_stage::commit_chunk (chunk *ch, int cx, int cz)
+	{
+		auto ch_itr = this->chunks.find ({cx, cz});
+		if (ch_itr == this->chunks.end ())
+			return;
+		
+		ses_chunk &sch = ch_itr->second;
+		for (auto itr = sch.changes.begin (); itr != sch.changes.end (); ++itr)
+			{
+				block_pos pos = itr->first;
+				unsigned int data = itr->second;
+				ch->set_block (pos.x, pos.y, pos.z, (data >> 4) & 0xFFF, data & 0xF, data >> 16);
 			}
 	}
 	

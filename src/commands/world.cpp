@@ -18,58 +18,464 @@
 
 #include "commands/worldc.hpp"
 #include "server.hpp"
-#include "player.hpp"
 #include "world.hpp"
 #include "stringutils.hpp"
-#include <string>
+#include "sqlops.hpp"
 #include <sstream>
-#include <vector>
-#include <algorithm>
-#include <cstring>
 
 
 namespace hCraft {
 	namespace commands {
 		
 		static void
-		_world_list (player *pl)
+		_print_names_from_pids (player *pl, const std::vector<int>& pids)
 		{
-			std::vector<world *> worlds;
-			pl->get_server ().get_worlds ().populate (worlds);
-			
 			std::ostringstream ss;
-			if (worlds.size () == 1)
-				pl->message ("§eThere is currently only §bone §eworld loaded§f:");
-			else
-				{
-					ss << "§eThere are currently §b" << worlds.size () << " §eworlds loaded§f:";
-					pl->message (ss.str ());
-					ss.str (std::string ());
-				}
-				
-			// sort list alphabetically
-			std::sort (worlds.begin (), worlds.end (),
-				[] (const world *a, const world *b) -> bool
-					{
-						return std::strcmp (a->get_name (), b->get_name ()) < 0;
-					});
 			
-			ss << "§3    ";
-			for (world *w : worlds)
-				ss << w->get_colored_name () << " ";
+			ss << "    ";
+			
+			soci::session sql {pl->get_server ().sql_pool ()};
+			
+			sqlops::player_info pinf;
+			for (int pid : pids)
+				{
+					if (!sqlops::player_data (sql, pid, pl->get_server (), pinf))
+						ss << "§8??? ";
+					else
+						{
+							ss << "§" << pinf.rnk.main ()->color << pinf.name << " ";
+						}
+				}
 			
 			pl->message_spaced (ss.str ());
 		}
 		
 		
+		
+		static void
+		_handle_no_args (player *pl, world *w)
+		{
+			std::ostringstream ss;
+			
+			world_security& sec = w->security ();
+			
+			// header
+			ss << "§6Displaying world information for " << w->get_colored_name () << "§e:";
+			pl->message (ss.str ());
+			ss.str (std::string ());
+			
+			// type
+			ss << "§e  World type§f: §9" << ((w->get_type () == WT_NORMAL) ? "normal" : "light");
+			pl->message (ss.str ());
+			ss.str (std::string ());
+			
+			// dimensions
+			ss << "§e  Dimensions§f: §a";
+			if (w->get_width () <= 0)
+				ss << "infinite";
+			else
+				ss << w->get_width ();
+			ss << " §7x §a";
+			if (w->get_depth () <= 0)
+				ss << "infinite";
+			else
+				ss << w->get_depth ();
+			pl->message (ss.str ());
+			ss.str (std::string ());
+			
+			// owners
+			const auto& owner_pids = sec.get_owners ();
+			if (owner_pids.empty ())
+				pl->message ("§e  Owners§f: §8none");
+			else
+				{
+					pl->message ("§e  Owners§f:");
+					_print_names_from_pids (pl, owner_pids);
+				}
+			
+			// members
+			const auto& member_pids = sec.get_members ();
+			if (member_pids.empty ())
+				pl->message ("§e  Members§f: §8none");
+			else
+				{
+					pl->message ("§e  Members§f:");
+					_print_names_from_pids (pl, member_pids);
+				}
+		}
+		
+		
+		
+		static void
+		_handle_owners (player *pl, world *w, command_reader& reader)
+		{
+		  world_security& sec = w->security ();
+		  
+			if (!reader.has_next ())
+				{
+					std::ostringstream ss;
+			    
+			    ss << "§6Displaying owners for " << w->get_colored_name () << "§e:";
+			    pl->message (ss.str ());
+			    ss.str (std::string ());
+			    
+			    const auto& owner_pids = sec.get_owners ();
+			    if (owner_pids.empty ())
+			    	pl->message ("§8    none");
+			    else
+			    	_print_names_from_pids (pl, owner_pids);
+			    return;
+				}
+			
+			const std::string& arg1 = reader.next ().as_str ();
+			if (sutils::iequals (arg1, "add"))
+			  {
+			  	if (!pl->has ("command.world.world.change-owners")
+			  		&& !(sec.is_owner (pl->pid ()) && pl->has ("command.world.world.owner.change-owners")))
+			  		{
+			  			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+			  		}
+			  	
+			    if (!reader.has_next ())
+            {
+              pl->message ("§c * §7Usage§f: §e/world owners add §cplayer");
+              return;
+            }
+           
+           const std::string& arg2 = reader.next ().as_str ();
+           
+           // fetch player info
+           soci::session sql {pl->get_server ().sql_pool ()};
+           sqlops::player_info pinf;
+           if (!sqlops::player_data (sql, arg2.c_str (), pl->get_server (), pinf))
+            {
+              pl->message ("§c * §7Unknown player§f: §c" + arg2);
+              return;
+            }
+            
+            if (sec.is_owner (pinf.id))
+              {
+                std::ostringstream ss;
+                ss << "§c * §" << pinf.rnk.main ()->color << pinf.name << " §7is already an owner of this world§c.";
+                pl->message (ss.str ());
+                return;
+              }
+              
+            sec.add_owner (pinf.id);
+            std::ostringstream ss;
+            ss << "§" << pinf.rnk.main ()->color << pinf.name << " §ehas been added to the world§f'§es owner list§f.";
+            pl->message (ss.str ());
+			  }
+			 else if (sutils::iequals (arg1, "remove") || sutils::iequals (arg1, "del"))
+			  {
+			  	if (!pl->has ("command.world.world.change-owners")
+			  		&& !(sec.is_owner (pl->pid ()) && pl->has ("command.world.world.owner.change-owners")))
+			  		{
+			  			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+			  		}
+			  	
+			    if (!reader.has_next ())
+            {
+              pl->message ("§c * §7Usage§f: §e/world owners remove §cplayer");
+              return;
+            }
+           
+           const std::string& arg2 = reader.next ().as_str ();
+           
+           // fetch player info
+           soci::session sql {pl->get_server ().sql_pool ()};
+           sqlops::player_info pinf;
+           if (!sqlops::player_data (sql, arg2.c_str (), pl->get_server (), pinf))
+            {
+              pl->message ("§c * §7Unknown player§f: §c" + arg2);
+              return;
+            }
+            
+            if (!sec.is_owner (pinf.id))
+              {
+                std::ostringstream ss;
+                ss << "§c * §" << pinf.rnk.main ()->color << pinf.name << " §7is not an owner of this world§c.";
+                pl->message (ss.str ());
+                return;
+              }
+              
+            sec.remove_owner (pinf.id);
+            std::ostringstream ss;
+            ss << "§" << pinf.rnk.main ()->color << pinf.name << " §ehas been removed from the world§f'§es owner list§f.";
+            pl->message (ss.str ());
+			  }
+			 else
+			  {
+			    pl->message ("§c * §7Unknown sub-command§f: §cowners." + arg1);
+					return;
+			  }
+		}
+		
+		
+		
+		static void
+		_handle_members (player *pl, world *w, command_reader& reader)
+		{
+		  world_security& sec = w->security ();
+		  
+			if (!reader.has_next ())
+				{
+					std::ostringstream ss;
+			    
+			    ss << "§6Displaying members for " << w->get_colored_name () << "§e:";
+			    pl->message (ss.str ());
+			    ss.str (std::string ());
+			    
+			    const auto& member_pids = sec.get_members ();
+			    if (member_pids.empty ())
+			    	pl->message ("§8    none");
+			    else
+			    	_print_names_from_pids (pl, member_pids);
+			    return;
+				}
+			
+			const std::string& arg1 = reader.next ().as_str ();
+			if (sutils::iequals (arg1, "add"))
+			  {
+			  	if (!pl->has ("command.world.world.change-members")
+			  		&& !(sec.is_owner (pl->pid ()) && pl->has ("command.world.world.owner.change-members")))
+			  		{
+			  			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+			  		}
+			  	
+			    if (!reader.has_next ())
+            {
+              pl->message ("§c * §7Usage§f: §e/world members add §cplayer");
+              return;
+            }
+           
+           const std::string& arg2 = reader.next ().as_str ();
+           
+           // fetch player info
+           soci::session sql {pl->get_server ().sql_pool ()};
+           sqlops::player_info pinf;
+           if (!sqlops::player_data (sql, arg2.c_str (), pl->get_server (), pinf))
+            {
+              pl->message ("§c * §7Unknown player§f: §c" + arg2);
+              return;
+            }
+            
+            if (sec.is_member (pinf.id))
+              {
+                std::ostringstream ss;
+                ss << "§c * §" << pinf.rnk.main ()->color << pinf.name << " §7is already a member of this world§c.";
+                pl->message (ss.str ());
+                return;
+              }
+              
+            sec.add_member (pinf.id);
+            std::ostringstream ss;
+            ss << "§" << pinf.rnk.main ()->color << pinf.name << " §ehas been added to the world§f'§es member list§f.";
+            pl->message (ss.str ());
+			  }
+			 else if (sutils::iequals (arg1, "remove") || sutils::iequals (arg1, "del"))
+			  {
+			  	if (!pl->has ("command.world.world.change-members")
+			  		&& !(sec.is_owner (pl->pid ()) && pl->has ("command.world.world.owner.change-members")))
+			  		{
+			  			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+			  		}
+			  	
+			    if (!reader.has_next ())
+            {
+              pl->message ("§c * §7Usage§f: §e/world members remove §cplayer");
+              return;
+            }
+           
+           const std::string& arg2 = reader.next ().as_str ();
+           
+           // fetch player info
+           soci::session sql {pl->get_server ().sql_pool ()};
+           sqlops::player_info pinf;
+           if (!sqlops::player_data (sql, arg2.c_str (), pl->get_server (), pinf))
+            {
+              pl->message ("§c * §7Unknown player§f: §c" + arg2);
+              return;
+            }
+            
+            if (!sec.is_member (pinf.id))
+              {
+                std::ostringstream ss;
+                ss << "§c * §" << pinf.rnk.main ()->color << pinf.name << " §7is not a member of this world§c.";
+                pl->message (ss.str ());
+                return;
+              }
+              
+            sec.remove_member (pinf.id);
+            std::ostringstream ss;
+            ss << "§" << pinf.rnk.main ()->color << pinf.name << " §ehas been removed from the world§f'§es member list§f.";
+            pl->message (ss.str ());
+			  }
+			 else
+			  {
+			    pl->message ("§c * §7Unknown sub-command§f: §cmembers." + arg1);
+					return;
+			  }
+		}
+		
+		
+		
+		static void
+		_handle_build_perms (player *pl, world *w, command_reader& reader)
+		{
+		  if (!reader.has_next ())
+		    {
+		    	if (!pl->has ("command.world.world.get-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      std::ostringstream ss;
+		      ss << "§6Displaying " << w->get_colored_name () << "§e'§6s build permissions§e:";
+		      pl->message (ss.str ());
+		      ss.str (std::string ());
+		      
+		      const std::string& perms = w->security ().get_build_perms ();
+		      if (perms.empty ())
+		        ss << "§8    not set";
+		      else
+		        ss << "§7    " << perms;
+		      pl->message (ss.str ());
+		      return;
+		    }
+		  
+		  const std::string& arg1 = reader.next ().as_str ();
+		  if (sutils::iequals (arg1, "set"))
+		    {
+		    	if (!pl->has ("command.world.world.set-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      if (!reader.has_next ())
+          	{
+          		pl->message ("§c * §7Usage§f: §e/world build-perms set §cnew-build-perms");
+          		return;
+          	}
+          
+          std::string val = reader.rest ();
+          w->security ().set_build_perms (val);
+          
+          pl->message (w->get_colored_name () + "§f'§es build-perms has been set to§f:");
+          pl->message_spaced ("§f  > §7" + val);
+		    }
+		  else if (sutils::iequals (arg1, "clear"))
+		  	{
+		  		if (!pl->has ("command.world.world.set-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		  		w->security ().set_build_perms ("");
+		  		pl->message (w->get_colored_name () + "§f'§es build-perms has been cleared");
+		  	}
+		  else
+		    {
+		      pl->message ("§c * §7Invalid sub-command§f: §cbuild-perms." + arg1);
+		      return;
+		    }
+		}
+		
+		
+		
+		static void
+		_handle_join_perms (player *pl, world *w, command_reader& reader)
+		{
+		  if (!reader.has_next ())
+		    {
+		    	if (!pl->has ("command.world.world.get-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      std::ostringstream ss;
+		      ss << "§6Displaying " << w->get_colored_name () << "§e'§6s join permissions§e:";
+		      pl->message (ss.str ());
+		      ss.str (std::string ());
+		      
+		      const std::string& perms = w->security ().get_join_perms ();
+		      if (perms.empty ())
+		        ss << "§8    not set";
+		      else
+		        ss << "§7    " << perms;
+		      pl->message (ss.str ());
+		      return;
+		    }
+		  
+		  const std::string& arg1 = reader.next ().as_str ();
+		  if (sutils::iequals (arg1, "set"))
+		    {
+		    	if (!pl->has ("command.world.world.set-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      if (!reader.has_next ())
+          	{
+          		pl->message ("§c * §7Usage§f: §e/world join-perms set §cnew-join-perms");
+          		return;
+          	}
+          
+          std::string val = reader.rest ();
+          w->security ().set_join_perms (val);
+          
+          pl->message (w->get_colored_name () + "§f'§es join-perms has been set to§f:");
+          pl->message_spaced ("§f  > §7" + val);
+		    }
+		  else if (sutils::iequals (arg1, "clear"))
+		  	{
+		  		if (!pl->has ("command.world.world.set-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		  		w->security ().set_join_perms ("");
+		  		pl->message (w->get_colored_name () + "§f'§es join-perms has been cleared");
+		  	}
+		  else
+		    {
+		      pl->message ("§c * §7Invalid sub-command§f: §cjoin-perms." + arg1);
+		      return;
+		    }
+		}
+		
+		
+		
 		/* 
 		 * /world - 
 		 * 
-		 * Teleports the player to a requested world.
+		 * Lets the user modify or view world related information.
 		 * 
 		 * Permissions:
 		 *   - command.world.world
 		 *       Needed to execute the command.
+		 *   - command.world.world.change-members
+		 *       Needed to add\remove world members.
+		 *   - command.world.world.change-owners
+		 *       Needed to add\remove world owners.
+		 *   - command.world.world.owner.change-members
+		 *       If a world owner is allowed to add\remove members.
+		 *   - command.world.world.owner.change-owners
+		 *       If a world owner is allowed to add\remove owners.
+		 *   - command.world.world.set-perms
+		 *       Required to set build-perms or join-perms
+		 *   - command.world.world.get-perms
+		 *       Required to view build-perms or join-perms
 		 */
 		void
 		c_world::execute (player *pl, command_reader& reader)
@@ -77,45 +483,42 @@ namespace hCraft {
 			if (!pl->perm ("command.world.world"))
 				return;
 			
+			reader.add_option ("world", "w", 1, 1);
 			if (!reader.parse (this, pl))
 				return;
 			
-			if (reader.no_args ())
+			world *w = pl->get_world ();
+			auto opt_w = reader.opt ("world");
+			if (opt_w->found ())
 				{
-					pl->message ("§eYou are currently in§f: §b" + std::string (pl->get_world ()->get_colored_name ()));
-					return;
-				}
-			else if (reader.arg_count () > 1)
-				{ this->show_summary (pl); return; }
-			
-			std::string& world_name = reader.arg (0);
-			if (sutils::iequals (world_name, "list"))
-				{
-					_world_list (pl);
-					return;
+					const std::string& w_name = opt_w->arg (0).as_str ();
+					w = pl->get_server ().get_worlds ().find (w_name.c_str ());
+					if (!w)
+						{
+							pl->message ("§c * §7Unknown world§f: §c" + w_name);
+							return;
+						}
 				}
 			
-			world *wr = pl->get_server ().get_worlds ().find (world_name.c_str ());
-			if (!wr)
+			if (!reader.has_next ())
+				_handle_no_args (pl, w);
+			else
 				{
-					pl->message ("§c * §7Cannot find world§f: §c" + world_name);
-					return;
+					const std::string& arg1 = reader.next ().as_str ();
+					if (sutils::iequals (arg1, "owners"))
+						_handle_owners (pl, w, reader);
+					else if (sutils::iequals (arg1, "members"))
+						_handle_members (pl, w, reader);
+					else if (sutils::iequals (arg1, "build-perms"))
+					  _handle_build_perms (pl, w, reader);
+					 else if (sutils::iequals (arg1, "join-perms"))
+					  _handle_join_perms (pl, w, reader);
+					else
+						{
+							pl->message ("§c * §7Unknown sub-command§f: §c" + arg1);
+							return;
+						}
 				}
-			
-			world *prev_world = pl->get_world ();
-			if (wr == prev_world)
-				{
-					pl->message ("§eAlready there§f." );
-					return;
-				}
-			
-			if (!pl->has_access (wr->get_join_perms ()))
-				{
-					pl->message ("§4 * §cYou are not allowed to go there§4.");
-					return;
-				}
-			
-			pl->join_world (wr);
 		}
 	}
 }

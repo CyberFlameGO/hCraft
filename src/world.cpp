@@ -42,8 +42,6 @@ namespace hCraft {
 	chunk_coords (unsigned long long key, int* x, int* z)
 		{ *x = key & 0xFFFFFFFFU; *z = key >> 32; }
 	
-	static std::string _build_colored_name (server&, const char *, const std::string&);
-	
 	
 	
 	static void
@@ -76,11 +74,10 @@ namespace hCraft {
 	 */
 	world::world (world_type typ, server &srv, const char *name, logger &log,
 		world_generator *gen, world_provider *provider)
-		: srv (srv), log (log), lm (log, this), blhi (*this), estage (this), physics (srv)
+		: srv (srv), log (log), physics (srv), lm (log, this), blhi (*this), estage (this)
 	{
 		assert (world::is_valid_name (name));
 		std::strcpy (this->name, name);
-		std::strcpy (this->colored_name, _build_colored_name (srv, name, "").c_str ());
 		
 		this->typ = typ;
 		
@@ -183,12 +180,11 @@ namespace hCraft {
 		world *wr = new world (wtyp, srv, name, srv.get_logger (), gen, prov);
 		wr->set_size (winf.width, winf.depth);
 		wr->set_spawn (winf.spawn_pos);
-		wr->set_build_perms (winf.build_perms);
-		wr->set_join_perms (winf.join_perms);
 		
-		// load portals
+		
 		wr->prov->open (*wr);
 		wr->prov->load_portals (*wr, wr->portals);
+		wr->prov->load_security (*wr, wr->security ());
 		wr->prov->close ();
 		
 		wr->prepare_spawn (10, false);
@@ -219,7 +215,7 @@ namespace hCraft {
 	}
 	
 	std::string
-	_build_colored_name (server& srv, const char *wname, const std::string& astr)
+	world::get_colored_name ()
 	{
 		enum term_type
 			{
@@ -233,6 +229,7 @@ namespace hCraft {
 		bool player_world = false;
 		bool perm_world   = false;
 		
+		const std::string& astr = this->wsec.get_build_perms ();
 		const char *str = astr.c_str ();
 		const char *ptr = str;
 		while (*ptr)
@@ -285,7 +282,7 @@ namespace hCraft {
 						case TT_GROUP:
 						case TT_ATLEAST_GROUP:
 							{
-								group *grp = srv.get_groups ().find (word.c_str ());
+								group *grp = this->srv.get_groups ().find (word.c_str ());
 								if (!grp)
 									bad = true;
 								if (!min_grp || (grp->power < min_grp->power))
@@ -305,7 +302,7 @@ namespace hCraft {
 					}
 				
 				if (bad)
-					return std::string (wname);
+					return std::string (this->get_name ());
 			}
 		
 		std::string colname;
@@ -325,7 +322,7 @@ namespace hCraft {
 			}
 		else
 			{
-				group *grp = srv.get_groups ().lowest ();
+				group *grp = this->srv.get_groups ().lowest ();
 				if (grp)
 					{
 						colname.append ("§");
@@ -333,23 +330,8 @@ namespace hCraft {
 					}
 			}
 		
-		colname.append (wname);
+		colname.append (this->get_name ());
 		return colname;
-	}
-	
-	
-	
-	void
-	world::set_build_perms (const std::string& str)
-	{
-		this->build_perms.assign (str);
-		std::strcpy (this->colored_name, _build_colored_name (this->srv, this->name, str).c_str ());
-	}
-	
-	void
-	world::set_join_perms (const std::string& str)
-	{
-		this->join_perms.assign (str);
 	}
 	
 	
@@ -672,8 +654,6 @@ namespace hCraft {
 		inf.generator = this->gen ? this->gen->name () : "";
 		inf.seed = this->gen ? this->gen->seed () : 0;
 		inf.chunk_count = 0;
-		inf.join_perms = this->join_perms;
-		inf.build_perms = this->build_perms;
 		inf.world_type = (this->typ == WT_LIGHT) ? "LIGHT" : "NORMAL";
 	}
 	
@@ -702,6 +682,9 @@ namespace hCraft {
 		world_information inf = this->prov->info ();
 		this->get_information (inf);
 		this->prov->save_info (*this, inf);
+		
+		// security
+		this->prov->save_security (*this, this->security ());
 		
 		// portals
 		this->prov->save_portals (*this, this->portals);

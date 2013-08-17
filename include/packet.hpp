@@ -31,6 +31,7 @@ namespace hCraft {
 	class chunk;
 	class player;
 	class entity_metadata;
+	class edit_stage;
 	
 	
 	struct block_change_record
@@ -185,6 +186,7 @@ namespace hCraft {
 		static packet* make_entity_properties (int eid,
 			const std::vector<entity_property>& props);
 		
+		static packet* make_chunk (int x, int z, chunk *ch, const std::vector<edit_stage *> es_vec);
 		static packet* make_chunk (int x, int z, chunk *ch);
 		
 		static packet* make_empty_chunk (int x, int z);

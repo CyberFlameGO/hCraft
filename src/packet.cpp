@@ -22,6 +22,7 @@
 #include "utils.hpp"
 #include "nbt.hpp"
 #include "player.hpp"
+#include "editstage.hpp"
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
@@ -1231,6 +1232,23 @@ namespace hCraft {
 	packet*
 	packet::make_chunk (int x, int z, chunk *ch)
 	{
+		std::vector<edit_stage *> vec;
+		return packet::make_chunk (x, z, ch, vec);
+	}
+	
+	packet*
+	packet::make_chunk (int x, int z, chunk *och, const std::vector<edit_stage *> es_vec)
+	{
+		chunk *ch = och;
+		for (edit_stage *es : es_vec)
+			if (es->mod_count_at (x, z) > 0)
+				{
+					ch = och->duplicate ();
+					for (edit_stage *es : es_vec)
+						es->commit_chunk (ch, x, z);
+					break;
+				}
+		
 		int data_size = 0, n = 0, i;
 		unsigned short primary_bitmap = 0, add_bitmap = 0;
 		int primary_count = 0;
@@ -1246,7 +1264,7 @@ namespace hCraft {
 						++ primary_count;
 						data_size += 10240;
 						
-						//// NOTE: Do not send add values for now... or else it cause custom
+						//// NOTE: Do not send add values for now... or else it will cause custom
 						//// blocks to screw up.
 						//if (sub->has_add ())
 						//	{ add_bitmap |= (1 << i); data_size += 2048; }
@@ -1366,6 +1384,8 @@ namespace hCraft {
 			}
 		
 		delete[] data;
+		if (ch != och)
+			delete ch;
 		
 		// and finally, create the packet.
 		packet* pack = new packet (18 + compressed_size);
@@ -1379,6 +1399,7 @@ namespace hCraft {
 		pack->put_int (compressed_size);
 		pack->put_bytes (compressed, compressed_size);
 		delete[] compressed;
+		
 		
 		return pack;
 	}

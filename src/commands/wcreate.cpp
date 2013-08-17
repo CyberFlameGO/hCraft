@@ -326,7 +326,7 @@ namespace hCraft {
 					
 					wr->start ();
 					pl->get_server ().get_players ().message (
-						"§3World §b" + world_name + " §3has been loaded§b!");
+						"§9> §3World " + std::string (wr->get_colored_name ()) + " §3has been loaded§9!");
 				}
 			else
 				{

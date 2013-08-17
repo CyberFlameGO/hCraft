@@ -36,6 +36,8 @@ The _currently_ implemented features are:
    commands (/select), and then subsequently fill them with any block (or manipulate
    them in some way).
 *  Block tracking, players may do /whodid to check who modified certain blocks.
+*  Portals! (World to world portals are supported)
+*  World ownership\membership - Owners/members may be configured for every world.
      
 
 Building

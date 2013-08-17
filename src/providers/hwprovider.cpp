@@ -17,6 +17,7 @@
  */
 
 #include "providers/hwprovider.hpp"
+#include "world_security.hpp"
 #include "world.hpp"
 #include "chunk.hpp"
 #include <iostream>
@@ -944,9 +945,6 @@ namespace hCraft {
 		
 		writer.write_int (info.seed);
 		
-		writer.write_string (info.join_perms.c_str ());
-		writer.write_string (info.build_perms.c_str ());
-		
 		writer.write_string (info.world_type.c_str ());
 		
 		writer.flush ();
@@ -989,9 +987,6 @@ namespace hCraft {
 				writer.write_string ("");
 				writer.write_int (0);
 			}
-		
-		writer.write_string (""); // join perms
-		writer.write_string (""); // build perms
 		
 		writer.write_string ("NORMAL"); // world type
 		
@@ -1223,9 +1218,6 @@ namespace hCraft {
 			}
 		
 		inf.seed = reader.read_int ();
-		
-		inf.join_perms = reader.read_string ();
-		inf.build_perms = reader.read_string ();
 		
 		inf.world_type = reader.read_string ();
 	}
@@ -1720,6 +1712,7 @@ namespace hCraft {
 			}
 		
 		this->write_layer ("portals", data, data_size);
+		delete[] data;
 	}
 	
 	/* 
@@ -1772,6 +1765,85 @@ namespace hCraft {
 				
 				portals.push_back (ptl);
 			}
+		
+		delete[] data;
+	}
+	
+	
+	
+//-----
+	
+	/* 
+	 * Updates\saves owner\member list, build\join permissions, etc...
+	 */
+	void
+	hw_provider::save_security (world &w, const world_security& sec)
+	{
+		unsigned int data_size = 0;
+		data_size += 4 + 4 * sec.get_owners ().size ();    // owner list
+		data_size += 4 + 4 * sec.get_members ().size ();   // member list
+		data_size += 2 + sec.get_build_perms ().length (); // build perms
+		data_size += 2 + sec.get_join_perms ().length ();  // join perms
+		
+		unsigned char *data = new unsigned char [data_size];
+		unsigned int n = 0;
+		
+		// owners
+		const auto& owners = sec.get_owners ();
+		n += _write_int (data + n, owners.size ());
+		for (int p : owners)
+			n += _write_int (data + n, p);
+		
+		// members
+		const auto& members = sec.get_members ();
+		n += _write_int (data + n, members.size ());
+		for (int p : members)
+			n += _write_int (data + n, p);
+		
+		// build perms
+		const std::string& build_perms = sec.get_build_perms ();
+		n += _write_short (data + n, build_perms.length ());
+		for (char c : build_perms)
+			data[n++] = c;
+		
+		// join perms
+		const std::string& join_perms = sec.get_join_perms ();
+		n += _write_short (data + n, join_perms.length ());
+		for (char c : join_perms)
+			data[n++] = c;
+		
+		this->write_layer ("security", data, data_size);
+		delete[] data;
+	}
+	
+	/* 
+	 * Loads world security information.
+	 */
+	void
+	hw_provider::load_security (world &w, world_security& sec)
+	{
+		unsigned int data_size = 0;
+		unsigned char *data = this->read_layer ("security", data_size);
+		if (!data || data_size == 0)
+			return;
+		
+		unsigned int n = 0;
+		
+		// owners
+		int owner_count = _read_int (data + n, n);
+		while (owner_count --> 0)
+			sec.add_owner (_read_int (data + n, n));
+		
+		// members
+		int member_count = _read_int (data + n, n);
+		while (member_count --> 0)
+			sec.add_member (_read_int (data + n, n));
+		
+		// build perms
+		sec.set_build_perms (_read_string (data + n, n));
+		
+		// join perms
+		sec.set_join_perms (_read_string (data + n, n));
 		
 		delete[] data;
 	}

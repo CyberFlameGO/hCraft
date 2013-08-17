@@ -58,14 +58,14 @@ namespace hCraft {
 	static command* create_c_wcreate () { return new commands::c_wcreate (); }
 	static command* create_c_wload () { return new commands::c_wload (); }
 	static command* create_c_wunload () { return new commands::c_wunload (); }
-	static command* create_c_world () { return new commands::c_world (); }
+	static command* create_c_goto () { return new commands::c_goto (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
 	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	static command* create_c_block_physics () { return new commands::c_block_physics (); }
-	static command* create_c_wconfig () { return new commands::c_wconfig (); }
 	static command* create_c_block_type () { return new commands::c_block_type (); }
 	static command* create_c_portal () { return new commands::c_portal (); }
+	static command* create_c_world () { return new commands::c_world (); }
 	
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
@@ -103,7 +103,7 @@ namespace hCraft {
 			{ "ping", create_c_ping },
 			{ "wcreate", create_c_wcreate },
 			{ "wload", create_c_wload },
-			{ "world", create_c_world },
+			{ "goto", create_c_goto },
 			{ "tp", create_c_tp },
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
@@ -131,11 +131,11 @@ namespace hCraft {
 			{ "unmute", create_c_unmute },
 			{ "say", create_c_say },
 			{ "block-physics", create_c_block_physics },
-			{ "wconfig", create_c_wconfig },
 			{ "block-type", create_c_block_type },
 			{ "portal", create_c_portal },
 			{ "whodid", create_c_whodid },
 			{ "undo", create_c_undo },
+			{ "world", create_c_world },
 			};
 		
 		auto itr = creators.find (name);

@@ -29,6 +29,7 @@
 #include "editstage.hpp"
 #include "portal.hpp"
 #include "block_history.hpp"
+#include "world_security.hpp"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -153,11 +154,10 @@ namespace hCraft {
 		world_provider *prov;
 		std::mutex gen_lock;
 		
-		std::string build_perms, join_perms;
-		char colored_name[65];
-		
 		std::vector<portal *> portals;
 		std::mutex portal_lock;
+		
+		world_security wsec;
 		
 	public:
 		bool auto_lighting;
@@ -175,7 +175,6 @@ namespace hCraft {
 		inline server& get_server () const { return this->srv; }
 		inline world_type get_type () const { return this->typ; }
 		inline const char* get_name () const { return this->name; }
-		inline const char* get_colored_name () const { return this->colored_name; }
 		inline player_list& get_players () { return *this->players; }
 		
 		inline world_provider* get_provider () { return this->prov; }
@@ -194,11 +193,10 @@ namespace hCraft {
 		inline world_physics_state physics_state () const { return this->ph_state; }
 		inline std::mutex& get_update_lock () { return this->update_lock; }
 		
+		inline world_security& security () { return this->wsec; }
+		
 	public:
-		const std::string& get_build_perms () { return this->build_perms; }
-		const std::string& get_join_perms () { return this->join_perms; }
-		void set_build_perms (const std::string& str);
-		void set_join_perms (const std::string& str);
+		std::string get_colored_name ();
 		
 		inline world_generator* get_generator () { return this->gen; }
 		void set_generator (world_generator *gen);

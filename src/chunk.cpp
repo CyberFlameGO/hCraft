@@ -48,12 +48,35 @@ namespace hCraft {
 	}
 	
 	/* 
+	 * Copy constructor.
+	 */
+	subchunk::subchunk (const subchunk& sub)
+	{
+		std::memcpy (this->ids, sub.ids, 4096);
+		std::memcpy (this->meta, sub.meta, 2048);
+		std::memcpy (this->blight, sub.blight, 2048);
+		std::memcpy (this->slight, sub.slight, 2048);
+		if (sub.add)
+			{
+				this->add = new unsigned char[2048];
+				std::memcpy (this->add, sub.add, 2048);
+			}
+		else
+			this->add = nullptr;
+		
+		this->add_count = sub.add_count;
+		this->air_count = sub.air_count;
+		
+		for (int i = 0; i < 128; ++i)
+			this->custom[i] = sub.custom[i];;
+	}
+	
+	/* 
 	 * Class destructor.
 	 */
 	subchunk::~subchunk ()
 	{
-		if (this->add)
-			delete[] this->add;
+		delete[] this->add;
 	}
 	
 	
@@ -630,6 +653,31 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->entity_lock};
 		for (entity* e : this->entities)
 			f (e);
+	}
+	
+	
+	
+//----
+	
+	/* 
+	 * Returns a copy of this chunk.
+	 * NOTE: Only block data is copied.
+	 */
+	chunk*
+	chunk::duplicate ()
+	{
+		chunk *ch = new chunk ();
+		
+		for (int i = 0; i < 16; ++i)
+			{
+				subchunk *sub = this->subs[i];
+				if (sub)
+					ch->subs[i] = new subchunk (*sub);
+			}
+		
+		std::memcpy (ch->biomes, this->biomes, 256);
+		//std::memcpy (ch->heightmap, this->heightmap, 1024);
+		return ch;
 	}
 	
 	

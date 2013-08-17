@@ -163,25 +163,25 @@ namespace hCraft {
 		
 		
 		/* 
-		 * /world - 
+		 * /goto - 
 		 * 
 		 * Teleports the player to a requested world.
 		 * 
 		 * Permissions:
-		 *   - command.world.world
+		 *   - command.world.goto
 		 *       Needed to execute the command.
 		 */
-		class c_world: public command
+		class c_goto: public command
 		{
 		public:
-			const char* get_name () { return "world"; }
+			const char* get_name () { return "goto"; }
 			
 			const char**
 			get_aliases ()
 			{
 				static const char *aliases[] =
 					{
-						"w",
+						"g",
 						nullptr,
 					};
 				return aliases;
@@ -197,7 +197,7 @@ namespace hCraft {
 				return "";
 			}
 			
-			const char* get_exec_permission () { return "command.world.world"; }
+			const char* get_exec_permission () { return "command.world.goto"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);
@@ -390,50 +390,6 @@ namespace hCraft {
 		
 		
 		/* 
-		 * /wconfig - 
-		 * 
-		 * Lets the user view or modify world properties.
-		 * 
-		 * Permissions:
-		 *   - command.world.wconfig
-		 *       Needed to execute the command.
-		 */
-		class c_wconfig: public command
-		{
-		public:
-			const char* get_name () { return "wconfig"; }
-			
-			const char**
-			get_aliases ()
-			{
-				static const char *aliases[] =
-					{
-						"config-world",
-						"world-config",
-						nullptr,
-					};
-				return aliases;
-			}
-			
-			const char*
-			get_summary ()
-				{ return "Lets the user view or modify world properties."; }
-			
-			const char*
-			get_help ()
-			{
-				return "";
-			}
-			
-			const char* get_exec_permission () { return "command.world.wconfig"; }
-			
-		//----
-			void execute (player *pl, command_reader& reader);
-		};
-		
-		
-		
-		/* 
 		 * /portal - 
 		 * 
 		 * Turns blocks in the user's selected area to portals.
@@ -471,6 +427,61 @@ namespace hCraft {
 			}
 			
 			const char* get_exec_permission () { return "command.world.portal"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		
+		/* 
+		 * /world - 
+		 * 
+		 * Lets the user modify or view world related information.
+		 * 
+		 * Permissions:
+		 *   - command.world.world
+		 *       Needed to execute the command.
+		 *   - command.world.world.change-members
+		 *       Needed to add\remove world members.
+		 *   - command.world.world.change-owners
+		 *       Needed to add\remove world owners.
+		 *   - command.world.world.owner.change-members
+		 *       If a world owner is allowed to add\remove members.
+		 *   - command.world.world.owner.change-owners
+		 *       If a world owner is allowed to add\remove owners.
+		 *   - command.world.world.set-perms
+		 *       Required to set build-perms or join-perms
+		 *   - command.world.world.get-perms
+		 *       Required to view build-perms or join-perms
+		 */
+		class c_world : public command
+		{
+		public:
+			const char* get_name () { return "world"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						"w",
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Lets the user modify or view world related information."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.world"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

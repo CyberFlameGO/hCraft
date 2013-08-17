@@ -31,6 +31,7 @@ namespace hCraft {
 	
 	class world; // forward dec
 	class player;
+	class chunk;
 	
 	
 	#define ES_NONE	0xFFF
@@ -73,6 +74,8 @@ namespace hCraft {
 		virtual blocki get (int x, int y, int z) = 0;
 		virtual void reset (int x, int y, int z) = 0;
 		
+		virtual int mod_count_at (int cx, int cz) { return 1; }
+		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
@@ -98,6 +101,11 @@ namespace hCraft {
 		 * The edit stage is then cleared.
 		 */
 		virtual void commit (bool physics = true) = 0;
+		
+		/* 
+		 * Does not notify players, nor does this activate physics blocks.
+		 */
+		virtual void commit_chunk (chunk *ch, int cx, int cz) = 0;
 		
 		
 		/* 
@@ -171,6 +179,8 @@ namespace hCraft {
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) override;
 		
+		virtual int mod_count_at (int cx, int cz) override;
+		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
@@ -193,6 +203,11 @@ namespace hCraft {
 		 * The edit stage is then cleared.
 		 */
 		virtual void commit (bool physics = true) override;
+		
+		/* 
+		 * Does not notify players, nor does this activate physics blocks.
+		 */
+		virtual void commit_chunk (chunk *ch, int cx, int cz) override;
 		
 		
 		/* 
@@ -235,6 +250,8 @@ namespace hCraft {
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) override;
 		
+		virtual int mod_count_at (int cx, int cz) override;
+		
 		
 		/* 
 		 * Sends all modified blocks to the specified player(s).
@@ -257,6 +274,11 @@ namespace hCraft {
 		 * The edit stage is then cleared.
 		 */
 		virtual void commit (bool physics = true) override;
+		
+		/* 
+		 * Does not notify players, nor does this activate physics blocks.
+		 */
+		virtual void commit_chunk (chunk *ch, int cx, int cz) override;
 		
 		
 		/* 

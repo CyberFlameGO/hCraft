@@ -1297,7 +1297,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "ping");
 		_add_command (this->perms, this->commands, "wcreate");
 		_add_command (this->perms, this->commands, "wload");
-		_add_command (this->perms, this->commands, "world");
+		_add_command (this->perms, this->commands, "goto");
 		_add_command (this->perms, this->commands, "tp");
 		_add_command (this->perms, this->commands, "nick");
 		_add_command (this->perms, this->commands, "wunload");
@@ -1325,11 +1325,11 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, "unmute");
 		_add_command (this->perms, this->commands, "say");
 		_add_command (this->perms, this->commands, "block-physics");
-		_add_command (this->perms, this->commands, "wconfig");
 		_add_command (this->perms, this->commands, "block-type");
 		_add_command (this->perms, this->commands, "portal");
 		_add_command (this->perms, this->commands, "whodid");
 		_add_command (this->perms, this->commands, "undo");
+		_add_command (this->perms, this->commands, "world");
 	}
 	
 	void
@@ -1359,6 +1359,7 @@ namespace hCraft {
 		group* grp_guest = groups.add (1, "guest");
 		grp_guest->color = '7';
 		grp_guest->add ("command.info.help");
+		grp_guest->add ("command.world.world.owner.change-members");
 		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "member");
@@ -1370,12 +1371,13 @@ namespace hCraft {
 		grp_member->add ("command.info.status.balance");
 		grp_member->add ("command.info.money");
 		grp_member->add ("command.info.money.pay");
+		grp_member->add ("command.world.world");
 		grp_member->msuffix = "§f:";
 		
 		group* grp_builder = groups.add (3, "builder");
 		grp_builder->color = '2';
 		grp_builder->inherit (grp_member);
-		grp_builder->add ("command.world.world");
+		grp_builder->add ("command.world.goto");
 		grp_builder->add ("command.world.tp");
 		grp_builder->add ("command.draw.cuboid");
 		grp_builder->add ("command.draw.aid");
@@ -1434,6 +1436,10 @@ namespace hCraft {
 		grp_admin->add ("command.admin.ban");
 		grp_admin->add ("command.chat.say.*");
 		grp_admin->add ("command.world.portal.*");
+		grp_admin->add ("command.world.world.get-perms");
+		grp_admin->add ("command.world.world.change-members");
+		grp_admin->add ("command.world.world.change-owners");
+		
 		grp_admin->text_color = 'c';
 		grp_admin->msuffix = "§f:";
 		grp_admin->color_codes = true;
@@ -1448,7 +1454,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.world.wsetspawn");
-		grp_executive->add ("command.world.wconfig");
+		grp_executive->add ("command.world.world.set-perms");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->text_color = 'c';
@@ -1574,12 +1580,9 @@ namespace hCraft {
 		// load worlds from the autoload list.
 		{
 			soci::session sql (this->spool);
-			soci::row r;
-			
-			sql << "SELECT * FROM `autoload-worlds`", soci::into (r);
-			if (sql.got_data ())
-				for (size_t i = 0; i < r.size (); ++i)
-					to_load.push_back (r.get<std::string> (i));
+			soci::rowset<std::string> rs = (sql.prepare << "SELECT `name` FROM `autoload-worlds`");
+			for (auto itr = rs.begin (); itr != rs.end (); ++itr)
+				to_load.push_back (*itr);
 		}
 		for (std::string& wname : to_load)
 			{

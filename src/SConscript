@@ -35,6 +35,7 @@ hCraft_sources = Split("""
 		noise.cpp
 		portal.cpp
 		block_history.cpp
+		world_security.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
@@ -60,7 +61,7 @@ hCraft_sources = Split("""
 		commands/ping.cpp
 		commands/wcreate.cpp
 		commands/wload.cpp
-		commands/world.cpp
+		commands/goto.cpp
 		commands/tp.cpp
 		commands/nick.cpp
 		commands/wunload.cpp
@@ -88,11 +89,11 @@ hCraft_sources = Split("""
 		commands/unmute.cpp
 		commands/say.cpp
 		commands/bp.cpp
-		commands/wconfig.cpp
 		commands/bt.cpp
 		commands/portal.cpp
 		commands/whodid.cpp
 		commands/undo.cpp
+		commands/world.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp
