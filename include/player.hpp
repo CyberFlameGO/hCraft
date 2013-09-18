@@ -31,6 +31,7 @@
 #include "cistring.hpp"
 #include "sqlops.hpp"
 #include "generator.hpp"
+#include "block_undo.hpp"
 
 #include <atomic>
 #include <queue>
@@ -249,6 +250,7 @@ namespace hCraft {
 		std::vector<known_chunk> known_chunks;
 		
 		inventory inv;
+		block_undo *bundo;
 		
 		int bl_destroyed;
 		int bl_created;

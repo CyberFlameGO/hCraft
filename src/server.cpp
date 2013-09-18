@@ -1216,6 +1216,7 @@ namespace hCraft {
 		mkdir ("data", 0744);
 		mkdir ("data/worlds", 0744);
 		mkdir ("data/perms", 0744);
+		mkdir ("data/undo", 0744);
 		
 		// authentication/encryption
 		{

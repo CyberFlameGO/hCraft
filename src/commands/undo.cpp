@@ -21,10 +21,13 @@
 #include "server.hpp"
 #include "world.hpp"
 #include "stringutils.hpp"
+#include "editstage.hpp"
 #include "utils.hpp"
 #include "sqlops.hpp"
 #include <sstream>
 #include <ctime>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -101,7 +104,48 @@ namespace hCraft {
 						}
 				}
 				
-			pl->message ("§cTo be implemented... :o");
+			block_undo *bundo = nullptr;
+			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
+			if (target)
+				bundo = target->bundo;
+			else
+				{
+					bundo = new block_undo (std::string ("data/undo/") + target_name + ".undo");
+				}
+			
+			if (!bundo->open ())
+				{
+					pl->message ("§c * §7Failed to open undo data file§c.");
+					pl->message ("§c * ... §7Player might not exist§c.");
+					if (!target)
+						delete bundo;
+					return;
+				}
+			
+			std::time_t tm = std::time (nullptr) - seconds;
+			bundo->fetch (tm);
+			dense_edit_stage es {pl->get_world ()};
+			
+			int count = 0;
+			while (bundo->has_next ())
+				{
+					++ count;
+					block_undo_record rec = bundo->next_record ();
+					es.set (rec.x, rec.y, rec.z, rec.old_id, rec.old_meta, rec.old_extra);
+					}
+			
+			bundo->remove (tm);
+			es.commit ();
+			
+			{
+				std::ostringstream ss;
+				ss << "§7 | §b" << count << " §eblock change" << ((count == 1) ? "" : "s") << " have been undone§7.";
+				pl->message (ss.str ());
+			}
+			
+			bundo->close ();
+			if (!target)
+				delete bundo;
 		}
 	}
 }

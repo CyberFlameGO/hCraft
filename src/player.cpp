@@ -39,6 +39,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <random>
+#include <sys/stat.h>
 
 #include <cryptopp/integer.h>
 #include <cryptopp/osrng.h>
@@ -104,6 +105,7 @@ namespace hCraft {
 		this->sb_block.set (BT_STILL_WATER);
 		this->need_new_chunks = false;
 		this->streaming_chunks = false;
+		this->bundo = nullptr;
 		
 		this->curr_sel = nullptr;
 		this->last_ping = std::chrono::system_clock::now ();
@@ -162,6 +164,8 @@ namespace hCraft {
 					this->out_queue.pop ();
 				}
 		}
+		
+		delete this->bundo;
 		
 		// delete extra data
 		{
@@ -475,6 +479,9 @@ namespace hCraft {
 			bufferevent_free (this->bufev);
 		}
 		
+		if (this->bundo)
+			this->bundo->close ();
+		
 		// dispose of selection
 		for (auto itr =  std::begin (this->selections);
 		 				 	itr != std::end (this->selections);
@@ -718,6 +725,16 @@ namespace hCraft {
 				this->send (packet::make_player_pos_and_look (
 					epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
 			}
+		
+		// undo data
+		mkdir ((std::string ("data/undo/") + w->get_name ()).c_str (), 0744);
+		if (this->bundo)
+			{
+				this->bundo->flush ();
+				this->bundo->set_path (std::string ("data/undo/") + w->get_name () + "/" + this->get_username () + ".undo");
+			}
+		else
+			this->bundo = new block_undo (std::string ("data/undo/") + w->get_name () + "/" + this->get_username () + ".undo");
 		
 		this->curr_world = w;
 		this->pos = destpos;

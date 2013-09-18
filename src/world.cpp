@@ -534,6 +534,10 @@ namespace hCraft {
 										{
 											// block history
 											this->blhi.insert (u.x, u.y, u.z, old_bd, {u.id, u.meta, (unsigned char)u.extra}, u.pl);
+											
+											// block undo
+											(u.pl)->bundo->insert ({u.x, u.y, u.z, old_bd.id, old_bd.meta, old_bd.ex,
+												u.id, u.meta, (unsigned char)u.extra, std::time (nullptr)});
 										}
 							
 									chunk *ch = this->get_chunk_at (u.x, u.z);

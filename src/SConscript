@@ -36,6 +36,7 @@ hCraft_sources = Split("""
 		portal.cpp
 		block_history.cpp
 		world_security.cpp
+		block_undo.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
