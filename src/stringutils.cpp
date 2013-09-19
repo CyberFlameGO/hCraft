@@ -204,8 +204,7 @@ namespace hCraft {
 		is_block (const std::string& str)
 		{
 			// Syntax: <name/id>[:metadata]
-		
-			int digit_count = 0;
+			
 			int alpha_count = 0;
 			
 			for (size_t i = 0; i < str.size (); ++i)
@@ -272,6 +271,49 @@ namespace hCraft {
 					imeta >> m;
 				}
 			return blocki (id, m);
+		}
+		
+		
+		
+		/* 
+		 * Checks whether the specified string is an IPv4 address.
+		 */
+		bool
+		is_ip_addr (const std::string& str)
+		{
+			const char *ptr = str.c_str ();
+			int dots = 0;
+			bool f = false;
+			while (*ptr)
+				{
+					if (*ptr == '.')
+						{
+							if (!f || dots == 3)
+								return false;
+							++ dots;
+							f = false;
+						}
+					else if (!std::isdigit (*ptr))
+						return false;
+					
+					f = true;
+					++ ptr;
+				}
+			
+			return f && (dots == 3);
+		}
+		
+		
+		/* 
+		 * MC usernames may only contain digits, letters and underscores.
+		 */
+		bool
+		is_valid_username (const std::string& str)
+		{
+			for (char c : str)
+				if (!(std::isalnum (c) || c == '_'))
+					return false;
+			return true;
 		}
 	}
 }

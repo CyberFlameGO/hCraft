@@ -1575,6 +1575,39 @@ namespace hCraft {
 	}
 	
 	packet*
+	packet::make_update_sign (int x, int y, int z, const char *first,
+		const char *second, const char *third, const char *fourth)
+	{
+		packet *pack = new packet (11 + mc_str_len (first) + mc_str_len (second)
+			+ mc_str_len (third) + mc_str_len (fourth));
+		
+		pack->put_byte (0x82);
+		pack->put_int (x);
+		pack->put_short (y);
+		pack->put_int (z);
+		pack->put_string (first);
+		pack->put_string (second);
+		pack->put_string (third);
+		pack->put_string (fourth);
+		
+		return pack;
+	}
+	
+	packet*
+	packet::make_open_sign_window (int x, int y, int z)
+	{
+		packet *pack = new packet (14);
+		
+		pack->put_byte (0x85);
+		pack->put_byte (0);
+		pack->put_int (x);
+		pack->put_int (y);
+		pack->put_int (z);
+		
+		return pack;
+	}
+	
+	packet*
 	packet::make_player_list_item (const char *name, bool online,
 		short ping_ms)
 	{

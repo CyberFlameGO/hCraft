@@ -8,8 +8,18 @@ mysql_lib_path     = '/usr/local/mysql/lib'
 
 #------------------------------------------------------------------------------
 
+# Configure command line options:
+AddOption( "--release", dest="release", action="store_true" )
+
+# Build compilation strings:
+cc_flags = "-Wall "
+if GetOption("release"):
+	cc_flags += " -O3"
+else:
+	cc_flags += " -g -O0"
+
 env = Environment(CPPPATH  = ":".join (("#/include", soci_include_path, mysql_include_path)),
-									CCFLAGS  = '-g -Wall -O0',
+									CCFLAGS  = cc_flags,
 									CXXFLAGS = '-std=c++11 -D_GLIBCXX_USE_NANOSLEEP',
 									DEBUG    = True)
 

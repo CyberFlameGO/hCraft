@@ -23,6 +23,7 @@
 #include "position.hpp"
 #include <soci/soci.h>
 #include <ctime>
+#include <vector>
 
 
 namespace hCraft {
@@ -107,16 +108,29 @@ namespace hCraft {
 		/* 
 		 * Recording bans\kicks:
 		 */
-		static void record_kick (soci::session& sql, const char *target,
-			const char *kicker, const char *reason);
+		static void record_kick (soci::session& sql, int target_pid,
+			int kicker_pid, const char *reason);
 		
-		static void record_ban (soci::session& sql, const char *target,
-			const char *banner, const char *reason);
-		static void record_unban (soci::session& sql, const char *target,
-			const char *unbanner, const char *reason);
+		static void record_ban (soci::session& sql, int target_pid,
+			int banner_pid, const char *reason);
+		static void record_unban (soci::session& sql, int target_pid,
+			int unbanner_pid, const char *reason);
+		static void record_ipban (soci::session& sql, const char *ip,
+			int banner_pid, const char *reason);
 		
 		static void modify_ban_status (soci::session& sql, const char *username, bool ban);
 		static bool is_banned (soci::session& sql, const char *username);
+		static bool is_ip_banned (soci::session& sql, const char *ip);
+		
+		static void unban_ip (soci::session& sql, const char *ip);
+		
+		
+		/* 
+		 * Populates the specified PID vector with all PIDs associated with the
+		 * given IP address.
+		 */
+		static void get_pids_from_ip (soci::session& sql, const char *ip,
+			std::vector<int>& out);
 		
 		
 		/* 

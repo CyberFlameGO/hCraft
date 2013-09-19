@@ -68,6 +68,19 @@ namespace hCraft {
 		
 		bool is_block (const std::string& str);
 		blocki to_block (const std::string& str);
+		
+		
+		
+		/* 
+		 * Checks whether the specified string is an IPv4 address.
+		 */
+		bool is_ip_addr (const std::string& str);
+		
+		
+		/* 
+		 * MC usernames may only contain digits, letters and underscores.
+		 */
+		bool is_valid_username (const std::string& str);
 	}
 }
 

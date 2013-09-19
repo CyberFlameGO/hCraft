@@ -486,6 +486,51 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /realm - 
+		 * 
+		 * Inspired by WOM realms.
+		 * Lets players visit realms (worlds).
+		 * If a player tries to access a realm/world that matches their username,
+		 * it will be created automatically if it did not already exist.
+		 * 
+		 * Permissions:
+		 *   - command.world.realm
+		 *       Needed to execute the command.
+		 */
+		class c_realm : public command
+		{
+		public:
+			const char* get_name () { return "realm"; }
+			
+			const char**
+			get_aliases ()
+			{
+				static const char *aliases[] =
+					{
+						nullptr,
+					};
+				return aliases;
+			}
+			
+			const char*
+			get_summary ()
+				{ return "Teleports the player to a requested realm."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.world.realm"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

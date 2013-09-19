@@ -172,6 +172,11 @@ namespace hCraft {
 		 * Permissions:
 		 *   - command.admin.ban
 		 *       Needed to execute the command.
+		 *   - command.admin.ban.ip
+		 *       Required to issue IP bans.
+		 *   - command.admin.ban.ip*
+		 *       Required to issue regular bans on accounts that belong to a certain
+		 *       IP address.
 		 */
 		class c_ban: public command
 		{
@@ -217,6 +222,8 @@ namespace hCraft {
 		 * Permissions:
 		 *   - command.admin.unban
 		 *       Needed to execute the command.
+		 *   - command.admin.unban.ip
+		 *       Required to lift IP bans.
 		 */
 		class c_unban: public command
 		{

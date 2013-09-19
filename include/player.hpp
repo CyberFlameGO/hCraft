@@ -295,6 +295,7 @@ namespace hCraft {
 		static int handle_packet_66 (player *pl, packet_reader reader);
 		static int handle_packet_6a (player *pl, packet_reader reader);
 		static int handle_packet_6b (player *pl, packet_reader reader);
+		static int handle_packet_82 (player *pl, packet_reader reader);
 		static int handle_packet_fa (player *pl, packet_reader reader);
 		static int handle_packet_fc (player *pl, packet_reader reader);
 		static int handle_packet_fe (player *pl, packet_reader reader);

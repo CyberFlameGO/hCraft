@@ -66,6 +66,7 @@ namespace hCraft {
 	static command* create_c_block_type () { return new commands::c_block_type (); }
 	static command* create_c_portal () { return new commands::c_portal (); }
 	static command* create_c_world () { return new commands::c_world (); }
+	static command* create_c_realm () { return new commands::c_realm (); }
 	
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
@@ -136,6 +137,7 @@ namespace hCraft {
 			{ "whodid", create_c_whodid },
 			{ "undo", create_c_undo },
 			{ "world", create_c_world },
+			{ "realm", create_c_realm },
 			};
 		
 		auto itr = creators.find (name);

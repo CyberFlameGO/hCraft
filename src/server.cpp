@@ -590,6 +590,9 @@ namespace hCraft {
 		out.db_pass = "";
 		out.db_host = "localhost";
 		out.db_port = 3306;
+		
+		out.dcmds.clear ();
+		out.dcmds.insert ("realm");
 	}
 	
 	static void
@@ -629,17 +632,26 @@ namespace hCraft {
 			root.add ("chat", grp_chat);
 		}
 		
-			{
-				cfg::group *grp_sql = new cfg::group ();
+		{
+			cfg::group *grp_sql = new cfg::group ();
+		
+			grp_sql->add_string ("database", in.db_name);
+			grp_sql->add_string ("user", in.db_user);
+			grp_sql->add_string ("pass", in.db_pass);
+			grp_sql->add_string ("host", in.db_host);
+			grp_sql->add_integer ("port", in.db_port);
+		
+			root.add ("sql", grp_sql);
+		}
+		
+		{
+			cfg::array *arr_dcmds = new cfg::array ();
 			
-				grp_sql->add_string ("database", in.db_name);
-				grp_sql->add_string ("user", in.db_user);
-				grp_sql->add_string ("pass", in.db_pass);
-				grp_sql->add_string ("host", in.db_host);
-				grp_sql->add_integer ("port", in.db_port);
+			for (const std::string& str : in.dcmds)
+				arr_dcmds->add_string (str);
 			
-				root.add ("sql", grp_sql);
-			}
+			root.add ("disabled-commands", arr_dcmds);
+		}
 		
 		try
 			{
@@ -906,6 +918,20 @@ namespace hCraft {
 	}
 	
 	static void
+	_cfg_read_dcmds_arr (logger& log, cfg::array *arr_dcmds, server_config& out)
+	{
+		out.dcmds.clear ();
+		for (cfg::value *elem : *arr_dcmds)
+			{
+				if (elem->type () != cfg::CFG_STRING)
+					throw server_error ("expected string");
+				
+				const std::string& cmd = (dynamic_cast<cfg::string *> (elem))->val ();
+				out.dcmds.insert (cmd);
+			}
+	}
+	
+	static void
 	_cfg_read_root_grp (logger& log, cfg::group *root, server_config& out)
 	{
 		try
@@ -950,6 +976,17 @@ namespace hCraft {
 		catch (const std::exception& ex)
 			{
 				log (LT_WARNING) << "Config: Group \"sql\" not found or invalid, using defaults" << std::endl;
+			}
+		
+		try
+			{
+				cfg::array *arr_dcmds = root->find_array ("disabled-commands");
+				if (!arr_dcmds) throw server_error ("not found");
+				_cfg_read_dcmds_arr (log, arr_dcmds, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Array \"disabled-commands\" not found or invalid, using defaults" << std::endl;
 			}
 	}
 	
@@ -1159,24 +1196,38 @@ namespace hCraft {
 			
 			sql.once << "CREATE TABLE IF NOT EXISTS `kicks` ("
 				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
-				"`target` TEXT , "
-				"`kicker` TEXT , "
+				"`target` INT UNSIGNED NOT NULL, "
+				"`kicker` INT UNSIGNED NOT NULL, "
 				"`reason` TEXT, "
-				"`kick_time` BIGINT UNSIGNED)";
+				"`kick_time` BIGINT UNSIGNED, "
+				"FOREIGN KEY (`target`) REFERENCES `players`(`id`), "
+				"FOREIGN KEY (`kicker`) REFERENCES `players`(`id`))";
 			
 			sql.once << "CREATE TABLE IF NOT EXISTS `bans` ("
 				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
-				"`target` TEXT , "
-				"`banner` TEXT , "
+				"`target` INT UNSIGNED NOT NULL, "
+				"`banner` INT UNSIGNED NOT NULL, "
 				"`reason` TEXT, "
-				"`ban_time` BIGINT UNSIGNED)";
+				"`ban_time` BIGINT UNSIGNED, "
+				"FOREIGN KEY (`target`) REFERENCES `players`(`id`), "
+				"FOREIGN KEY (`banner`) REFERENCES `players`(`id`))";
+			
+			sql.once << "CREATE TABLE IF NOT EXISTS `ip-bans` ("
+				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
+				"`ip` TEXT, "
+				"`banner` INT UNSIGNED NOT NULL, "
+				"`reason` TEXT, "
+				"`ban_time` BIGINT UNSIGNED, "
+				"FOREIGN KEY (`banner`) REFERENCES `players`(`id`))";
 			
 			sql.once << "CREATE TABLE IF NOT EXISTS `unbans` ("
 				"`id` INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, "
-				"`target` TEXT , "
-				"`unbanner` TEXT , "
+				"`target` INT UNSIGNED NOT NULL, "
+				"`unbanner` INT UNSIGNED NOT NULL, "
 				"`reason` TEXT, "
-				"`unban_time` BIGINT UNSIGNED)";
+				"`unban_time` BIGINT UNSIGNED, "
+				"FOREIGN KEY (`target`) REFERENCES `players`(`id`), "
+				"FOREIGN KEY (`unbanner`) REFERENCES `players`(`id`))";
 			
 			sql.once << "CREATE TABLE IF NOT EXISTS `player-logout-data` ("
 				"`name` TEXT , "
@@ -1279,8 +1330,11 @@ namespace hCraft {
 	 */
 	
 	static void _add_command (permission_manager& perm_man, command_list *dest,
-		const char *name)
+		std::set<std::string>& dcmds, const char *name)
 	{
+		if (dcmds.find (name) != dcmds.end ())
+			return;
+		
 		command *cmd = command::create (name);
 		if (cmd)
 			{
@@ -1293,44 +1347,45 @@ namespace hCraft {
 	{
 		this->commands = new command_list ();
 		
-		_add_command (this->perms, this->commands, "help");
-		_add_command (this->perms, this->commands, "me");
-		_add_command (this->perms, this->commands, "ping");
-		_add_command (this->perms, this->commands, "wcreate");
-		_add_command (this->perms, this->commands, "wload");
-		_add_command (this->perms, this->commands, "goto");
-		_add_command (this->perms, this->commands, "tp");
-		_add_command (this->perms, this->commands, "nick");
-		_add_command (this->perms, this->commands, "wunload");
-		_add_command (this->perms, this->commands, "physics");
-		_add_command (this->perms, this->commands, "select");
-		_add_command (this->perms, this->commands, "fill");
-		_add_command (this->perms, this->commands, "gm");
-		_add_command (this->perms, this->commands, "cuboid");
-		_add_command (this->perms, this->commands, "line");
-		_add_command (this->perms, this->commands, "bezier");
-		_add_command (this->perms, this->commands, "aid");
-		_add_command (this->perms, this->commands, "circle");
-		_add_command (this->perms, this->commands, "ellipse");
-		_add_command (this->perms, this->commands, "sphere");
-		_add_command (this->perms, this->commands, "polygon");
-		_add_command (this->perms, this->commands, "curve");
-		_add_command (this->perms, this->commands, "rank");
-		_add_command (this->perms, this->commands, "status");
-		_add_command (this->perms, this->commands, "money");
-		_add_command (this->perms, this->commands, "kick");
-		_add_command (this->perms, this->commands, "ban");
-		_add_command (this->perms, this->commands, "unban");
-		_add_command (this->perms, this->commands, "mute");
-		_add_command (this->perms, this->commands, "wsetspawn");
-		_add_command (this->perms, this->commands, "unmute");
-		_add_command (this->perms, this->commands, "say");
-		_add_command (this->perms, this->commands, "block-physics");
-		_add_command (this->perms, this->commands, "block-type");
-		_add_command (this->perms, this->commands, "portal");
-		_add_command (this->perms, this->commands, "whodid");
-		_add_command (this->perms, this->commands, "undo");
-		_add_command (this->perms, this->commands, "world");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "help");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "me");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "ping");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "wcreate");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "wload");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "goto");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "tp");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "nick");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "wunload");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "physics");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "select");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "fill");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "gm");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "cuboid");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "line");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "bezier");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "aid");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "circle");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "ellipse");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "sphere");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "polygon");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "curve");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "rank");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "status");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "money");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "kick");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "ban");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "unban");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "mute");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "wsetspawn");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "unmute");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "say");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "block-physics");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "block-type");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "portal");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "whodid");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "undo");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "world");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "realm");
 	}
 	
 	void
@@ -1361,6 +1416,7 @@ namespace hCraft {
 		grp_guest->color = '7';
 		grp_guest->add ("command.info.help");
 		grp_guest->add ("command.world.world.owner.change-members");
+		grp_guest->add ("command.world.realm");
 		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "member");
@@ -1458,6 +1514,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.world.set-perms");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
+		grp_executive->add ("command.admin.ban.*");
 		grp_executive->text_color = 'c';
 		grp_executive->msuffix = "§f:";
 		grp_executive->color_codes = true;

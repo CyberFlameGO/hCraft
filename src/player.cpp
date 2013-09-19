@@ -973,6 +973,21 @@ namespace hCraft {
 											me->spawn_to (pl);
 										}
 								});
+						
+						// send signs
+						{
+							std::lock_guard<std::mutex> guard {(resp.ch)->ly_signs.lock};
+							for (auto itr = (resp.ch)->ly_signs.signs.begin ();
+								itr != (resp.ch)->ly_signs.signs.end (); ++itr)
+								{
+									block_pos pos = itr->first;
+									auto& sign = itr->second;
+								
+									this->send (packet::make_update_sign (pos.x, pos.y, pos.z,
+										sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (),
+										sign.l4.c_str ()));
+								}
+						}
 					}
 			}
 		
@@ -1693,6 +1708,11 @@ namespace hCraft {
 							this->kick ("§c[ §4You are banned from this server §c]");
 							return true;
 						}
+					else if (sqlops::is_ip_banned (sql, this->ip))
+						{
+							this->kick ("§c[ §4You are §5IP§c-§4banned from this server §c]");
+							return true;
+						}
 					
 					// modify some fields
 					if (pd.login_count == 0)
@@ -2339,6 +2359,22 @@ namespace hCraft {
 			}
 		
 		return false;
+	}
+	
+	
+	
+	static void
+	_place_sign (player *pl, int x, int y, int z, char dir)
+	{
+		if (dir == 1)
+			{
+				int meta = ((int)(std::fmod (pl->pos.r + 7.125, 360.0) / 22.5) + 8) & 0xF;
+			
+				pl->get_world ()->queue_update (x, y, z, BT_SIGN_POST, meta, 0, 0, nullptr, pl);
+				++ pl->bl_created;
+				
+				pl->send (packet::make_open_sign_window (x, y, z));
+			}
 	}
 	
 	
@@ -3053,7 +3089,7 @@ namespace hCraft {
 		item = pl->held_item ();
 		if (!item.is_valid () || item.empty ())
 			return 0;
-		if (!item.is_block ())
+		if (!item.is_block () && (item.id () != IT_SIGN))
 			return 0;
 		
 		int nx = x, ny = y, nz = z;
@@ -3107,9 +3143,17 @@ namespace hCraft {
 				return 0;
 			}
 		
-		++ pl->bl_created;
-		pl->get_world ()->queue_update (nx, ny, nz,
-			item.id (), item.damage (), 0, 0, nullptr, pl);
+		if (item.id () == IT_SIGN)
+			{
+				_place_sign (pl, nx, ny, nz, direction);
+			}
+		else
+			{
+				pl->get_world ()->queue_update (nx, ny, nz,
+					item.id (), item.damage (), 0, 0, nullptr, pl);
+				++ pl->bl_created;
+			}
+		
 		if (pl->gamemode () != GT_CREATIVE)
 			pl->inv.set (pl->held_slot, slot_item (item.id (), item.damage (),
 				item.amount () - 1));
@@ -3676,6 +3720,70 @@ namespace hCraft {
 	}
 	
 	int
+	player::handle_packet_82 (player *pl, packet_reader reader)
+	{
+		if (!pl->logged_in) return -1;
+		if (pl->is_dead ()) return 0;
+		
+		int x = reader.read_int ();
+		int y = reader.read_short ();
+		int z = reader.read_int ();
+		
+		world *wr = pl->get_world ();
+		int id = wr->get_id (x, y, z);
+		if (id != BT_SIGN_POST && id != BT_WALL_SIGN)
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" tried to change a non-existent sign." << std::endl;
+				return -1;
+			}
+		
+		if (!pl->rnk.main ()->can_build || !wr->security ().can_build (pl))
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" tried to change sign without permission!" << std::endl;
+				return -1;
+			}
+		
+		chunk *ch = wr->get_chunk_at (x, z);
+		if (!ch)
+			return -1;
+		
+		std::vector<std::string> lines;
+		for (int i = 0; i < 4; ++i)
+			{
+				char buf[16];
+				if (reader.read_string (buf, 16) == -1)
+					{
+						pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
+							<< "\" sent invalid update sign packet (0x82), line(s) too long!"
+							<< std::endl;
+						return -1;
+					}
+				
+				// TODO: make sure the string doesn't contain any funky characters
+				lines.push_back (buf);
+			} 
+		
+		{
+			std::lock_guard<std::mutex> guard {ch->ly_signs.lock};
+			ch->ly_signs.insert_sign (x, y, z, lines[0].c_str (), lines[1].c_str (),
+				lines[2].c_str (), lines[3].c_str ());
+		}
+		
+		// update players
+		pl->get_world ()->get_players ().all (
+			[ch, &lines, x, y, z] (player *pl)
+				{
+					if (pl->can_see_chunk (x >> 4, z >> 4))
+						{
+							pl->send (packet::make_update_sign (x, y, z, lines[0].c_str (),
+								lines[1].c_str (), lines[2].c_str (), lines[3].c_str ()));
+						}
+				});
+		
+		return 0;
+	}
+	
+	int
 	player::handle_packet_fa (player *pl, packet_reader reader)
 	{
 		char str[1024];
@@ -3807,7 +3915,7 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x7B
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x7F
 				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x83
+				handle_packet_xx, handle_packet_xx, handle_packet_82, handle_packet_xx, // 0x83
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x87
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x8B
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x8F

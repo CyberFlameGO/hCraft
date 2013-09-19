@@ -107,15 +107,6 @@ namespace hCraft {
 	
 	
 	
-	class world_load_error: public std::runtime_error {
-	public:
-		world_load_error (const std::string& str)
-			: std::runtime_error (str)
-			{ }
-	};
-	
-	
-	
 	/* 
 	 * The world provides methods to easily retreive or modify chunks, and
 	 * get/set individual blocks within those chunks. In addition to that,

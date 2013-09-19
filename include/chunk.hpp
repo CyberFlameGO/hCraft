@@ -20,9 +20,12 @@
 #define _hCraft__CHUNK_H_
 
 #include "blocks.hpp"
+#include "position.hpp"
 #include <unordered_set>
 #include <mutex>
 #include <functional>
+#include <string>
+#include <unordered_map>
 
 
 namespace hCraft {
@@ -128,6 +131,37 @@ namespace hCraft {
 	};
 	
 	
+//-----------
+	/* 
+	 * Layers:
+	 */
+
+	class ch_sign_layer
+	{
+	private:
+		struct sign
+		{
+			std::string l1, l2, l3, l4;
+		};
+		
+	public:
+		std::unordered_map<block_pos, sign, block_pos_hash> signs;
+		std::mutex lock;
+		
+	public:
+		void insert_sign (int x, int y, int z, const char *l1, const char *l2,
+			const char *l3, const char *l4);
+		
+		void change_sign (int x, int y, int z, const char *l1, const char *l2,
+			const char *l3, const char *l4);
+		
+		void remove_sign (int x, int y, int z);
+	};
+
+
+//-----------
+	
+	
 	/* 
 	 * The segments that make up a virtually infinite world. 16 blocks wide, 16
 	 * blocks long and 256 blocks deep (65,536 blocks total). Each chunk is
@@ -153,6 +187,8 @@ namespace hCraft {
 		chunk *south; // +z
 		chunk *west;  // -x
 		chunk *east;  // +x
+		
+		ch_sign_layer ly_signs;
 		
 	public:
 		inline subchunk* get_sub (int index) { return this->subs[index]; }

@@ -66,6 +66,9 @@ namespace hCraft {
 				}
 			else if (target->bad ()) return;
 			
+			int target_pid = target->pid ();
+			int kicker_pid = pl->pid ();
+			
 			server& srv = pl->get_server ();
 			
 			// record kick
@@ -73,8 +76,7 @@ namespace hCraft {
 				soci::session sql (srv.sql_pool ());
 				try
 					{
-						sqlops::record_kick (sql, target->get_username (),
-							pl->get_username (), reason.c_str ());
+						sqlops::record_kick (sql, target_pid, kicker_pid, reason.c_str ());
 					}
 				catch (const std::exception& ex)
 					{

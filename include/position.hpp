@@ -261,6 +261,10 @@ namespace hCraft {
 		operator- (vector3 v)
 			{ return {-v.x, -v.y, -v.z}; }
 		
+		friend inline double
+		operator* (vector3 a, vector3 b)
+			{ return a.x * b.x + a.y * b.y + a.z * b.z; }
+		
 		friend inline vector3
 		operator* (double s, vector3 v)
 			{ return {s * v.x, s * v.y, s * v.z}; }

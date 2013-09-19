@@ -25,6 +25,51 @@
 
 namespace hCraft {
 	
+	void
+	ch_sign_layer::insert_sign (int x, int y, int z, const char *l1,
+		const char *l2, const char *l3, const char *l4)
+	{
+		auto itr = this->signs.find ({x, y, z});
+		if (itr == this->signs.end ())
+			{
+				this->signs [{x, y, z}] = { l1, l2, l3, l4 };
+				return;
+			}
+		
+		auto& sign = itr->second;
+		sign.l1 = l1;
+		sign.l2 = l2;
+		sign.l3 = l3;
+		sign.l4 = l4;
+	}
+	
+	void
+	ch_sign_layer::change_sign (int x, int y, int z, const char *l1,
+	 const char *l2, const char *l3, const char *l4)
+	{
+		auto itr = this->signs.find ({x, y, z});
+		if (itr == this->signs.end ())
+			return;
+		
+		auto& sign = itr->second;
+		sign.l1 = l1;
+		sign.l2 = l2;
+		sign.l3 = l3;
+		sign.l4 = l4;
+	}
+	
+	void
+	ch_sign_layer::remove_sign (int x, int y, int z)
+	{
+		auto itr = this->signs.find ({x, y, z});
+		if (itr != this->signs.end ())
+			this->signs.erase (itr);
+	}
+	
+	
+	
+//-------------------------------------------------------------
+	
 	/* 
 	 * Constructs a new empty subchunk, with all blocks set to air.
 	 */

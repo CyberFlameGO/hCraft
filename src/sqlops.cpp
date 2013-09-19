@@ -358,33 +358,43 @@ namespace hCraft {
 	 */
 	
 	void
-	sqlops::record_kick (soci::session& sql, const char *target,
-		const char *kicker, const char *reason)
+	sqlops::record_kick (soci::session& sql, int target_pid, int kicker_pid,
+		const char *reason)
 	{
 		std::time_t t = std::time (nullptr);
 		sql << "INSERT INTO `kicks` (`target`, `kicker`, `reason`, "
 			"`kick_time`) VALUES (:tar, :kic, :rea, :tim)",
-			soci::use (std::string (target)), soci::use (std::string (kicker)), soci::use (std::string (reason)), soci::use ((long long)t);
+			soci::use (target_pid), soci::use (kicker_pid), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
-	sqlops::record_ban (soci::session& sql, const char *target,
-		const char *banner, const char *reason)
+	sqlops::record_ban (soci::session& sql, int target_pid, int banner_pid,
+		const char *reason)
 	{
 		std::time_t t = std::time (nullptr);
 		sql << "INSERT INTO `bans` (`target`, `banner`, `reason`, "
 			"`ban_time`) VALUES (:tar, :ban, :rea, :tim)",
-			soci::use (std::string (target)), soci::use (std::string (banner)), soci::use (std::string (reason)), soci::use ((long long)t);
+			soci::use (target_pid), soci::use (banner_pid), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
-	sqlops::record_unban (soci::session& sql, const char *target,
-		const char *unbanner, const char *reason)
+	sqlops::record_unban (soci::session& sql, int target_pid, int unbanner_pid,
+		const char *reason)
 	{
 		std::time_t t = std::time (nullptr);
 		sql << "INSERT INTO `unbans` (`target`, `unbanner`, `reason`, "
 			"`unban_time`) VALUES (:tar, :unb, :rea, :tim)",
-			soci::use (std::string (target)), soci::use (std::string (unbanner)), soci::use (std::string (reason)), soci::use ((long long)t);
+			soci::use (target_pid), soci::use (unbanner_pid), soci::use (std::string (reason)), soci::use ((long long)t);
+	}
+	
+	void
+	sqlops::record_ipban (soci::session& sql, const char *ip,
+		int banner_pid, const char *reason)
+	{
+		std::time_t t = std::time (nullptr);
+		sql << "INSERT INTO `ip-bans` (`ip`, `banner`, `reason`, "
+			"`ban_time`) VALUES (:ip, :ban, :rea, :tim)",
+			soci::use (std::string (ip)), soci::use (banner_pid), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void
@@ -402,6 +412,41 @@ namespace hCraft {
 		if (!sql.got_data ())
 			return false;
 		return (banned == 1);
+	}
+	
+	bool
+	sqlops::is_ip_banned (soci::session& sql, const char *ip)
+	{
+		int c;
+		sql << "SELECT Count(*) FROM `ip-bans` WHERE `ip`=:ip",
+			soci::into (c), soci::use (std::string (ip));
+		if (!sql.got_data ())
+			return false;
+		return (c > 0);
+	}
+	
+	void
+	sqlops::unban_ip (soci::session& sql, const char *ip)
+	{
+		sql.once << "DELETE FROM `ip-bans` WHERE `ip`=:ip",
+			soci::use (std::string (ip));
+	}
+	
+	
+	
+	/* 
+	 * Populates the specified PID vector with all PIDs associated with the
+	 * given IP address.
+	 */
+	void
+	sqlops::get_pids_from_ip (soci::session& sql, const char *ip,
+		std::vector<int>& out)
+	{
+		soci::rowset<int> rs = (sql.prepare
+			<< "SELECT `id` FROM `players` WHERE `ip`=:ip",
+			soci::use (std::string (ip)));
+		for (auto itr = rs.begin (); itr != rs.end (); ++itr)
+			out.push_back (*itr);
 	}
 }
 

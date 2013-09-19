@@ -20,6 +20,7 @@
 #include "world_security.hpp"
 #include "world.hpp"
 #include "chunk.hpp"
+#include "position.hpp"
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
@@ -38,6 +39,8 @@ namespace hCraft {
 	#define HW_LAYER_TABLE_OFFSET					50176
 	#define HW_LAYER_PAGE_SIZE						 1024
 	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
+	
+	#define HW_CURR_REV												2
 	
 	
 	inline int
@@ -670,49 +673,173 @@ namespace hCraft {
 //----
 	
 	static int
-	_write_short (unsigned char *ptr, unsigned short val)
+	_write_short (unsigned char *data, unsigned short val)
 	{
-		ptr[0] = val & 0xFF;
-		ptr[1] = (val >> 8) & 0xFF;
+		data[0] = val & 0xFF;
+		data[1] = (val >> 8) & 0xFF;
 		return 2;
 	}
 	
-	/*
-	// Unused
 	static int
-	_write_int (unsigned char *ptr, unsigned int val)
+	_write_int (unsigned char *data, unsigned int val)
 	{
-		ptr[0] = val & 0xFF;
-		ptr[1] = (val >> 8) & 0xFF;
-		ptr[2] = (val >> 16) & 0xFF;
-		ptr[3] = (val >> 24) & 0xFF;
+		data[0] = val & 0xFF;
+		data[1] = (val >> 8) & 0xFF;
+		data[2] = (val >> 16) & 0xFF;
+		data[3] = (val >> 24) & 0xFF;
 		return 4;
 	}
-	*/
+	
+	static int
+	_write_float (unsigned char *data, float val)
+	{
+		unsigned int v = *((unsigned int *)&val);
+		data[0] = v & 0xFF;
+		data[1] = (v >> 8) & 0xFF;
+		data[2] = (v >> 16) & 0xFF;
+		data[3] = (v >> 24) & 0xFF;
+		return 4;
+	}
+	
+	static int
+	_write_double (unsigned char *data, double val)
+	{
+		unsigned long long v = *((unsigned long long *)&val);
+		data[0] = v & 0xFF;
+		data[1] = (v >> 8) & 0xFF;
+		data[2] = (v >> 16) & 0xFF;
+		data[3] = (v >> 24) & 0xFF;
+		data[4] = (v >> 32) & 0xFF;
+		data[5] = (v >> 40) & 0xFF;
+		data[6] = (v >> 48) & 0xFF;
+		data[7] = (v >> 56) & 0xFF;
+		return 8;
+	}
+	
+	static int
+	_write_string (unsigned char *data, const std::string& str)
+	{
+		data[0] =  str.size () & 0xFF;
+		data[1] = (str.size () >> 8) & 0xFF;
+		int n = 2;
+		
+		for (char c : str)
+			data[n++] = c;
+		
+		return n;
+	}
+	
 	
 	
 	static unsigned short
-	_read_short (const unsigned char *ptr)
+	_read_short (const unsigned char *data, unsigned int& pos)
 	{
-		return ((unsigned short)ptr[0])
-				 | ((unsigned short)ptr[1] << 8);
+		pos += 2;
+		return (unsigned short)(data[0])
+				| ((unsigned short)(data[1]) << 8);
 	}
 	
-	/*
-	// Unused
-	static unsigned int
-	_read_int (const unsigned char *ptr)
+	static int
+	_read_int (const unsigned char *data, unsigned int& pos)
 	{
-		return ((unsigned int)ptr[0])
-				 | ((unsigned int)ptr[1] << 8)
-				 | ((unsigned int)ptr[2] << 16)
-				 | ((unsigned int)ptr[3] << 24);
+		pos += 4;
+		return (unsigned int)(data[0])
+				| ((unsigned int)(data[1]) << 8)
+				| ((unsigned int)(data[2]) << 16)
+				| ((unsigned int)(data[3]) << 24);
 	}
-	*/
+	
+	static float
+	_read_float (const unsigned char *data, unsigned int& pos)
+	{
+		pos += 4;
+		unsigned int v = ((unsigned int)(data[0])
+			| ((unsigned int)(data[1]) << 8)
+			| ((unsigned int)(data[2]) << 16)
+			| ((unsigned int)(data[3]) << 24));
+		return *((float *)&v);
+	}
+	
+	static double
+	_read_double (const unsigned char *data, unsigned  int& pos)
+	{
+		pos += 8;
+		unsigned long long v = ((unsigned long long)(data[0])
+			| ((unsigned long long)(data[1]) << 8)
+			| ((unsigned long long)(data[2]) << 16)
+			| ((unsigned long long)(data[3]) << 24)
+			| ((unsigned long long)(data[4]) << 32)
+			| ((unsigned long long)(data[5]) << 40)
+			| ((unsigned long long)(data[6]) << 48)
+			| ((unsigned long long)(data[7]) << 56));
+		return *((double *)&v);
+	}
+	
+	static std::string
+	_read_string (const unsigned char *data, unsigned int& pos)
+	{
+		unsigned short len = ((unsigned short)data[0]) | ((unsigned short)(data[1]) << 8);
+		pos += 2 + len;
+		std::string str;
+		str.reserve (len);
+		for (int i = 0; i < len; ++i)
+			str.push_back (data[2 + i]);
+		return str;
+	}
 	
 	
 	
 //----
+	
+	static unsigned int
+	_make_chunk_ly_signs (chunk *ch, unsigned char *data, unsigned int n)
+	{
+		{
+			std::lock_guard<std::mutex> guard {ch->ly_signs.lock};
+			n += _write_int (data + n, ch->ly_signs.signs.size ());
+			for (auto itr = ch->ly_signs.signs.begin (); itr != ch->ly_signs.signs.end (); ++itr)
+				{
+					block_pos pos = itr->first;
+					auto& sign = itr->second;
+					
+					n += _write_int (data + n, pos.x);
+					data[n++] = pos.y;
+					n += _write_int (data + n, pos.z);
+					
+					n += _write_string (data + n, sign.l1.c_str ());
+					n += _write_string (data + n, sign.l2.c_str ());
+					n += _write_string (data + n, sign.l3.c_str ());
+					n += _write_string (data + n, sign.l4.c_str ());
+				}
+		}
+		
+		return n;
+	}
+	
+	
+	static int
+	_chunk_layers_size (chunk *ch)
+	{
+		unsigned int s = 4; // sign count
+		
+		// signs
+		{
+			std::lock_guard<std::mutex> guard {ch->ly_signs.lock};
+			for (auto itr = ch->ly_signs.signs.begin (); itr != ch->ly_signs.signs.end (); ++itr)
+				{
+					auto& sign = itr->second;
+					
+					s += 9; // x, y, z
+					s += 2 + sign.l1.length ();
+					s += 2 + sign.l2.length ();
+					s += 2 + sign.l3.length ();
+					s += 2 + sign.l4.length ();
+				}
+		}
+		
+		return s;
+	}
+	
 	
 	static unsigned char*
 	make_chunk_data (chunk *ch, unsigned int *out_size)
@@ -740,6 +867,7 @@ namespace hCraft {
 		data_size += 256; // biome array
 		data_size += 4; // bitmaps
 		data_size += 1; // some bytes
+		data_size += _chunk_layers_size (ch); // chunk layers
 		
 		
 		/* 
@@ -778,6 +906,9 @@ namespace hCraft {
 		
 		std::memcpy (data + n, ch->get_biome_array (), 256);
 		n += 256;
+		
+		// chunk layers
+		n = _make_chunk_ly_signs (ch, data, n);
 		
 		*out_size = n;
 		return data;
@@ -924,7 +1055,7 @@ namespace hCraft {
 	hw_provider::save_info (world &w, const world_information &info)
 	{
 		binary_writer writer (strm);
-		writer.seek (4);
+		writer.seek (8);
 		
 		// world dimensions
 		writer.write_int (info.width);
@@ -961,6 +1092,7 @@ namespace hCraft {
 		binary_writer writer (strm);
 		
 		writer.write_int (0x31765748); // Magic ID ("HWv1")
+		writer.write_int (HW_CURR_REV); // revision
 		
 		// world dimensions
 		writer.write_int (wr.get_width ());
@@ -1192,7 +1324,11 @@ namespace hCraft {
 	static void
 	read_header (world_information& inf, binary_reader reader)
 	{
-		reader.seek (4);
+		if (reader.read_int () != 0x31765748)
+			throw world_load_error ("File not in HWv1 format (corrupted?)");
+		
+		if (reader.read_int () != HW_CURR_REV)
+			throw world_load_error ("HWv1: Revision mismatch (outdated?)");
 		
 		// dimensions
 		inf.width = reader.read_int ();
@@ -1255,15 +1391,44 @@ namespace hCraft {
 		return compressed;
 	}
 	
+	
+	
+	static int
+	_fill_ly_signs (chunk *ch, const unsigned char *data, unsigned int n)
+	{
+		std::lock_guard<std::mutex> guard {ch->ly_signs.lock};
+		ch->ly_signs.signs.clear ();
+		
+		int sign_count = _read_int (data + n, n);
+		for (int i = 0; i < sign_count; ++i)
+			{
+				int x = _read_int (data + n, n);
+				int y = data[n++];
+				int z = _read_int (data + n, n);
+				
+				std::string l1 = _read_string (data + n, n);
+				std::string l2 = _read_string (data + n, n);
+				std::string l3 = _read_string (data + n, n);
+				std::string l4 = _read_string (data + n, n);
+
+				ch->ly_signs.insert_sign (x, y, z, l1.c_str (), l2.c_str (),
+					l3.c_str (), l4.c_str ());
+			}
+		
+		return n;
+	}
+	
+	
 	static void
 	fill_chunk (chunk *ch, const unsigned char *data)
 	{
 		unsigned int n = 0, i;
 		unsigned short primary_bitmap, add_bitmap;
+		unsigned int d; // dummy value
 		
 		ch->generated = data[n++];
-		primary_bitmap = _read_short (data + 1);
-		add_bitmap = _read_short (data + 3);
+		primary_bitmap = _read_short (data + 1, d);
+		add_bitmap = _read_short (data + 3, d);
 		n += 4;
 		
 		// create sub-chunks
@@ -1339,6 +1504,9 @@ namespace hCraft {
 							}
 					}
 			}
+		
+		// and finally, layers
+		n = _fill_ly_signs (ch, data, n);
 	}
 	
 	/* 
@@ -1558,106 +1726,6 @@ namespace hCraft {
 	
 	
 //-----
-
-	static int
-	_write_int (unsigned char *data, int val)
-	{
-		data[0] = val & 0xFF;
-		data[1] = (val >> 8) & 0xFF;
-		data[2] = (val >> 16) & 0xFF;
-		data[3] = (val >> 24) & 0xFF;
-		return 4;
-	}
-	
-	static int
-	_write_float (unsigned char *data, float val)
-	{
-		unsigned int v = *((unsigned int *)&val);
-		data[0] = v & 0xFF;
-		data[1] = (v >> 8) & 0xFF;
-		data[2] = (v >> 16) & 0xFF;
-		data[3] = (v >> 24) & 0xFF;
-		return 4;
-	}
-	
-	static int
-	_write_double (unsigned char *data, double val)
-	{
-		unsigned long long v = *((unsigned long long *)&val);
-		data[0] = v & 0xFF;
-		data[1] = (v >> 8) & 0xFF;
-		data[2] = (v >> 16) & 0xFF;
-		data[3] = (v >> 24) & 0xFF;
-		data[4] = (v >> 32) & 0xFF;
-		data[5] = (v >> 40) & 0xFF;
-		data[6] = (v >> 48) & 0xFF;
-		data[7] = (v >> 56) & 0xFF;
-		return 8;
-	}
-	
-	static int
-	_write_string (unsigned char *data, const std::string& str)
-	{
-		data[0] =  str.size () & 0xFF;
-		data[1] = (str.size () >> 8) & 0xFF;
-		int n = 2;
-		
-		for (char c : str)
-			data[n++] = c;
-		
-		return n;
-	}
-	
-	
-	
-	static int
-	_read_int (const unsigned char *data, unsigned int& pos)
-	{
-		pos += 4;
-		return (unsigned int)(data[0])
-				| ((unsigned int)(data[1]) << 8)
-				| ((unsigned int)(data[2]) << 16)
-				| ((unsigned int)(data[3]) << 24);
-	}
-	
-	static float
-	_read_float (const unsigned char *data, unsigned int& pos)
-	{
-		pos += 4;
-		unsigned int v = ((unsigned int)(data[0])
-			| ((unsigned int)(data[1]) << 8)
-			| ((unsigned int)(data[2]) << 16)
-			| ((unsigned int)(data[3]) << 24));
-		return *((float *)&v);
-	}
-	
-	static double
-	_read_double (const unsigned char *data, unsigned  int& pos)
-	{
-		pos += 8;
-		unsigned long long v = ((unsigned long long)(data[0])
-			| ((unsigned long long)(data[1]) << 8)
-			| ((unsigned long long)(data[2]) << 16)
-			| ((unsigned long long)(data[3]) << 24)
-			| ((unsigned long long)(data[4]) << 32)
-			| ((unsigned long long)(data[5]) << 40)
-			| ((unsigned long long)(data[6]) << 48)
-			| ((unsigned long long)(data[7]) << 56));
-		return *((double *)&v);
-	}
-	
-	static std::string
-	_read_string (const unsigned char *data, unsigned int& pos)
-	{
-		unsigned short len = ((unsigned short)data[0]) | ((unsigned short)(data[1]) << 8);
-		pos += 2 + len;
-		std::string str;
-		str.reserve (len);
-		for (int i = 0; i < len; ++i)
-			str.push_back (data[2 + i]);
-		return str;
-	}
-	
 	
 	/* 
 	 * Saves the specified list of portals to disk.

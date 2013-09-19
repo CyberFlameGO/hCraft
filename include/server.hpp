@@ -45,6 +45,7 @@
 #include <event2/listener.h>
 #include <unordered_set>
 #include <map>
+#include <set>
 
 #include <cryptopp/rsa.h>
 #include <cryptopp/osrng.h>
@@ -86,6 +87,8 @@ namespace hCraft {
 		std::string db_pass;
 		std::string db_host;
 		int db_port;
+		
+		std::set<std::string> dcmds; // disabled commands
 	};
 	
 	

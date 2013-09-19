@@ -24,6 +24,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <stdexcept>
 
 
 namespace hCraft {
@@ -76,6 +77,19 @@ namespace hCraft {
 		 * exporter (could be a name prefix, suffix, extension, etc...).
 		 */
 		virtual bool claims_name (const char *path) = 0;
+	};
+	
+	
+	
+	/* 
+	 * Thrown by a world provider on load failure.
+	 */
+	class world_load_error: public std::runtime_error
+	{
+	public:
+		world_load_error (const std::string& str)
+			: std::runtime_error (str)
+			{ }
 	};
 	
 	

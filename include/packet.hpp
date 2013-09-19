@@ -207,6 +207,11 @@ namespace hCraft {
 		static packet* make_set_window_items (char wid,
 			const std::vector<slot_item>& slots);
 		
+		static packet* make_update_sign (int x, int y, int z, const char *first,
+			const char *second, const char *third, const char *fourth);
+		
+		static packet* make_open_sign_window (int x, int y, int z);
+		
 		static packet* make_player_list_item (const char *name, bool online,
 			short ping_ms);
 		
