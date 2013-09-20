@@ -110,7 +110,7 @@ namespace hCraft {
 				bundo = target->bundo;
 			else
 				{
-					bundo = new block_undo (std::string ("data/undo/") + target_name + ".undo");
+					bundo = new block_undo (std::string ("data/undo/") + pl->get_world ()->get_name () + "/" + target_name + ".undo");
 				}
 			
 			if (!bundo->open ())
@@ -139,9 +139,12 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
-				ss << "§7 | §b" << count << " §eblock change" << ((count == 1) ? "" : "s") << " have been undone§7.";
+				ss << "§7 | §b" << count << " §eblock change" << ((count == 1) ? " has" : "s have") << " been undone§7.";
 				pl->message (ss.str ());
 			}
+			
+			pl->get_logger () (LT_SYSTEM) << pl->get_username () << " has undone " << count << " block change"
+				<< ((count == 1) ? "" : "s") << " made by " << target_name << std::endl;
 			
 			bundo->close ();
 			if (!target)

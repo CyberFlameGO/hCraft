@@ -22,6 +22,8 @@
 #include <cstdio>
 #include <unistd.h>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -36,7 +38,6 @@ namespace hCraft {
 		this->_open = false;
 		this->page_count = 0;
 		this->_next = false;
-		this->last_fetch.valid = false;
 	}
 	
 	block_undo::~block_undo ()
@@ -332,74 +333,27 @@ namespace hCraft {
 		if (!this->buf.empty ())
 			this->flush ();
 		
-		this->last_fetch.valid = false;
 		this->_next = false;
 		FILE *f = (FILE *)this->strm;
 		std::fseek (f, 0, SEEK_END);
 		unsigned int fsize = std::ftell (f);
 		
 		this->page_count = (fsize / BU_PAGE_SIZE) - 1; // excluding initial reserved page
+		if (this->page_count == 0)
+			return;
 		
-		// skip initial page
-		std::fseek (f, BU_PAGE_SIZE, SEEK_SET);
-		this->off = BU_PAGE_SIZE;
+		std::fseek (f, -BU_PAGE_SIZE, SEEK_CUR); // go one page backward
 		
-		unsigned long long when_reduced = (unsigned long long)when / BU_SIX_HOURS;
-		for (int p = 0; p < this->page_count; ++p)
-			{
-				std::fread (this->page, 1, BU_PAGE_SIZE, f);
-				
-				unsigned long long tm = _read_long (this->page);
-				if (tm > when_reduced)
-					{
-						if ((this->off / BU_PAGE_SIZE) > 1)
-							{
-								// go back one page
-								this->off -= BU_PAGE_SIZE;
-								std::fseek (f, this->off, SEEK_SET);
-								std::fread (this->page, 1, BU_PAGE_SIZE, f);
-								if (this->off == 0)
-									{
-										this->page_count = 0; // nothing in here
-									}
-							}
-						
-						break;
-					}
-				else if (tm == when_reduced)
-					break;
-			}
+		// find last record in this page
+		std::fread (this->page, 1, BU_PAGE_SIZE, f);
 		
-		int rec_count = _read_int (this->page + 8);
 		unsigned long long page_time = _read_long (this->page);
-		unsigned short when_mod = (unsigned long long)when % BU_SIX_HOURS;
-		this->off += 16; // position self at first record in page
-		for (int i = 0; ; ++i)
-			{
-				if (i >= rec_count)
-					{
-						// next page
-						
-						if (this->off % BU_PAGE_SIZE != 0)
-							this->off += BU_PAGE_SIZE - (this->off % BU_PAGE_SIZE);
-						int page_ind = this->off / BU_PAGE_SIZE - 1;
-						if (page_ind >= this->page_count)
-							break;
-							
-						std::fread (this->page, 1, BU_PAGE_SIZE, f);
-						this->off += 16;
-						i = 0;
-					}
-				
-				if ((page_time * BU_SIX_HOURS + _read_short (this->page + (this->off % BU_PAGE_SIZE) + 17))
-					>= (when_reduced * BU_SIX_HOURS + when_mod))
-					break;
-				
-				this->off += BU_RECORD_SIZE;
-			}
+		int rec_count = _read_int (this->page + 8);
+		this->off = fsize - BU_PAGE_SIZE + 16 + ((rec_count - 1) * BU_RECORD_SIZE);
 		
-		this->_next = (this->off % BU_PAGE_SIZE != 0);
-		this->last_fetch = { true, when, this->off };
+		this->_next = (page_time * BU_SIX_HOURS + _read_short (this->page + (this->off % BU_PAGE_SIZE) + 17))
+			>= (unsigned long long)when;
+		this->tm = when;
 	}
 	
 	/* 
@@ -414,10 +368,7 @@ namespace hCraft {
 			return {};
 		
 		unsigned long long page_time = _read_long (this->page);
-		
-		int rec_count = _read_int (this->page + 8);
 		int loc_off = this->off % BU_PAGE_SIZE;
-		int rec_ind = (loc_off - 16) / BU_RECORD_SIZE;
 		
 		block_undo_record rec;
 		rec.x = _read_int (this->page + loc_off + 0);
@@ -430,23 +381,33 @@ namespace hCraft {
 		rec.new_meta = this->page[loc_off + 15];
 		rec.new_extra = this->page[loc_off + 16];
 		rec.when = (std::time_t)(page_time * BU_SIX_HOURS + _read_short (this->page + loc_off + 17));
-		this->off += BU_RECORD_SIZE;
 		
-		++ rec_ind;
-		if (rec_ind >= rec_count)
+		if (this->off % BU_PAGE_SIZE == 16)
 			{
 				// fetch next page
-				if (this->off % BU_PAGE_SIZE != 0)
-					this->off += BU_PAGE_SIZE - (this->off % BU_PAGE_SIZE);
-			  int page_ind = this->off / BU_PAGE_SIZE - 1;
-				if (page_ind >= this->page_count)
-					this->_next = false;
+				int page_ind = this->off / BU_PAGE_SIZE;
+				if (page_ind == 1)
+					{
+						this->_next = false;
+					}
 				else
 					{
-						std::fseek ((FILE *)this->strm, this->off, SEEK_SET);
-						std::fread (this->page, 1, BU_PAGE_SIZE, (FILE *)this->strm);
-						this->off += 16;
+						this->off = ((this->off / BU_PAGE_SIZE) - 1) * BU_PAGE_SIZE;
+						FILE *f = (FILE *)this->strm;
+						std::fseek (f, this->off, SEEK_SET);
+						std::fread (this->page, 1, BU_PAGE_SIZE, f);
+				
+						page_time = _read_long (this->page);
+						int rec_count = _read_int (this->page + 8);
+						this->off += 16 + ((rec_count - 1) * BU_RECORD_SIZE);
+						this->_next = (page_time * BU_SIX_HOURS + _read_short (this->page + (this->off % BU_PAGE_SIZE) + 17))
+							>= (unsigned long long)this->tm;
 					}
+			}
+		else
+			{
+				this->off -= BU_RECORD_SIZE;
+				this->_next = (rec.when >= this->tm);
 			}
 		
 		return rec;
@@ -458,15 +419,9 @@ namespace hCraft {
 	bool
 	block_undo::has_next ()
 	{
-		if (!this->_open || !this->_next || this->page_count == 0)
+		if (!this->_open)
 			return false;
-		
-		int rec_count = _read_int (this->page + 8);
-		int loc_off = this->off % BU_PAGE_SIZE;
-		int rec_ind = (loc_off - 16) / BU_RECORD_SIZE;
-		if (rec_ind >= rec_count)
-			return false;
-		return true;
+		return this->_next;
 	}
 	
 	
@@ -485,17 +440,75 @@ namespace hCraft {
 
 		FILE *f = (FILE *)this->strm;
 				
-		if (!this->last_fetch.valid || this->last_fetch.when != when)
-			this->fetch (when);
-		this->last_fetch.valid = false;
+		{
+			// position self
+			// skip initial page
+			std::fseek (f, BU_PAGE_SIZE, SEEK_SET);
+			this->off = BU_PAGE_SIZE;
+	
+			unsigned long long when_reduced = (unsigned long long)when / BU_SIX_HOURS;
+			for (int p = 0; p < this->page_count; ++p)
+				{
+					std::fread (this->page, 1, BU_PAGE_SIZE, f);
+			
+					unsigned long long tm = _read_long (this->page);
+					if (tm > when_reduced)
+						{
+							if ((this->off / BU_PAGE_SIZE) > 1)
+								{
+									// go back one page
+									this->off -= BU_PAGE_SIZE;
+									std::fseek (f, this->off, SEEK_SET);
+									std::fread (this->page, 1, BU_PAGE_SIZE, f);
+									if (this->off == 0)
+										{
+											this->page_count = 0; // nothing in here
+										}
+								}
+					
+							break;
+						}
+					else if (tm == when_reduced)
+						break;
+				}
+	
+			int rec_count = _read_int (this->page + 8);
+			unsigned long long page_time = _read_long (this->page);
+			unsigned short when_mod = (unsigned long long)when % BU_SIX_HOURS;
+			this->off += 16; // position self at first record in page
+			for (int i = 0; ; ++i)
+				{
+					if (i >= rec_count)
+						{
+							// next page
+					
+							if (this->off % BU_PAGE_SIZE != 0)
+								this->off += BU_PAGE_SIZE - (this->off % BU_PAGE_SIZE);
+							int page_ind = this->off / BU_PAGE_SIZE - 1;
+							if (page_ind >= this->page_count)
+								break;
+						
+							std::fread (this->page, 1, BU_PAGE_SIZE, f);
+							this->off += 16;
+							i = 0;
+						}
+			
+					if ((page_time * BU_SIX_HOURS + _read_short (this->page + (this->off % BU_PAGE_SIZE) + 17))
+						>= (when_reduced * BU_SIX_HOURS + when_mod))
+						{
+							break;
+						}
+			
+					this->off += BU_RECORD_SIZE;
+				}
+	
+			this->_next = (this->off % BU_PAGE_SIZE != 0);
+		}
 		
-		unsigned int data_start = this->last_fetch.off - this->last_fetch.off % BU_PAGE_SIZE;
-		if (this->off != this->last_fetch.off)
-			{
-				this->off = this->last_fetch.off;
-				std::fseek (f, data_start, SEEK_SET);
-				std::fread (this->page, 1, BU_PAGE_SIZE, f);
-			}
+		if (!this->_next)
+			return;
+		
+		unsigned int data_start = this->off - this->off % BU_PAGE_SIZE;
 		
 		int rec_count = _read_int (this->page + 8);
 		this->_next = !(((this->off % BU_PAGE_SIZE) - 16) / BU_RECORD_SIZE >= rec_count);

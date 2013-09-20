@@ -17,6 +17,7 @@
  */
 
 #include "stringutils.hpp"
+#include "wordwrap.hpp"
 #include <cctype>
 #include <sstream>
 
@@ -310,10 +311,41 @@ namespace hCraft {
 		bool
 		is_valid_username (const std::string& str)
 		{
+			if (str.length () < 2 || str.length () > 16)
+				return false;
+			
 			for (char c : str)
 				if (!(std::isalnum (c) || c == '_'))
 					return false;
 			return true;
+		}
+		
+		
+		
+		/* 
+		 * Converts color codes from &X to §X.
+		 */
+		std::string
+		convert_colors (const std::string& str)
+		{
+			std::string out;
+			out.reserve (str.size ());
+			
+			for (size_t i = 0; i < str.size (); ++i)
+				{
+					if ((str[i] == '&') && ((i + 1) < str.size ()) && is_chat_code (str[i + 1]))
+						{
+							out.push_back (0xC2);
+							out.push_back (0xA7);
+							
+							++ i;
+							out.push_back (str[i]);
+						}
+					else
+						out.push_back (str[i]);
+				}
+			
+			return out;
 		}
 	}
 }

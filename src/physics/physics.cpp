@@ -409,7 +409,6 @@ namespace hCraft {
 								auto ent = u.data.ent;
 								entity *e = w->get_server ().entity_by_id (ent.eid);
 								if (!e) continue;
-								
 								if (e->get_type () == ET_PLAYER)
 									{
 										player *pl = dynamic_cast<player *> (e);
@@ -612,8 +611,8 @@ namespace hCraft {
 	physics_manager::queue_physics (world *w, int eid, bool persistent,
 		int tick_delay, physics_params *params)
 	{
-		if (tick_delay == 0) tick_delay = 1;
-		-- tick_delay;
+		//if (tick_delay == 0) tick_delay = 1;
+		//-- tick_delay;
 		
 		std::lock_guard<std::mutex> guard {this->lock};
 		

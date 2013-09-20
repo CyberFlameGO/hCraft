@@ -1429,6 +1429,7 @@ namespace hCraft {
 		grp_member->add ("command.info.money");
 		grp_member->add ("command.info.money.pay");
 		grp_member->add ("command.world.world");
+		grp_member->add ("place.sign");
 		grp_member->msuffix = "§f:";
 		
 		group* grp_builder = groups.add (3, "builder");
@@ -1496,6 +1497,7 @@ namespace hCraft {
 		grp_admin->add ("command.world.world.get-perms");
 		grp_admin->add ("command.world.world.change-members");
 		grp_admin->add ("command.world.world.change-owners");
+		grp_admin->add ("place.sign.colors");
 		
 		grp_admin->text_color = 'c';
 		grp_admin->msuffix = "§f:";
@@ -1657,7 +1659,7 @@ namespace hCraft {
 					}
 				
 				wr->start ();
-				if (!this->worlds.add (wr))
+				if (!this->register_world (wr))
 					{
 						log (LT_ERROR) << "   - Failed to load world \"" << wname << "\": Already loaded." << std::endl;
 						delete wr;

@@ -65,7 +65,7 @@ namespace hCraft {
 		long off;
 		int page_count;
 		unsigned char page[BU_PAGE_SIZE];
-		struct { bool valid; std::time_t when; long off; } last_fetch;
+		std::time_t tm;
 		
 	public:
 		inline bool is_open () const { return this->_open; }

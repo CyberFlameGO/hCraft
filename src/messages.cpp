@@ -167,5 +167,11 @@ namespace hCraft {
 		ss << "§c * §7You are selecting too many blocks§c! (§7limit §f- §8" << s_limit << " §7blocks§c)";
 		return ss.str ();
 	}
+	
+	std::string
+	messages::not_allowed ()
+	{
+		return "§c * §7You are not allowed to do that§c.";
+	}
 }
 

@@ -920,7 +920,7 @@ namespace hCraft {
 					{
 						gen_response resp = this->response_chunks.front ();
 						this->response_chunks.pop ();
-					
+						
 						// remove from pending chunk list
 						for (auto itr = this->pending_chunks.begin (); itr != this->pending_chunks.end (); ++itr)
 							if (itr->cx == resp.cx && itr->cz == resp.cz)
@@ -2366,15 +2366,97 @@ namespace hCraft {
 	static void
 	_place_sign (player *pl, int x, int y, int z, char dir)
 	{
+		if (!pl->has ("place.sign"))
+			{
+				pl->message (messages::not_allowed ());
+				return;
+			}
+		
 		if (dir == 1)
 			{
-				int meta = ((int)(std::fmod (pl->pos.r + 7.125, 360.0) / 22.5) + 8) & 0xF;
+				int meta = ((int)(std::fmod (pl->pos.r - 11.25, 360.0) / 22.5) + 8) & 0xF;
 			
 				pl->get_world ()->queue_update (x, y, z, BT_SIGN_POST, meta, 0, 0, nullptr, pl);
 				++ pl->bl_created;
 				
 				pl->send (packet::make_open_sign_window (x, y, z));
 			}
+		else if (dir > 1 && dir < 6)
+			{
+				pl->get_world ()->queue_update (x, y, z, BT_WALL_SIGN, dir, 0, 0, nullptr, pl);
+				++ pl->bl_created;
+				
+				pl->send (packet::make_open_sign_window (x, y, z));
+			}
+	}
+	
+	
+	static void
+	_place_slab (player *pl, int x, int y, int z, int dir, const slot_item& held,
+		int cx, int cy, int cz)
+	{
+		int nx = x, ny = y, nz = z;
+		blocki bl = { held.id (), (unsigned char)held.damage () };
+		
+		world *wr = pl->get_world ();
+		block_data old = wr->get_block (x, y, z);
+		switch (dir)
+			{
+				// -y
+				case 0:
+					if (old.id == BT_SLAB && (old.meta & 0x7) == held.damage () && (old.meta & 0x8))
+						bl = { BT_DSLAB, (unsigned char)held.damage () };
+					else
+						{
+							-- ny;
+							bl = { held.id (), (unsigned char)(0x8 | held.damage ()) };
+						}
+					break;
+				
+				// +y
+				case 1:
+					if (old.id == BT_SLAB && (old.meta == held.damage ()))
+						bl = { BT_DSLAB, (unsigned char)held.damage () };
+					else
+						++ ny;
+					break;
+				
+				default:
+					switch (dir)
+						{
+							case 2: -- nz; break;
+							case 3: ++ nz; break;
+							case 4: -- nx; break;
+							case 5: ++ nx; break;
+							
+							default:
+								return; // kick player?
+						}
+					
+					old = wr->get_block (nx, ny, nz);
+					if (cy >= 8)
+						{
+							if (old.id == BT_AIR)
+								bl = { held.id (), (unsigned char)(0x8 | held.damage ()) };
+							else if ((old.id == held.id ()) && (old.meta == held.damage ()))
+								bl = { BT_DSLAB, (unsigned char)held.damage () };
+							else
+								return;
+						}
+					else
+						{
+							if (old.id == BT_AIR)
+								bl = { held.id (), (unsigned char)held.damage () };
+							else if ((old.id == held.id ()) && ((old.meta & 0x7) == held.damage () && (old.meta & 0x8)))
+								bl = { BT_DSLAB, (unsigned char)held.damage () };
+							else
+								return;
+						}
+					break;
+			}
+		
+		wr->queue_update (nx, ny, nz, bl.id, bl.meta, 0, 0, nullptr, pl);
+		++ pl->bl_created;
 	}
 	
 	
@@ -2428,8 +2510,15 @@ namespace hCraft {
 			messages::compile (this->get_server ().msgs.server_join, messages::environment (this)));
 		
 		this->inv.subscribe (this);
-		this->inv.add (slot_item (IT_FEATHER, 0, 1));
 		this->inv.add (slot_item (BT_STONE, 0, 1));
+		this->inv.add (slot_item (BT_COBBLE, 0, 1));
+		this->inv.add (slot_item (BT_BRICKS, 0, 1));
+		this->inv.add (slot_item (BT_DIRT, 0, 1));
+		this->inv.add (slot_item (BT_WOOD, 0, 1));
+		this->inv.add (slot_item (BT_TRUNK, 0, 1));
+		this->inv.add (slot_item (BT_LEAVES, 0, 1));
+		this->inv.add (slot_item (BT_GLASS, 0, 1));
+		this->inv.add (slot_item (BT_SLAB, 0, 1));
 		
 		// make the player move at normal speed
 		{
@@ -2443,10 +2532,13 @@ namespace hCraft {
 		else
 			this->join_world (this->get_server ().get_main_world ());
 
+		/*
+		// DEBUG
 		slot_item sword (IT_IRON_SWORD, 0, 1);
 		sword.lore.emplace_back ("§7Poison I");
 		sword.enchants.push_back ({ENC_KNOCKBACK, 1});
 		this->inv.add (sword);
+		*/
 	}
 	
 	
@@ -2505,32 +2597,6 @@ namespace hCraft {
 	}
 	
 	
-	static bool
-	is_valid_username (const char *str)
-	{
-		int i;
-		for (i = 0; i < 16; ++i)
-			{
-				char c = str[i];
-				if (c == '\0')
-					{
-						if (i == 0)
-							return false;
-						return true;
-					}
-				if (!((c >= 'A' && c <= 'Z') ||
-							(c >= 'a' && c <= 'z') ||
-							(c >= '0' && c <= '9') ||
-							(c == '_')))
-					return false;
-			}
-		 
-		 if (str[i] != '\0')
-		 	return false;
-		
-		return true;
-	}
-	
 	int
 	player::handle_packet_02 (player *pl, packet_reader reader)
 	{
@@ -2547,7 +2613,7 @@ namespace hCraft {
 		char username[64];
 		///*
 		int ulen = reader.read_string (username, 16);
-		if ((ulen < 2 || ulen > 16) || !is_valid_username (username))
+		if ((ulen < 2 || ulen > 16) || !sutils::is_valid_username (username))
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
@@ -2616,25 +2682,7 @@ namespace hCraft {
 		if (pl->get_rank ().main ()->color_codes || pl->is_op ())
 			{
 				// convert color codes from &X to §X
-				
-				std::string str;
-				str.reserve (msg.size ());
-				
-				for (size_t i = 0; i < msg.size (); ++i)
-					{
-						if ((msg[i] == '&') && ((i + 1) < msg.size ()) && is_chat_code (msg[i + 1]))
-							{
-								str.push_back (0xC2);
-								str.push_back (0xA7);
-								
-								++ i;
-								str.push_back (msg[i]);
-							}
-						else
-							str.push_back (msg[i]);
-					}
-				
-				msg.assign (str);
+				msg = sutils::convert_colors (msg);
 			}
 	}
 	
@@ -3001,6 +3049,14 @@ namespace hCraft {
 							}
 					}
 				
+				// remove sign
+				if (bd.id == BT_SIGN_POST || bd.id == BT_WALL_SIGN)
+					{
+						chunk *ch = w.get_chunk_at (x, z);
+						if (ch)
+							ch->ly_signs.remove_sign (x, y, z);
+					}
+				
 				++ pl->bl_destroyed;
 				w.queue_update (x, y, z, 0, 0, 0, 0, nullptr, pl);
 				if (pl->gamemode () == GT_SURVIVAL)
@@ -3058,9 +3114,9 @@ namespace hCraft {
 		int z = reader.read_int ();
 		char direction = reader.read_byte ();
 		slot_item item = reader.read_slot ();
-		reader.read_byte (); // cursor X
-		reader.read_byte (); // cursor Y
-		reader.read_byte (); // cursor Z
+		int cx = reader.read_byte (); // cursor X
+		int cy = reader.read_byte (); // cursor Y
+		int cz = reader.read_byte (); // cursor Z
 		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
@@ -3094,7 +3150,8 @@ namespace hCraft {
 		
 		int nx = x, ny = y, nz = z;
 		
-		if (pl->get_world ()->get_id (x, y, z) != BT_TALL_GRASS)
+		block_data bd = pl->get_world ()->get_block (x, y, z);
+		if (bd.id != BT_TALL_GRASS && !(bd.id == BT_SNOW_COVER && bd.meta == 0))
 			{
 				switch (direction)
 					{
@@ -3144,9 +3201,9 @@ namespace hCraft {
 			}
 		
 		if (item.id () == IT_SIGN)
-			{
-				_place_sign (pl, nx, ny, nz, direction);
-			}
+			_place_sign (pl, nx, ny, nz, direction);
+		else if (item.id () == BT_SLAB)
+			_place_slab (pl, x, y, z, direction, item, cx, cy, cz);
 		else
 			{
 				pl->get_world ()->queue_update (nx, ny, nz,
@@ -3759,8 +3816,14 @@ namespace hCraft {
 						return -1;
 					}
 				
-				// TODO: make sure the string doesn't contain any funky characters
-				lines.push_back (buf);
+				// make sure the string doesn't contain any funky characters
+				// TODO
+				
+				// color sign
+				if (pl->has ("place.sign.colors"))
+					lines.push_back (sutils::convert_colors (buf));
+				else
+					lines.push_back (buf);
 			} 
 		
 		{
@@ -3789,7 +3852,7 @@ namespace hCraft {
 		char str[1024];
 		reader.read_string (str, 1024);
 		
-		pl->log (LT_DEBUG) << "Plugin Message: " << str << std::endl;
+		//pl->log (LT_DEBUG) << "Plugin Message: " << str << std::endl;
 		
 		return 0;
 	}

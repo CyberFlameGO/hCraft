@@ -84,6 +84,8 @@ namespace hCraft {
 		static std::string over_fill_limit (int f_limit);
 		
 		static std::string over_select_limit (int s_limit);
+		
+		static std::string not_allowed ();
 	};
 }
 

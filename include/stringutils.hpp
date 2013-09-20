@@ -81,6 +81,13 @@ namespace hCraft {
 		 * MC usernames may only contain digits, letters and underscores.
 		 */
 		bool is_valid_username (const std::string& str);
+		
+		
+		
+		/* 
+		 * Converts color codes from &X to §X.
+		 */
+		std::string convert_colors (const std::string& str);
 	}
 }
 
