@@ -1316,27 +1316,8 @@ namespace hCraft {
 	world::queue_update (int x, int y, int z, unsigned short id,
 		unsigned char meta, int extra, int data, void *ptr, player *pl, bool physics)
 	{
-		if (!this->in_bounds (x, y, z)) return;
-		if (this->typ == WT_LIGHT)
-			{
-				this->set_block (x, y, z, id, meta, extra);
-				this->lm.enqueue (x, y, z);
-				
-				// update players
-				this->get_players ().all (
-					[x, y, z, id, meta] (player *pl)
-						{
-							pl->send (packet::make_block_change (x, y, z, id, meta));
-						});
-				
-				return;
-			}
-		
 		std::lock_guard<std::mutex> guard {this->update_lock};
-		this->updates.emplace_back (x, y, z, id, meta, extra, data, ptr, pl, physics);
-		
-		std::lock_guard<std::mutex> estage_guard {this->estage_lock};
-		this->estage.set (x, y, z, id, meta, extra);
+		this->queue_update_nolock (x, y, z, id, meta, extra,data, ptr, pl, physics);
 	}
 	
 	void
@@ -1346,8 +1327,16 @@ namespace hCraft {
 		if (!this->in_bounds (x, y, z)) return;
 		if (this->typ == WT_LIGHT)
 			{
+				block_data old_bd = this->get_block (x, y, z);
 				this->set_block (x, y, z, id, meta);
 				this->lm.enqueue (x, y, z);
+				
+				// block history
+				this->blhi.insert (x, y, z, old_bd, {id, meta, (unsigned char)extra}, pl);
+				
+				// block undo
+				pl->bundo->insert ({x, y, z, old_bd.id, old_bd.meta, old_bd.ex,
+					id, meta, (unsigned char)extra, std::time (nullptr)});
 				
 				// update players
 				this->get_players ().all (
