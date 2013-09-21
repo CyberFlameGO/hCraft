@@ -64,6 +64,7 @@ namespace hCraft {
 						}
 					else
 						this->show_help (pl, 1, 12);
+					return;
 				}
 			
 			if (reader.arg_count () > 2)
@@ -91,6 +92,9 @@ namespace hCraft {
 					
 					return;
 				}
+			
+			for (const std::string& str : pl->get_server ().msgs.help)
+				pl->message (messages::compile (str, messages::environment (pl)));
 		}
 	}
 }

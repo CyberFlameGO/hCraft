@@ -21,6 +21,8 @@
 #include <cctype>
 #include <memory>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	namespace cfg {
@@ -424,19 +426,21 @@ namespace hCraft {
 					if (this->word_wrap > 0)
 						{
 							tmp.assign (ss.str ());
-				
+							
 							(*itr)->write_to (ss, indent + 2);
 							ss << ", ";
 							if (((int)ss.tellp () > this->word_wrap) || ((this->elems_per_line > 0) && (count % (this->elems_per_line + 1) == 0)))
 								{
-									strm << tmp << "\n";
+									if ((int)tmp.size () > (indent + 2))
+										strm << tmp << "\n";
 									ss.str (std::string ());
+									
 									indent_with_spaces (ss, indent + 2);
+									(*itr)->write_to (ss, indent + 2);
+									ss << ", ";
 								}
-							else
-								{
-									++ itr;
-								}
+							
+							++ itr;
 						}
 					else
 						{

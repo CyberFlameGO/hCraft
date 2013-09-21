@@ -46,6 +46,8 @@ namespace hCraft {
 	static command* create_c_status () { return new commands::c_status (); }
 	static command* create_c_money () { return new commands::c_money (); }
 	static command* create_c_whodid () { return new commands::c_whodid (); }
+	static command* create_c_rules () { return new commands::c_rules (); }
+	static command* create_c_players () { return new commands::c_players (); }
 	
 	// chat commands:
 	static command* create_c_me () { return new commands::c_me (); }
@@ -138,6 +140,8 @@ namespace hCraft {
 			{ "undo", create_c_undo },
 			{ "world", create_c_world },
 			{ "realm", create_c_realm },
+			{ "rules", create_c_rules },
+			{ "players", create_c_players },
 			};
 		
 		auto itr = creators.find (name);

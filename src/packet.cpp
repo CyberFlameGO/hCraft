@@ -23,6 +23,7 @@
 #include "nbt.hpp"
 #include "player.hpp"
 #include "editstage.hpp"
+#include "wordwrap.hpp"
 #include <cstring>
 #include <zlib.h>
 #include <cmath>
@@ -129,16 +130,6 @@ namespace hCraft {
 	
 	
 	
-	static bool
-	is_chat_code (char c)
-	{
-		if (std::isxdigit (c))
-			return true;
-		if (((c >= 'k') && (c <= 'o')) || (c == 'r'))
-			return true;
-		return false;
-	}
-	
 	static void
 	sanitize_string (const char *str, std::string& out)
 	{
@@ -147,8 +138,11 @@ namespace hCraft {
 		int in_len = std::strlen (str);
 		out.reserve (in_len + 1);
 		
-		int col_start = -1;
+		bool got_col = false;
 		char col_code = 'f';
+		bool got_stl = false;
+		char stl_code = 'r';
+		
 		int space_count = 0;
 		int i;
 		for (i = 0; i < in_len; ++i)
@@ -158,13 +152,20 @@ namespace hCraft {
 					{
 						if ((i + 2) < in_len)
 							{
-								if (!is_chat_code (str[i + 2]))
-									//goto not_color_code;
+								if (is_color_code (str[i + 2]))
+									{
+										got_col = true;
+										col_code = str[i + 2];
+										i += 2;
+									}
+								else if (is_style_code (str[i + 2]))
+									{
+										got_stl = true;
+										stl_code = str[i + 2];
+										i += 2;
+									}
+								else
 									continue;
-								
-								col_start = i;
-								col_code = str[i + 2];
-								i += 2;
 							}
 						else
 							{
@@ -173,18 +174,31 @@ namespace hCraft {
 					}
 				else
 					{
-			//not_color_code:
 						if (str[i] == ' ')
 							{
 								++ space_count;
 							}
 						else
 							{
-								if (col_start != -1)
+								if (got_stl && stl_code == 'r')
+									{
+										out.append ("§");
+										out.push_back (stl_code);
+										got_stl = false;
+									}
+								
+								if (got_col)
 									{
 										out.append ("§");
 										out.push_back (col_code);
-										col_start = -1;
+										got_col = false;
+									}
+								
+								if (got_stl)
+									{
+										out.append ("§");
+										out.push_back (stl_code);
+										got_stl = false;
 									}
 								
 								while (space_count-- > 0)

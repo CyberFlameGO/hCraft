@@ -66,6 +66,17 @@ namespace hCraft {
 			this->signs.erase (itr);
 	}
 	
+	ch_sign_layer::sign&
+	ch_sign_layer::get_sign (int x, int y, int z)
+	{
+		auto itr = this->signs.find ({x, y, z});
+		if (itr != this->signs.end ())
+			return itr->second;
+		
+		static sign _s { "", "", "", "" };
+		return _s;
+	}
+	
 	
 	
 //-------------------------------------------------------------

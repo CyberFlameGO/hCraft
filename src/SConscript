@@ -96,6 +96,8 @@ hCraft_sources = Split("""
 		commands/undo.cpp
 		commands/world.cpp
 		commands/realm.cpp
+		commands/rules.cpp
+		commands/players.cpp
 		
 		selection/cuboid_selection.cpp
 		selection/block_selection.cpp

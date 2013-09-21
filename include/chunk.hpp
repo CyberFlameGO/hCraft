@@ -156,6 +156,8 @@ namespace hCraft {
 			const char *l3, const char *l4);
 		
 		void remove_sign (int x, int y, int z);
+		
+		sign& get_sign (int x, int y, int z);
 	};
 
 

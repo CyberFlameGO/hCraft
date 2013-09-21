@@ -29,6 +29,8 @@
 #include <event2/thread.h>
 #include <soci/mysql/soci-mysql.h>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -1019,11 +1021,21 @@ namespace hCraft {
 		msgs.world_depart = "§9 -- %target-col-nick §7went to %curr-world-col";
 		
 		msgs.join_msg.clear ();
-		msgs.join_msg.emplace_back ("§6Hey %target-col§f!");
-		msgs.join_msg.emplace_back ("§eType §3/help §efor helpful information§f.");
+		msgs.join_msg.emplace_back ("§eHey %target-col§f, §eyou have logged in §b%target-login-count §etime§7(§es§7)§f!");
+		msgs.join_msg.emplace_back ("§eType §3/help §efor general help, tips and tricks§f.");
 		
-		msgs.help_msg.clear ();
+		msgs.help.clear ();
+		msgs.help.emplace_back ("§6Displaying help§e:");
+		msgs.help.emplace_back ("§f  Type §c*§daction §fto perform §daction §7(§fIRC-style§7)");
+		msgs.help.emplace_back ("§6  Type §b@§cplayer message §6to send a private message");
+		msgs.help.emplace_back ("§3  Type §c#§9message §3to send a global message");
+		msgs.help.emplace_back ("§b  Use §7/help §2command §bto get help about §2command");
+		msgs.help.emplace_back ("§e  Type §4/rules §efor a list of important rules§f!");
+		msgs.help.emplace_back ("§d  Type §a/players §dto get a list of all online players");
+		msgs.help.emplace_back ("§8  If you have any questions, feel free to ask a staff member§7!");
 		
+		msgs.rules.clear ();
+		msgs.rules.emplace_back ("§cNothing in here yet§4!");
 	}
 	
 	static void
@@ -1052,11 +1064,21 @@ namespace hCraft {
 					arr->add_string (str);
 				grp_messages->add ("join-msg", arr);
 			}
+			
+			grp_messages->add_separator ();
 			{
 				cfg::array *arr = new cfg::array ();
-				for (const std::string& str : srv.msgs.help_msg)
+				for (const std::string& str : srv.msgs.help)
 					arr->add_string (str);
-				grp_messages->add ("help-msg", arr);
+				grp_messages->add ("help", arr);
+			}
+			
+			grp_messages->add_separator ();
+			{
+				cfg::array *arr = new cfg::array ();
+				for (const std::string& str : srv.msgs.rules)
+					arr->add_string (str);
+				grp_messages->add ("rules", arr);
 			}
 			
 			root.add ("messages", grp_messages);
@@ -1107,14 +1129,25 @@ namespace hCraft {
 					}
 			}
 		
-		out.help_msg.clear ();
-		arr = grp_messages->find_array ("help-msg");
+		out.help.clear ();
+		arr = grp_messages->find_array ("help");
 		if (arr)
 			{
 				for (cfg::value *v : *arr)
 					{
 						if (v->type () == cfg::CFG_STRING)
-							out.help_msg.push_back ((dynamic_cast<cfg::string *> (v))->val ());
+							out.help.push_back ((dynamic_cast<cfg::string *> (v))->val ());
+					}
+			}
+		
+		out.rules.clear ();
+		arr = grp_messages->find_array ("rules");
+		if (arr)
+			{
+				for (cfg::value *v : *arr)
+					{
+						if (v->type () == cfg::CFG_STRING)
+							out.rules.push_back ((dynamic_cast<cfg::string *> (v))->val ());
 					}
 			}
 	}
@@ -1432,6 +1465,8 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "undo");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "world");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "realm");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "rules");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "players");
 	}
 	
 	void
@@ -1452,20 +1487,22 @@ namespace hCraft {
 	static void
 	create_default_ranks (group_manager& groups)
 	{
-		group* grp_spectator = groups.add (0, "spectator");
+		group* grp_spectator = groups.add (0, "Spectator");
 		grp_spectator->color = '8';
 		grp_spectator->can_build = false;
 		grp_spectator->add ("command.info.help");
+		grp_spectator->add ("command.info.rules");
+		grp_spectator->add ("command.info.players");
 		grp_spectator->msuffix = "§f:";
 		
-		group* grp_guest = groups.add (1, "guest");
+		group* grp_guest = groups.add (1, "Guest");
 		grp_guest->color = '7';
-		grp_guest->add ("command.info.help");
 		grp_guest->add ("command.world.world.owner.change-members");
 		grp_guest->add ("command.world.realm");
+		grp_guest->add ("command.world.goto");
 		grp_guest->msuffix = "§f:";
 		
-		group* grp_member = groups.add (2, "member");
+		group* grp_member = groups.add (2, "Member");
 		grp_member->color = 'a';
 		grp_member->inherit (grp_guest);
 		grp_member->add ("command.chat.me");
@@ -1478,10 +1515,9 @@ namespace hCraft {
 		grp_member->add ("place.sign");
 		grp_member->msuffix = "§f:";
 		
-		group* grp_builder = groups.add (3, "builder");
+		group* grp_builder = groups.add (3, "Builder");
 		grp_builder->color = '2';
 		grp_builder->inherit (grp_member);
-		grp_builder->add ("command.world.goto");
 		grp_builder->add ("command.world.tp");
 		grp_builder->add ("command.draw.cuboid");
 		grp_builder->add ("command.draw.aid");
@@ -1489,7 +1525,7 @@ namespace hCraft {
 		grp_builder->fill_limit = 2000;
 		grp_builder->select_limit = 2000;
 		
-		group* grp_designer = groups.add (4, "designer");
+		group* grp_designer = groups.add (4, "Designer");
 		grp_designer->color = 'b';
 		grp_designer->inherit (grp_builder);
 		grp_designer->add ("command.draw.select");
@@ -1501,7 +1537,7 @@ namespace hCraft {
 		grp_designer->fill_limit = 8000;
 		grp_designer->select_limit = 8000;
 		
-		group* grp_architect = groups.add (5, "architect");
+		group* grp_architect = groups.add (5, "Architect");
 		grp_architect->color = '3';
 		grp_architect->inherit (grp_designer);
 		grp_architect->add ("command.draw.circle");
@@ -1514,7 +1550,7 @@ namespace hCraft {
 		grp_architect->fill_limit = 32000;
 		grp_architect->select_limit = 32000;
 		
-		group* grp_moderator = groups.add (6, "moderator");
+		group* grp_moderator = groups.add (6, "Moderator");
 		grp_moderator->color = 'c';
 		grp_moderator->inherit (grp_designer);
 		grp_moderator->add ("command.misc.ping");
@@ -1527,7 +1563,7 @@ namespace hCraft {
 		grp_moderator->fill_limit = 8000;
 		grp_moderator->select_limit = 8000;
 		
-		group* grp_admin = groups.add (7, "admin");
+		group* grp_admin = groups.add (7, "Admin");
 		grp_admin->color = '4';
 		grp_admin->inherit (grp_architect);
 		grp_admin->inherit (grp_moderator);
@@ -1551,7 +1587,7 @@ namespace hCraft {
 		grp_admin->fill_limit = 120000;
 		grp_admin->select_limit = 120000;
 		
-		group* grp_executive = groups.add (8, "executive");
+		group* grp_executive = groups.add (8, "Executive");
 		grp_executive->color = 'e';
 		grp_executive->inherit (grp_admin);
 		grp_executive->add ("command.world.wcreate");
@@ -1560,6 +1596,8 @@ namespace hCraft {
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.world.wsetspawn");
 		grp_executive->add ("command.world.world.set-perms");
+		grp_executive->add ("command.world.world.resize");
+		grp_executive->add ("command.world.world.regenerate");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->add ("command.admin.ban.*");
@@ -1569,7 +1607,7 @@ namespace hCraft {
 		grp_executive->fill_limit = 2000000;
 		grp_executive->select_limit = 2000000;
 		
-		group* grp_owner = groups.add (9, "owner");
+		group* grp_owner = groups.add (9, "Owner");
 		grp_owner->color = '6';
 		grp_owner->text_color = 'b';
 		grp_owner->add ("*");
@@ -1593,7 +1631,7 @@ namespace hCraft {
 		ld_staff->insert (grp_owner);
 		
 		
-		groups.default_rank.set ("@guest[normal]", groups);
+		groups.default_rank.set ("@Guest[normal]", groups);
 	}
 	
 	

@@ -78,6 +78,41 @@ namespace hCraft {
 		{},
 		{},
 		{ 0x120, "feather", 0, 64 },
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{ 0x143, "sign", 0, 16 },
 	};
 	
 	static std::unordered_map<unsigned short, food_info> food_list {
@@ -115,7 +150,7 @@ namespace hCraft {
 	item_info*
 	item_info::from_id (unsigned short id)
 	{
-		if ((id - 0x100) >= item_list.size ())
+		if ((id - 0x100) >= (int)item_list.size ())
 			return nullptr;
 		return &item_list[id - 0x100];
 	}

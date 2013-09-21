@@ -86,7 +86,7 @@ namespace hCraft {
 				std::ostringstream ss;
 				
 			//---
-				ss << "§e.-= §6~~~ §" << pd.rnk.main ()->color << target_name << "§e's status §6~~~ §e=-.";
+				ss << "§3Displaying §" << pd.rnk.main ()->color << target_name << "§b'§3s status§b:";
 				pl->message (ss.str ());
 				ss.clear (); ss.str (std::string ()); 
 				

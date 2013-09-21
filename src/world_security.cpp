@@ -42,7 +42,7 @@ namespace hCraft {
 	bool
 	world_security::check_access_str (player *pl, const std::string& access_str)
 	{
-		if (access_str.empty ())
+		if (pl->is_op () || access_str.empty ())
 			return true;
 		
 		enum term_type

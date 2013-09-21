@@ -530,8 +530,10 @@ namespace hCraft {
 				[] (player *pl)
 					{
 						pl->rejoin_world ();
+						pl->message ("§bWorld reloaded");
 					});
 			
+			/*
 			std::ostringstream ss;
 			ss << w->get_colored_name () << "§f'§es dimensions set to §7";
 			if (w->get_width () <= 0)
@@ -544,6 +546,7 @@ namespace hCraft {
 			else
 				ss << w->get_depth ();
 			pl->message (ss.str ());
+			*/
 		}
 		
 		
@@ -590,11 +593,14 @@ namespace hCraft {
 				[] (player *pl)
 					{
 						pl->rejoin_world ();
+						pl->message ("§bWorld reloaded");
 					});
 			
+			/*
 			std::ostringstream ss;
 			ss << w->get_colored_name () << " §eregenerated §f[§eseed§f: §7" << gen_seed << "§f]";
 			pl->message (ss.str ());
+			*/
 		}
 		
 		

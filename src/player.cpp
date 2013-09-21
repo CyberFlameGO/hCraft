@@ -1068,6 +1068,17 @@ namespace hCraft {
 		if (y < 0 || y > 255) return;
 		block_data bd = this->curr_world->get_block (x, y, z);
 		this->send (packet::make_block_change (x, y, z, bd.id, bd.meta));
+		if (bd.id == BT_SIGN_POST || bd.id == BT_WALL_SIGN)
+			{
+				// resend sign contents
+				chunk *ch = this->get_world ()->get_chunk_at (x, z);
+				if (ch)
+					{
+						auto& sign = ch->ly_signs.get_sign (x, y, z);
+						this->send (packet::make_update_sign (x, y, z,
+							sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (), sign.l4.c_str ()));
+					}
+			}
 	}
 	
 //--
@@ -2768,6 +2779,97 @@ namespace hCraft {
 	
 	
 	
+	// @player message
+	static void
+	_handle_private_message (player *pl, std::string& str)
+	{
+		if (!pl->get_rank ().main ()->can_chat) return;
+		const char *ptr = str.c_str () + 1;
+		
+		std::string target_name;
+		while (*ptr)
+			{
+				if (*ptr == ' ')
+					break;
+				target_name.push_back (*ptr++);
+			}
+		
+		if (!*ptr || target_name.empty ())
+			{
+				pl->message ("§c * §7Usage§f: §b@§cplayer message");
+				return;
+			}
+		
+		while (*ptr == ' ')
+			++ ptr;
+		if (!*ptr)
+			{
+				pl->message ("§c * §7Usage§f: §b@§cplayer message");
+				return;
+			}
+		
+		std::string msg;
+		while (*ptr)
+			msg.push_back (*ptr++);
+		
+		player *target = pl->get_server ().get_players ().find (target_name.c_str ());
+		if (!target)
+			{
+				pl->message ("§c * §7Unknown player§f: §c" + target_name);
+				return;
+			}
+		else if (target == pl)
+			{
+				pl->message ("§c * §7Stop talking to yourself§c.");
+				return;
+			}
+		
+		std::ostringstream ss;
+		ss << "§8§o(from " << pl->get_username () << ") §r§3" << msg;
+		target->message (ss.str ());
+		
+		ss.str (std::string ());
+		ss << "§8§o(to " << target->get_username () << ") §r§3" << msg;
+		pl->message (ss.str ());
+	}
+	
+	// *action
+	static void
+	_handle_action_message (player *pl, std::string& str)
+	{
+		if (!pl->get_rank ().main ()->can_chat) return;
+		if (pl->get_server ().is_player_muted (pl->get_username ()) && !pl->is_op ())
+			{
+				pl->message ("§cYou have been muted§4, §cstay quiet§4.");
+				return;
+			}
+		
+		const char *ptr = str.c_str () + 1;
+		
+		while (*ptr == ' ')
+			++ ptr;
+		if (!*ptr)
+			{
+				pl->message ("§c * §7Usage§f: §b*§caction");
+				return;
+			}
+		
+		std::string msg {"/me "};
+		while (*ptr)
+			msg.push_back (*ptr++);
+		
+		command_reader cread {msg};
+		command *cmd = pl->get_server ().get_commands ().find ("me");
+		if (!cmd)
+			{
+				pl->message ("§c * §eNo such command§f: §cme§f.");
+				return;
+			}
+		
+		cmd->execute (pl, cread);
+	}
+	
+	
 	static void
 	handle_message (player *pl, std::string& msg)
 	{
@@ -2812,7 +2914,7 @@ namespace hCraft {
 		int  text_len = reader.read_string (text, 360);
 		if (text_len <= 0)
 			{
-				pl->log (LT_WARNING) << "Received an invalid string from player " << pl->get_username () << std::endl;
+				pl->log (LT_WARNING) << "Received invalid string from player " << pl->get_username () << std::endl;
 				return -1;
 			}
 		
@@ -2862,6 +2964,16 @@ namespace hCraft {
 					}
 				
 				cmd->execute (pl, cread);
+				return 0;
+			}
+		else if (msg[0] == '@')
+			{
+				_handle_private_message (pl, msg);
+				return 0;
+			}
+		else if (msg[0] == '*')
+			{
+				_handle_action_message (pl, msg);				
 				return 0;
 			}
 		

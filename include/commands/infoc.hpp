@@ -237,6 +237,68 @@ namespace hCraft {
 		//----
 			void execute (player *pl, command_reader& reader);
 		};
+		
+		
+		
+		/* 
+		 * /rules
+		 * 
+		 * Displays important server rules.
+		 * 
+		 * Permissions:
+		 *   - command.info.rules
+		 *       Needed to execute the command.
+		 */
+		class c_rules: public command
+		{
+			const char* get_name () { return "rules"; }
+			
+			const char*
+			get_summary ()
+				{ return "Displays important server rules."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.info.rules"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+		
+		
+		
+		/* 
+		 * /players
+		 * 
+		 * Displays a list of online players.
+		 * 
+		 * Permissions:
+		 *   - command.info.players
+		 *       Needed to execute the command.
+		 */
+		class c_players: public command
+		{
+			const char* get_name () { return "players"; }
+			
+			const char*
+			get_summary ()
+				{ return "Displays a list of online players."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
+			
+			const char* get_exec_permission () { return "command.info.players"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
 	}
 }
 

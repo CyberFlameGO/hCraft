@@ -42,7 +42,8 @@ namespace hCraft {
 		std::string world_join_self; // displayed to the player who is performing the world switch
 		
 		std::vector<std::string> join_msg;
-		std::vector<std::string> help_msg;
+		std::vector<std::string> help;
+		std::vector<std::string> rules;
 	};
 	
 	
@@ -69,15 +70,16 @@ namespace hCraft {
 		};
 		
 		/* 
-		 * %target          = Player username
-		 * %target-nick     = Player nickname
-		 * %target-col      = Colored player username
-		 * %target-col-nick = Colored player nickname
+		 * %target             = Player username
+		 * %target-nick        = Player nickname
+		 * %target-col         = Colored player username
+		 * %target-col-nick    = Colored player nickname
+		 * %target-login-count = Number of times player logged into the server.
 		 * 
-		 * %curr-world      = Target player's current world name
-		 * %curr-world-col  = Colored world name
-		 * %prev-world      = Target player's previous world name
-		 * %prev-world-col  = COlored previous world name
+		 * %curr-world         = Target player's current world name
+		 * %curr-world-col     = Colored world name
+		 * %prev-world         = Target player's previous world name
+		 * %prev-world-col     = COlored previous world name
 		 */
 		static std::string compile (std::string input, const environment& env);
 		

@@ -1156,7 +1156,7 @@ namespace hCraft {
 							group *parent = this->find (s_par.c_str ());
 							if (!parent)
 								throw rank_load_error ("in group \"" + child->name
-									+ "\": parent group \"" + parent->name + "\" does not exist");
+									+ "\": parent group \"" + s_par + "\" does not exist");
 							
 							child->inherit (parent);
 						}

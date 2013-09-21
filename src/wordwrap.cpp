@@ -21,6 +21,8 @@
 #include <cctype>
 #include <cstring>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -238,18 +240,42 @@ namespace hCraft {
 	wordwrap::wrap_colors (std::vector<std::string>& lines)
 	{
 		char last_col[3] = { '\0', '\0', '\0' };
+		char last_stl[3] = { '\0', '\0', '\0' };
+		int c = 0;
 		for (auto itr = lines.begin (); itr != lines.end (); ++itr)
 			{
 				if ((itr + 1) == lines.end ())
 					break;
 				
+				c = 0;
 				std::string& str = *itr;
 				for (int i = str.size () - 1; i >= 0; --i)
 					{
-						if ((i >= 2) && is_chat_code (str[i]) && ((str[i - 1] & 0xFF) == 0xA7))
-							{ last_col[0] = 0xC2; last_col[1] = 0xA7; last_col[2] = str[i]; break; }
+						if (i >= 2)
+							{
+								if (is_color_code (str[i]) && ((str[i - 1] & 0xFF) == 0xA7))
+									{
+										last_col[0] = 0xC2; last_col[1] = 0xA7; last_col[2] = str[i];
+										++ c;
+										if (c == 2)
+											break;
+									}
+								
+								if (is_style_code (str[i]) && ((str[i - 1] & 0xFF) == 0xA7))
+									{
+										last_stl[0] = 0xC2; last_stl[1] = 0xA7; last_stl[2] = str[i];
+										++ c;
+										if (c == 2)
+											break;
+									}
+							}
 					}
 				
+				if (last_stl[0] != '\0')
+					{
+						std::string& next = *(itr + 1);
+						next.insert (0, last_stl, 3);
+					}
 				if (last_col[0] != '\0')
 					{
 						std::string& next = *(itr + 1);

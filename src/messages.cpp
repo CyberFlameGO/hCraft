@@ -53,15 +53,16 @@ namespace hCraft {
 	}
 	
 	/* 
-	 * %target          = Player username
-	 * %target-nick     = Player nickname
-	 * %target-col      = Colored player username
-	 * %target-col-nick = Colored player nickname
+	 * %target             = Player username
+	 * %target-nick        = Player nickname
+	 * %target-col         = Colored player username
+	 * %target-col-nick    = Colored player nickname
+	 * %target-login-count = Number of times player logged into the server.
 	 * 
-	 * %curr-world      = Target player's current world name
-	 * %curr-world-col  = Colored world name
-	 * %prev-world      = Target player's previous world name
-	 * %prev-world-col  = COlored previous world name
+	 * %curr-world         = Target player's current world name
+	 * %curr-world-col     = Colored world name
+	 * %prev-world         = Target player's previous world name
+	 * %prev-world-col     = COlored previous world name
 	 */
 	std::string
 	messages::compile (std::string input, const messages::environment& env)
@@ -71,10 +72,16 @@ namespace hCraft {
 		 *       If the number of variables becomes large, doing it this way will
 		 *       be terribly inefficient.
 		 */
-		 
+		
+		std::ostringstream ss;
+		
 		// from longest to shortest
 		if (env.target)
 			{
+				ss << env.target->log_count;
+				_replace_all (input, "%target-login-count", ss.str ());
+				ss.str (std::string ());
+				
 				_replace_all (input, "%target-col-nick", env.target->get_colored_nickname ());
 				_replace_all (input, "%target-nick", env.target->get_nickname ());
 				_replace_all (input, "%target-col", env.target->get_colored_username ());
