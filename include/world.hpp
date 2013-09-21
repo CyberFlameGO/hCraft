@@ -169,6 +169,7 @@ namespace hCraft {
 		inline player_list& get_players () { return *this->players; }
 		
 		inline world_provider* get_provider () { return this->prov; }
+		inline const char* get_path () { return this->prov->get_path (); }
 		
 		inline int get_width () const { return this->width; }
 		inline int get_depth () const { return this->depth; }
@@ -299,7 +300,7 @@ namespace hCraft {
 		/* 
 		 * Removes all chunks from the world and optionally saves them to disk.
 		 */
-		void clear_chunks (bool save);
+		void clear_chunks (bool save, bool del = false);
 		
 		/* 
 		 * Checks whether a block exists at the given coordinates.

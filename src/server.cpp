@@ -593,6 +593,7 @@ namespace hCraft {
 		
 		out.dcmds.clear ();
 		out.dcmds.insert ("realm");
+		out.dcmds.insert ("money");
 	}
 	
 	static void
@@ -1016,6 +1017,13 @@ namespace hCraft {
 		msgs.world_join = "§9 -- %target-col-nick §7went to %curr-world-col";
 		msgs.world_enter = "§9 -- %target-col-nick §7went to %curr-world-col";
 		msgs.world_depart = "§9 -- %target-col-nick §7went to %curr-world-col";
+		
+		msgs.join_msg.clear ();
+		msgs.join_msg.emplace_back ("§6Hey %target-col§f!");
+		msgs.join_msg.emplace_back ("§eType §3/help §efor helpful information§f.");
+		
+		msgs.help_msg.clear ();
+		
 	}
 	
 	static void
@@ -1036,6 +1044,20 @@ namespace hCraft {
 			grp_messages->add_string ("world-join-self", srv.msgs.world_join_self);
 			grp_messages->add_string ("world-enter", srv.msgs.world_enter);
 			grp_messages->add_string ("world-depart", srv.msgs.world_depart);
+			
+			grp_messages->add_separator ();
+			{
+				cfg::array *arr = new cfg::array ();
+				for (const std::string& str : srv.msgs.join_msg)
+					arr->add_string (str);
+				grp_messages->add ("join-msg", arr);
+			}
+			{
+				cfg::array *arr = new cfg::array ();
+				for (const std::string& str : srv.msgs.help_msg)
+					arr->add_string (str);
+				grp_messages->add ("help-msg", arr);
+			}
 			
 			root.add ("messages", grp_messages);
 		}
@@ -1071,6 +1093,30 @@ namespace hCraft {
 			? grp_messages->get_string ("world-enter") : "";
 		out.world_depart = grp_messages->exists ("world-depart", cfg::CFG_STRING)
 			? grp_messages->get_string ("world-depart") : "";
+		
+		cfg::array *arr;
+		
+		out.join_msg.clear ();
+		arr = grp_messages->find_array ("join-msg");
+		if (arr)
+			{
+				for (cfg::value *v : *arr)
+					{
+						if (v->type () == cfg::CFG_STRING)
+							out.join_msg.push_back ((dynamic_cast<cfg::string *> (v))->val ());
+					}
+			}
+		
+		out.help_msg.clear ();
+		arr = grp_messages->find_array ("help-msg");
+		if (arr)
+			{
+				for (cfg::value *v : *arr)
+					{
+						if (v->type () == cfg::CFG_STRING)
+							out.help_msg.push_back ((dynamic_cast<cfg::string *> (v))->val ());
+					}
+			}
 	}
 	
 	static void

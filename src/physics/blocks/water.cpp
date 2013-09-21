@@ -28,6 +28,9 @@ namespace hCraft {
 		static bool
 		can_be_placed_at (world& w, int x, int y, int z, int lv)
 		{
+			if (y < 0)
+				return false;
+			
 			block_data bd = w.get_block (x, y, z);
 			block_info *binf = block_info::from_id (bd.id);
 			if (!binf->opaque)
@@ -56,7 +59,7 @@ namespace hCraft {
 			
 			if (can_be_placed_at (w, x, y - 1, z, 8 | lv))
 				w.queue_update (x, y - 1, z, BT_WATER, 8 | lv);
-			else if ((lv & 7) != 7)
+			else if (y != 0 && (lv & 7) != 7)
 				{
 					unsigned char next_lv = (lv & 7) + 1;
 					if (can_be_placed_at (w, x + 1, y, z, next_lv))
@@ -68,6 +71,13 @@ namespace hCraft {
 					if (can_be_placed_at (w, x, y, z - 1, next_lv))
 						w.queue_update (x, y, z - 1, BT_WATER, next_lv);
 				}
+		}
+		
+		void
+		water::on_neighbour_modified (world &w, int x, int y, int z,
+			int nx, int ny, int nz)
+		{
+			w.queue_physics_once (x, y, z, 0, nullptr, this->tick_rate ());
 		}
 	}
 }

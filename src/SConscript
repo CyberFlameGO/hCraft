@@ -109,7 +109,6 @@ hCraft_sources = Split("""
 		physics/blocks/snow.cpp
 		physics/blocks/activewater.cpp
 		physics/blocks/sponge.cpp
-		physics/blocks/c235.cpp
 		physics/blocks/firework.cpp
 		physics/blocks/water_faucet.cpp
 		""")

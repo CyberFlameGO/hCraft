@@ -269,6 +269,7 @@ namespace hCraft {
 		
 	//----
 		
+		item_info ();
 		item_info (unsigned short id, const char *name, unsigned short durability,
 			char max_stack);
 		

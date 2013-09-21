@@ -21,6 +21,9 @@
 #include "world.hpp"
 #include "stringutils.hpp"
 #include "sqlops.hpp"
+#include "cistring.hpp"
+#include "messages.hpp"
+#include <unordered_map>
 #include <sstream>
 
 
@@ -456,6 +459,146 @@ namespace hCraft {
 		
 		
 		
+		static void
+		_handle_resize (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.resize"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+			if (reader.arg_count () != 3)
+				{
+					pl->message ("§c * §7Usage§f: §e/world resize §cwidth depth");
+					return;
+				}
+			
+			int width = 0, depth = 0;
+			
+			auto a_width = reader.next ();
+			auto a_depth = reader.next ();
+			
+			if (!a_width.is_int ())
+				{
+					if (sutils::iequals (a_width.as_str (), "inf"))
+						width = 0;
+					else
+						{
+							pl->message ("§c * §7Both width and depth must be non-zero positive integers§c.");
+							return;
+						}
+				}
+			else
+				{
+					width = a_width.as_int ();
+					if (width <= 0)
+						{
+							pl->message ("§c * §7Both width and depth must be non-zero positive integers§c.");
+							return;
+						}
+				}
+			
+			if (!a_depth.is_int ())
+				{
+					if (sutils::iequals (a_depth.as_str (), "inf"))
+						depth = 0;
+					else
+						{
+							pl->message ("§c * §7Both width and depth must be non-zero positive integers§c.");
+							return;
+						}
+				}
+			else
+				{
+					depth = a_depth.as_int ();
+					if (depth <= 0)
+						{
+							pl->message ("§c * §7Both width and depth must be non-zero positive integers§c.");
+							return;
+						}
+				}
+			
+			if (width == w->get_width () && depth == w->get_depth ())
+				{
+					pl->message ("§c * §7The world is already in that size§c.");
+					return;
+				}
+			
+			w->set_size (width, depth);
+			w->get_players ().all (
+				[] (player *pl)
+					{
+						pl->rejoin_world ();
+					});
+			
+			std::ostringstream ss;
+			ss << w->get_colored_name () << "§f'§es dimensions set to §7";
+			if (w->get_width () <= 0)
+				ss << "inf";
+			else
+				ss << w->get_width ();
+			ss << " §fx §7";
+			if (w->get_depth () <= 0)
+				ss << "inf";
+			else
+				ss << w->get_depth ();
+			pl->message (ss.str ());
+		}
+		
+		
+		
+		static void
+		_handle_regenerate (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.regenerate"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+			if (reader.arg_count () < 2 || reader.arg_count () > 3)
+				{
+					pl->message ("§c * §7Usage§f: §e/world regenerate §cgenerator §8[§cseed§8]");
+					return;
+				}
+			
+			const std::string& gen_name = reader.next ().as_str ();
+			long long gen_seed = w->get_generator ()->seed ();
+			if (reader.has_next ())
+				{
+					auto arg = reader.next ();
+					if (!arg.is_int ())
+						{
+							pl->message ("§c * §7The seed must be an integer§c.");
+							return;
+						}
+					
+					gen_seed = arg.as_int ();
+				}
+			
+			world_generator *gen = world_generator::create (gen_name.c_str (), gen_seed);
+			if (!gen)
+				{
+					pl->message ("§c * §7No such world generator§f: §c" + gen_name);
+					return;
+				}
+
+			w->set_generator (gen);
+			w->clear_chunks (false, true);
+			w->get_players ().all (
+				[] (player *pl)
+					{
+						pl->rejoin_world ();
+					});
+			
+			std::ostringstream ss;
+			ss << w->get_colored_name () << " §eregenerated §f[§eseed§f: §7" << gen_seed << "§f]";
+			pl->message (ss.str ());
+		}
+		
+		
+		
 		/* 
 		 * /world - 
 		 * 
@@ -476,6 +619,10 @@ namespace hCraft {
 		 *       Required to set build-perms or join-perms
 		 *   - command.world.world.get-perms
 		 *       Required to view build-perms or join-perms
+		 *   - commands.world.world.resize
+		 *       Required to resize the world.
+		 *   - commands.world.world.regenerate
+		 *       Required to regenerate the world.
 		 */
 		void
 		c_world::execute (player *pl, command_reader& reader)
@@ -505,19 +652,25 @@ namespace hCraft {
 			else
 				{
 					const std::string& arg1 = reader.next ().as_str ();
-					if (sutils::iequals (arg1, "owners"))
-						_handle_owners (pl, w, reader);
-					else if (sutils::iequals (arg1, "members"))
-						_handle_members (pl, w, reader);
-					else if (sutils::iequals (arg1, "build-perms"))
-					  _handle_build_perms (pl, w, reader);
-					 else if (sutils::iequals (arg1, "join-perms"))
-					  _handle_join_perms (pl, w, reader);
-					else
+					
+					static const std::unordered_map<cistring,
+						void (*)(player *, world *, command_reader &)> _map {
+						{ "owners", _handle_owners },
+						{ "members", _handle_members },
+						{ "build-perms", _handle_build_perms },
+						{ "join-perms", _handle_join_perms },
+						{ "resize", _handle_resize },
+						{ "regenerate", _handle_regenerate },
+					};
+					
+					auto itr = _map.find (arg1.c_str ());
+					if (itr == _map.end ())
 						{
 							pl->message ("§c * §7Unknown sub-command§f: §c" + arg1);
 							return;
 						}
+					
+					itr->second (pl, w, reader);
 				}
 		}
 	}

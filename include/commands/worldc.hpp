@@ -454,6 +454,10 @@ namespace hCraft {
 		 *       Required to set build-perms or join-perms
 		 *   - command.world.world.get-perms
 		 *       Required to view build-perms or join-perms
+		 *   - commands.world.world.resize
+		 *       Required to resize the world.
+		 *   - commands.world.world.regenerate
+		 *       Required to regenerate the world.
 		 */
 		class c_world : public command
 		{

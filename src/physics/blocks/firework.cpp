@@ -33,7 +33,7 @@ namespace hCraft {
 				return;
 			
 			w.queue_update (x, y, z, BT_AIR);
-			if (w.get_id (x, y - 1, z) == BT_STILL_LAVA)
+			if (y > 0 && w.get_id (x, y - 1, z) == BT_STILL_LAVA)
 				{
 					w.queue_update (x, y - 1, z, BT_AIR);
 					if (w.get_id (x, y - 2, z) == BT_STILL_LAVA)
@@ -62,7 +62,7 @@ namespace hCraft {
 					for (int zz = -rad; zz <= rad; ++zz)
 						if ((xx*xx + yy*yy + zz*zz) <= (rad*rad))
 							{
-								if (chance_dis (rnd) < 2 && w.get_id (xx + x, yy + y, zz + z) == BT_AIR)
+								if ((yy + y) >= 0 && chance_dis (rnd) < 2 && w.get_id (xx + x, yy + y, zz + z) == BT_AIR)
 									{
 										w.queue_update (xx + x, yy + y, zz + z, BT_WOOL, col_dis (rnd));
 										w.queue_physics (xx + x, yy + y, zz + z, 0, nullptr, 2, &particle_params, nullptr);
@@ -87,6 +87,12 @@ namespace hCraft {
 		{
 			if (w.get_id (x, y, z) != 2004)
 				return;
+			
+			if (y == 255)
+				{
+					_remove_rocket (w, x, y, z);
+					return;
+				}
 				
 			if (data == 20 || (w.get_id (x, y + 1, z) != BT_AIR))
 				{
@@ -96,9 +102,9 @@ namespace hCraft {
 				}
 			
 			w.queue_update (x, y, z, BT_STILL_LAVA);
-			if (w.get_id (x, y - 1, z) == BT_AIR)
+			if (y > 0 && w.get_id (x, y - 1, z) == BT_AIR)
 				w.queue_update (x, y - 1, z, BT_STILL_LAVA);
-			if (w.get_id (x, y - 2, z) == BT_STILL_LAVA)
+			if (y > 1 && w.get_id (x, y - 2, z) == BT_STILL_LAVA)
 				w.queue_update (x, y - 2, z, BT_AIR);
 			
 			w.queue_update (x, y + 1, z, this->id (), 0, 0, data + 1);

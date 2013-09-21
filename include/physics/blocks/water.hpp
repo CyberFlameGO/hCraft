@@ -33,9 +33,12 @@ namespace hCraft {
 			virtual blocki vanilla_block () override { return BT_WATER; }
 			virtual const char* name () { return "water"; }
 			virtual int  tick_rate () override { return 5; }
+			virtual bool affected_by_neighbours () { return true; }
 		
 			virtual void tick (world &w, int x, int y, int z, int data,
 				void *ptr, std::minstd_rand& rnd) override;
+			virtual void on_neighbour_modified (world &w, int x, int y, int z,
+				int nx, int ny, int nz) override;
 		};
 	}
 }

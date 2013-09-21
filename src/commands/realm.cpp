@@ -47,6 +47,8 @@ namespace hCraft {
 			wr->prepare_spawn (10, true);
 			wr->save_all ();
 			
+			wr->security ().add_owner (pl->pid ());
+			
 			if (!pl->get_server ().register_world (wr))
 				{
 					delete wr;

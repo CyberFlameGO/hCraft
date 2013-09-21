@@ -345,6 +345,17 @@ namespace hCraft {
 	
 	
 	/* 
+	 * Returns the filesystem path to the world file.
+	 */
+	const char*
+	hw_provider::get_path ()
+	{
+		return this->out_path.c_str ();
+	}
+	
+	
+	
+	/* 
 	 * Opens the underlying file stream for reading\writing.
 	 * By using open () and close (), multiple chunks can be read\written
 	 * without reopening the world file everytime.

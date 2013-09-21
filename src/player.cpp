@@ -456,7 +456,7 @@ namespace hCraft {
 							{
 								// leave message
 								this->get_server ().get_players ().message (
-									messages::compile (this->get_server ().msgs.server_leave, messages::environment (this)));;
+									messages::compile (this->get_server ().msgs.server_leave, messages::environment (this)));
 							}
 				
 						chunk *curr_chunk = this->curr_world->get_chunk (
@@ -978,14 +978,25 @@ namespace hCraft {
 						{
 							std::lock_guard<std::mutex> guard {(resp.ch)->ly_signs.lock};
 							for (auto itr = (resp.ch)->ly_signs.signs.begin ();
-								itr != (resp.ch)->ly_signs.signs.end (); ++itr)
+								itr != (resp.ch)->ly_signs.signs.end (); )
 								{
 									block_pos pos = itr->first;
-									auto& sign = itr->second;
+									
+									int id = (resp.ch)->get_id (pos.x & 0xF, pos.y, pos.z & 0xF);
+									if (id != BT_SIGN_POST && id != BT_WALL_SIGN)
+										{
+											// sign got deleted
+											itr = (resp.ch)->ly_signs.signs.erase (itr);
+										}
+									else
+										{
+											auto& sign = itr->second;
 								
-									this->send (packet::make_update_sign (pos.x, pos.y, pos.z,
-										sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (),
-										sign.l4.c_str ()));
+											this->send (packet::make_update_sign (pos.x, pos.y, pos.z,
+												sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (),
+												sign.l4.c_str ()));
+											++ itr;
+										}
 								}
 						}
 					}
@@ -1088,6 +1099,9 @@ namespace hCraft {
 		
 		world *w = this->get_world ();
 		block_pos pos = this->pos;
+		if (pos.y < 0 || pos.y >= 254)
+			return;
+		
 		for (int y = pos.y + 1; y >= pos.y; --y)
 			{
 				if (w->get_extra (pos.x, y, pos.z) == BE_PORTAL)
@@ -2363,6 +2377,9 @@ namespace hCraft {
 	
 	
 	
+	
+//----
+	
 	static void
 	_place_sign (player *pl, int x, int y, int z, char dir)
 	{
@@ -2392,9 +2409,11 @@ namespace hCraft {
 	
 	
 	static void
-	_place_slab (player *pl, int x, int y, int z, int dir, const slot_item& held,
-		int cx, int cy, int cz)
+	_place_slab (player *pl, int x, int y, int z, int dir, const slot_item& held, int cy)
 	{
+		unsigned short slab = held.id ();
+		unsigned short dslab = (slab == BT_WOODEN_SLAB) ? BT_WOODEN_DSLAB : BT_DSLAB;
+		
 		int nx = x, ny = y, nz = z;
 		blocki bl = { held.id (), (unsigned char)held.damage () };
 		
@@ -2404,8 +2423,8 @@ namespace hCraft {
 			{
 				// -y
 				case 0:
-					if (old.id == BT_SLAB && (old.meta & 0x7) == held.damage () && (old.meta & 0x8))
-						bl = { BT_DSLAB, (unsigned char)held.damage () };
+					if (old.id == slab && (old.meta & 0x7) == held.damage () && (old.meta & 0x8))
+						bl = { dslab, (unsigned char)held.damage () };
 					else
 						{
 							-- ny;
@@ -2415,8 +2434,8 @@ namespace hCraft {
 				
 				// +y
 				case 1:
-					if (old.id == BT_SLAB && (old.meta == held.damage ()))
-						bl = { BT_DSLAB, (unsigned char)held.damage () };
+					if (old.id == slab && (old.meta == held.damage ()))
+						bl = { dslab, (unsigned char)held.damage () };
 					else
 						++ ny;
 					break;
@@ -2439,7 +2458,7 @@ namespace hCraft {
 							if (old.id == BT_AIR)
 								bl = { held.id (), (unsigned char)(0x8 | held.damage ()) };
 							else if ((old.id == held.id ()) && (old.meta == held.damage ()))
-								bl = { BT_DSLAB, (unsigned char)held.damage () };
+								bl = { dslab, (unsigned char)held.damage () };
 							else
 								return;
 						}
@@ -2448,7 +2467,7 @@ namespace hCraft {
 							if (old.id == BT_AIR)
 								bl = { held.id (), (unsigned char)held.damage () };
 							else if ((old.id == held.id ()) && ((old.meta & 0x7) == held.damage () && (old.meta & 0x8)))
-								bl = { BT_DSLAB, (unsigned char)held.damage () };
+								bl = { dslab, (unsigned char)held.damage () };
 							else
 								return;
 						}
@@ -2456,6 +2475,77 @@ namespace hCraft {
 			}
 		
 		wr->queue_update (nx, ny, nz, bl.id, bl.meta, 0, 0, nullptr, pl);
+		++ pl->bl_created;
+	}
+	
+	
+	static bool
+	_is_stairs_block (int id)
+	{
+		switch (id)
+			{
+				case BT_OAK_STAIRS:
+				case BT_COBBLE_STAIRS:
+				case BT_BRICK_STAIRS:
+				case BT_STONE_BRICK_STAIRS:
+				case BT_NETHER_BRICK_STAIRS:
+				case BT_SANDSTONE_STAIRS:
+				case BT_SPRUCE_STAIRS:
+				case BT_BIRCH_STAIRS:
+				case BT_JUNGLE_STAIRS:
+				case BT_QUARTZ_STAIRS:
+					return true;
+				
+				default:
+					return false;
+			}
+	}
+	
+	static void
+	_place_stairs (player *pl, int x, int y, int z, int dir, const slot_item& held, int cy)
+	{
+		double rot = pl->pos.r + 45.0;
+		if (rot < 0.0)
+			rot += ((int)(std::abs (rot) / 360.0) + 1) * 360.0;
+		
+		const static int arr[] = { 2, 1, 3, 0 };
+		int ind = (int)(std::fmod (rot, 360.0) / 90.0);
+		int meta = arr[ind];
+		
+		if (dir == 0 || (dir >= 2 && cy >= 8))
+			meta |= 0x4; // upside down
+		
+		pl->get_world ()->queue_update (x, y, z, held.id (), meta, 0, 0, nullptr, pl);
+		++ pl->bl_created;
+	}
+	
+	
+	static void
+	_place_trunk (player *pl, int x, int y, int z, int dir, const slot_item& held)
+	{
+		int d = 0;
+		switch (dir)
+			{
+				// -y +y
+				case 0:
+				case 1:
+					d = 0;
+					break;
+				
+				// -z +z
+				case 2:
+				case 3:
+					d = 8;
+					break;
+				
+				// -x +x
+				case 4:
+				case 5:
+					d = 4;
+					break;
+			}
+		
+		pl->get_world ()->queue_update (x, y, z, held.id (), d | held.damage (), 0, 0, nullptr, pl);
 		++ pl->bl_created;
 	}
 	
@@ -2507,7 +2597,9 @@ namespace hCraft {
 
 		// join message
 		this->get_server ().get_players ().message (
-			messages::compile (this->get_server ().msgs.server_join, messages::environment (this)));
+			messages::compile (this->srv.msgs.server_join, messages::environment (this)));
+		for (const std::string& str : this->get_server ().msgs.join_msg)
+			this->message (messages::compile (str, messages::environment (this)));
 		
 		this->inv.subscribe (this);
 		this->inv.add (slot_item (BT_STONE, 0, 1));
@@ -3114,9 +3206,9 @@ namespace hCraft {
 		int z = reader.read_int ();
 		char direction = reader.read_byte ();
 		slot_item item = reader.read_slot ();
-		int cx = reader.read_byte (); // cursor X
+		/*int cx =*/ reader.read_byte (); // cursor X
 		int cy = reader.read_byte (); // cursor Y
-		int cz = reader.read_byte (); // cursor Z
+		/*int cz =*/ reader.read_byte (); // cursor Z
 		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
@@ -3164,6 +3256,12 @@ namespace hCraft {
 					}
 			}
 		
+		if (!item.implemented ())
+			{	
+				pl->send_orig_block (nx, ny, nz);
+				return 0;
+			}
+		
 		int w_width = pl->get_world ()->get_width ();
 		int w_depth = pl->get_world ()->get_depth ();
 		if (((w_width > 0) && ((nx >= w_width) || (nx < 0))) ||
@@ -3200,10 +3298,15 @@ namespace hCraft {
 				return 0;
 			}
 		
+		// some blocks must be placed differently.
 		if (item.id () == IT_SIGN)
 			_place_sign (pl, nx, ny, nz, direction);
-		else if (item.id () == BT_SLAB)
-			_place_slab (pl, x, y, z, direction, item, cx, cy, cz);
+		else if (item.id () == BT_SLAB || item.id () == BT_WOODEN_SLAB)
+			_place_slab (pl, x, y, z, direction, item, cy);
+		else if (_is_stairs_block (item.id ()))
+			_place_stairs (pl, nx, ny, nz, direction, item, cy);
+		else if (item.id () == BT_TRUNK)
+			_place_trunk (pl, nx, ny, nz, direction, item);
 		else
 			{
 				pl->get_world ()->queue_update (nx, ny, nz,
@@ -3772,7 +3875,10 @@ namespace hCraft {
 				return -1;
 			}
 		
-		pl->inv.set (index, item, false);
+		if (!item.implemented ())
+			pl->inv.set (index, {BT_AIR}, true);
+		else
+			pl->inv.set (index, item, false);
 		return 0;
 	}
 	

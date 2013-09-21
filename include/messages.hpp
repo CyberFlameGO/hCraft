@@ -20,6 +20,7 @@
 #define _hCraft__MESSAGES_H_
 
 #include <string>
+#include <vector>
 
 
 namespace hCraft {
@@ -39,6 +40,9 @@ namespace hCraft {
 		std::string world_depart;    // displayed to players in the world a player is leaving
 		std::string world_join;      // displayed to all other players not in either world
 		std::string world_join_self; // displayed to the player who is performing the world switch
+		
+		std::vector<std::string> join_msg;
+		std::vector<std::string> help_msg;
 	};
 	
 	

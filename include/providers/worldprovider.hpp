@@ -188,6 +188,13 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Returns the filesystem path to the world file.
+		 */
+		virtual const char* get_path () = 0;
+		
+		
+		
+		/* 
 		 * Returns a new instance of the world provider named @{name}.
 		 * @{path} specifies the directory to which the world should be exported to/
 		 * imported from.

@@ -64,6 +64,8 @@ namespace hCraft {
 			return this->s_amount >= this->max_stack ();
 		}
 		
+		inline bool implemented () const { return this->s_info.ptr != nullptr; }
+		
 	public:
 		/* 
 		 * Constructs a new slot item from the given ID number, damage\metadata

@@ -263,6 +263,13 @@ namespace hCraft {
 		 */
 		virtual const world_information& info ()
 			{ return this->inf; }
+		
+		
+		
+		/* 
+		 * Returns the filesystem path to the world file.
+		 */
+		virtual const char* get_path () override;
 	};
 }
 

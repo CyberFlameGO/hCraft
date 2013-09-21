@@ -215,6 +215,11 @@ namespace hCraft {
 		block_data bd = w->get_block (x, y, z);
 		if (bd.id == BT_AIR)
 			return false;
+		else if (y == 0)
+			{
+				w->queue_update (x, y, z, BT_AIR);
+				return false;
+			}
 		
 		if (w->get_id (x, y - 1, z) == BT_AIR)
 			{

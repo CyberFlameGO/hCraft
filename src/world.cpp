@@ -973,12 +973,16 @@ namespace hCraft {
 	 * Removes all chunks from the world and optionally saves them to disk.
 	 */
 	void
-	world::clear_chunks (bool save)
+	world::clear_chunks (bool save, bool del)
 	{
 		std::lock_guard<std::mutex> guard {this->chunk_lock};
 		
 		if (save)
 			this->prov->open (*this);
+		else if (del)
+			{
+				std::remove (this->get_path ());
+			}
 		
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{

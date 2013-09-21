@@ -24,6 +24,14 @@
 
 namespace hCraft {
 	
+	item_info::item_info ()
+	{
+		this->id = IT_UNKNOWN;
+		this->durability = 0;
+		this->max_stack = 0;
+		std::strcpy (this->name, "unknown");
+	}
+	
 	item_info::item_info (unsigned short id, const char *name,
 		unsigned short durability, char max_stack)
 	{
@@ -38,6 +46,37 @@ namespace hCraft {
 	
 	static std::vector<item_info> item_list {
 		{ 0x100, "iron-shovel", 251, 1 },
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 		{ 0x120, "feather", 0, 64 },
 	};
 	
@@ -76,9 +115,9 @@ namespace hCraft {
 	item_info*
 	item_info::from_id (unsigned short id)
 	{
-		if (id >= item_list.size ())
+		if ((id - 0x100) >= item_list.size ())
 			return nullptr;
-		return &item_list[id];
+		return &item_list[id - 0x100];
 	}
 	
 	
