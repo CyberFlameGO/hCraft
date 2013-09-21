@@ -246,24 +246,24 @@ namespace hCraft {
 								case '!':
 									++ neg;
 									if (neg > 1)
-										return false;
+										return this->get_name ();
 									break;
 								
 								case '^':
 									if (typ == TT_PLAYER)
-										return false;
+										return this->get_name ();
 									typ = TT_PLAYER;
 									break;
 								
 								case '*':
 									if (typ == TT_PERM)
-										return false;
+										return this->get_name ();
 									typ = TT_PERM;
 									break;
 								
 								case '>':
 									if (typ == TT_ATLEAST_GROUP)
-										return false;
+										return this->get_name ();
 									typ = TT_ATLEAST_GROUP;
 									break;
 								
