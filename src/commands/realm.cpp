@@ -60,6 +60,23 @@ namespace hCraft {
 		}
 		
 		
+		static world*
+		_load_realm (player *pl, const std::string& realm_name)
+		{
+			try
+				{
+					world *wr = world::load_world (pl->get_server (), realm_name.c_str ());
+					return wr;
+				}
+			catch (const std::exception& ex)
+				{
+					pl->message (std::string ("§c * §7Failed to load realm§f: §c") + ex.what ());
+				}
+			
+			return nullptr;
+		}
+		
+		
 		/* 
 		 * /realm - 
 		 * 
@@ -81,13 +98,13 @@ namespace hCraft {
 			if (!reader.parse (this, pl))
 				return;
 			
-			if (reader.arg_count () != 1)
+			if (reader.arg_count () > 1)
 				{
 					pl->message ("§c * §7Usage§f: §e/realm §crealm-name");
 					return;
 				}
 			
-			const std::string& realm_name = reader.next ().as_str ();
+			std::string realm_name = reader.no_args () ? pl->get_username () : reader.next ().as_str ();
 			
 			world *wr = pl->get_server ().get_worlds ().find (realm_name.c_str ());
 			if (!wr)
@@ -96,8 +113,13 @@ namespace hCraft {
 						wr = _create_realm (pl, realm_name);
 					else
 						{
-							pl->message ("§c * §7Cannot find realm§f: §c" + realm_name);
-							return;
+							// try to load it
+							wr = _load_realm (pl, realm_name);
+							if (!wr)
+								{
+									pl->message ("§c * §7Cannot find realm§f: §c" + realm_name);
+									return;
+								}
 						}
 				}
 			

@@ -33,6 +33,7 @@
 #include "physics/blocks/sponge.hpp"
 #include "physics/blocks/firework.hpp"
 #include "physics/blocks/water_faucet.hpp"
+#include "physics/blocks/shark.hpp"
 
 
 namespace hCraft {
@@ -73,6 +74,7 @@ namespace hCraft {
 			_register_physics_block (new physics::firework ());
 			_register_physics_block (new physics::firework_rocket ());
 			_register_physics_block (new physics::water_faucet ());
+			_register_physics_block (new physics::shark ());
 		}
 		
 		_physics_blocks_initialized = true;

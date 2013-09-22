@@ -13,7 +13,7 @@ What is hCraft?
 ---------------
 
 hCraft is a custom implementation of a Minecraft server, currently supprting the
-74th revision of the protocol (version 1.6.2). hCraft strives to be fast,
+78th revision of the protocol (version 1.6.4). hCraft strives to be fast,
 customizable and easy to use.
 
 Features
@@ -30,12 +30,13 @@ The _currently_ implemented features are:
    around 50,000 falling sand blocks (with 4 physics threads).
    Custom block mechanics can be easily added.
 *  Custom world generation - currently featuring an experimental world generator
-   that supports 10 biomee, other generators include include "plains", "flatgrass",
+   that supports 10 biomes, other generators include include "plains", "flatgrass",
    "flatplains" and "overhang" (amazing overhangs!) (more will be added in the future).
 *  Selections: Players can "select" areas using the implemented selections
    commands (/select), and then subsequently fill them with any block (or manipulate
    them in some way).
-*  Block tracking, players may do /whodid to check who modified certain blocks.
+*  Block tracking, players may use /whodid to check who modified certain blocks.
+*  An /undo command that lets the user undo block changes made by any player!
 *  Portals! (World to world portals are supported)
 *  World ownership\membership - Owners/members may be configured for every world.
      

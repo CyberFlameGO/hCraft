@@ -207,6 +207,7 @@ namespace hCraft {
 		BT_FIREWORK_ROCKET,
 		BT_WATER_FAUCET,
 		BT_LANGTONS_ANT,
+		BT_SHARK,
 	};
 	
 	
