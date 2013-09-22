@@ -19,8 +19,7 @@
 #include "player_list.hpp"
 #include "player.hpp"
 #include <cstring>
-
-#include <iostream> // DEBUG
+#include <cctype>
 
 
 namespace hCraft {
@@ -135,6 +134,17 @@ namespace hCraft {
 		this->players.clear ();
 	}
 	
+	
+	
+	static bool
+	_starts_with (const char *a, const char *b)
+	{
+		while (*b)
+			if (std::tolower (*a++) != std::tolower (*b++))
+				return false;
+		return true;
+	}
+	
 	/* 
 	 * Searches the player list for a player that has the specified name.
 	 * Uses the given method to determine if names match.
@@ -170,8 +180,15 @@ namespace hCraft {
 				
 				case player_find_method::name_completion:
 					{
-						// TODO
-						return nullptr;
+						std::vector<player *> matches;
+						for (auto itr = this->players.begin (); itr != this->players.end (); ++itr)
+							{
+								if (_starts_with (itr->first.c_str (), name))
+									matches.push_back (itr->second);
+							}
+						if (matches.empty ())
+							return nullptr;
+						return matches.front ();
 					}
 			}
 		

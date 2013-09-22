@@ -92,6 +92,7 @@ namespace hCraft {
 		this->exhaustion = 0.0;
 		this->total_walked = this->total_run = this->total_walked_old = this->total_run_old = 0.0;
 		
+		this->chat_spam_warnings = 0;
 		this->last_tick = std::chrono::steady_clock::now ();
 		this->last_heart_regen = this->last_tick;
 		this->heal_delay = std::chrono::milliseconds (4000);
@@ -2908,6 +2909,7 @@ namespace hCraft {
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
 		
+		
 		bool is_global_message = false;
 		
 		char text[384];
@@ -2919,7 +2921,6 @@ namespace hCraft {
 			}
 		
 		std::string msg {text};
-		
 		
 		if (msg[msg.size () - 1] == '\\')
 			{
@@ -2966,7 +2967,39 @@ namespace hCraft {
 				cmd->execute (pl, cread);
 				return 0;
 			}
-		else if (msg[0] == '@')
+		
+		if (pl->get_server ().is_player_muted (pl->get_username ()))
+			{
+				pl->message ("§cYou have been muted§4, §cstay quiet§4.");
+				return 0;
+			}
+		
+		// detect spam
+		{
+			auto now = std::chrono::steady_clock::now ();
+			if (pl->chat_spam_log.size () >= 4)
+				{
+					auto t = pl->chat_spam_log.front ();
+					pl->chat_spam_log.pop ();
+					
+					if (std::chrono::duration_cast<std::chrono::seconds> (
+						std::chrono::steady_clock::now () - t).count () <= 3)
+						{
+							++ pl->chat_spam_warnings;
+							if (pl->chat_spam_warnings > 2)
+								{
+									pl->get_server ().mute_player (pl->get_username (), 5 * 10); // five minutes
+									std::ostringstream ss;
+									ss << "§c > " << pl->get_colored_nickname () << " §7has been muted for §e5 minutes";
+									pl->get_server ().get_players ().message (ss.str ());
+									return 0;
+								}
+						}
+				}
+			pl->chat_spam_log.push (now);
+		}
+		
+		if (msg[0] == '@')
 			{
 				_handle_private_message (pl, msg);
 				return 0;
@@ -2974,12 +3007,6 @@ namespace hCraft {
 		else if (msg[0] == '*')
 			{
 				_handle_action_message (pl, msg);				
-				return 0;
-			}
-		
-		if (pl->get_server ().is_player_muted (pl->get_username ()) && !pl->is_op ())
-			{
-				pl->message ("§cYou have been muted§4, §cstay quiet§4.");
 				return 0;
 			}
 		

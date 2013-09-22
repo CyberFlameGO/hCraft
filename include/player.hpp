@@ -227,6 +227,8 @@ namespace hCraft {
 		std::chrono::steady_clock::time_point last_portal_use;
 		std::chrono::milliseconds heal_delay;
 		long long tick_counter;
+		std::queue<std::chrono::steady_clock::time_point> chat_spam_log;
+		int chat_spam_warnings;
 		
 		std::ostringstream msgbuf;
 		

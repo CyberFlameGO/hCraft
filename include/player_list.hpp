@@ -103,7 +103,7 @@ namespace hCraft {
 		 * Uses the given method to determine if names match.
 		 */
 		player* find (const char *name,
-			player_find_method method = player_find_method::case_insensitive);
+			player_find_method method = player_find_method::name_completion);
 		
 		
 		
