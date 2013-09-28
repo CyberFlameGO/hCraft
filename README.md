@@ -4,6 +4,12 @@ Important
 Be sure to read the new "Building" section, as a lot of things have changed in
 recent versions.
 
+IRC
+---
+
+hCraft's IRC channel can be found in `irc.panicirc.net/6667`, `#hCraft`.
+
+
 hCraft
 ======
 
@@ -67,11 +73,6 @@ so the compiler would know where to find the libraries on your computer.
 *  [libnoise](http://libnoise.sourceforge.net/)
 *  [tbb](http://threadingbuildingblocks.org/)
 *  [curl](http://curl.haxx.se/)
-
-IRC
----
-
-hCraft's IRC channel can be found in `irc.divineirc.net/6667`, `#hCraft`.
 
 Copyright
 ---------
