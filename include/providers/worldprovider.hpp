@@ -40,6 +40,7 @@ namespace hCraft {
 	struct world_information
 	{
 		std::string world_type;
+		std::string def_gm;
 		
 		int width;
 		int depth;
@@ -77,6 +78,10 @@ namespace hCraft {
 		 * exporter (could be a name prefix, suffix, extension, etc...).
 		 */
 		virtual bool claims_name (const char *path) = 0;
+		
+		
+		
+		static world_provider_naming* create (const char *name);
 	};
 	
 	

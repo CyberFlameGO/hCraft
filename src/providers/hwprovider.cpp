@@ -40,7 +40,7 @@ namespace hCraft {
 	#define HW_LAYER_PAGE_SIZE						 1024
 	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
 	
-	#define HW_CURR_REV												2
+	#define HW_CURR_REV												3
 	
 	
 	inline int
@@ -1088,6 +1088,7 @@ namespace hCraft {
 		writer.write_int (info.seed);
 		
 		writer.write_string (info.world_type.c_str ());
+		writer.write_string (info.def_gm.c_str ());
 		
 		writer.flush ();
 		this->inf = info;
@@ -1132,6 +1133,7 @@ namespace hCraft {
 			}
 		
 		writer.write_string ("NORMAL"); // world type
+		writer.write_string ("SURVIVAL"); // default gamemode
 		
 		writer.write_int (HW_LAYER_TABLE_OFFSET); // offset of layer table
 		
@@ -1367,6 +1369,7 @@ namespace hCraft {
 		inf.seed = reader.read_int ();
 		
 		inf.world_type = reader.read_string ();
+		inf.def_gm = reader.read_string ();
 	}
 	
 	static void

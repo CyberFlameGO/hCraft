@@ -25,6 +25,8 @@
 
 #include "providers/hwprovider.hpp"
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -93,6 +95,28 @@ namespace hCraft {
 			}
 		
 		return std::string ();
+	}
+	
+	
+	
+//---
+
+	static world_provider_naming*
+	create_hw_prov_naming ()
+		{ return new hw_provider_naming (); }
+	
+	world_provider_naming*
+	world_provider_naming::create (const char *name)
+	{
+		static std::unordered_map<std::string, world_provider_naming* (*) ()> creators {
+			{ "hw", create_hw_prov_naming },
+		};
+		
+		auto itr = creators.find (name);
+		if (itr != creators.end ())
+			return itr->second ();
+		
+		return nullptr;
 	}
 }
 

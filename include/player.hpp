@@ -460,17 +460,17 @@ namespace hCraft {
 		/* 
 		 * Sends the player to the given world.
 		 */
-		void join_world (world* w, bool broadcast = true);
+		void join_world (world* w, bool broadcast = true, bool first_join = false);
 		
 		/* 
 		 * Sends the player to the given world at the specified location.
 		 */
-		void join_world_at (world *w, entity_pos destpos, bool broadcast = true);
+		void join_world_at (world *w, entity_pos destpos, bool broadcast = true, bool first_join = false);
 		
 		/* 
 		 * Reloads the map for the player.
 		 */
-		void rejoin_world ();
+		void rejoin_world (bool respawn = true);
 		
 		/* 
 		 * Loads new close chunks to the player and unloads those that are too

@@ -580,6 +580,7 @@ namespace hCraft {
 		out.max_players = 12;
 		std::strcpy (out.main_world, "main");
 		out.online_mode = true;
+		out.load_prev_pos = false;
 		
 		std::strcpy (out.ip, "0.0.0.0");
 		out.port = 25565;
@@ -611,6 +612,7 @@ namespace hCraft {
 			grp_general->add_boolean ("online-mode", in.online_mode);
 			grp_general->add_integer ("max-players", in.max_players);
 			grp_general->add_string ("main-world", in.main_world);
+			grp_general->add_boolean ("load-prev-pos", in.load_prev_pos);
 			
 			root.add ("general", grp_general);
 		}
@@ -740,6 +742,10 @@ namespace hCraft {
 						error = true;
 					}
 			}
+			
+		// load prev pos
+		if (grp_general->try_get_boolean ("load-prev-pos", bl))
+			out.load_prev_pos = bl;
 	}
 	
 	static void

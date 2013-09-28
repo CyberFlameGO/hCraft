@@ -93,6 +93,7 @@ namespace hCraft {
 		this->th_running = false;
 		this->auto_lighting = true;
 		this->ticks = 0;
+		this->def_gm = GT_SURVIVAL;
 		
 		this->ph_state = PHY_OFF;
 		//this->physics.set_thread_count (0);
@@ -124,6 +125,12 @@ namespace hCraft {
 					chunk *ch = itr->second;
 					delete ch;
 				}
+		}
+		
+		{
+			std::lock_guard<std::mutex> guard {this->bad_chunk_lock};
+			for (auto tch : this->bad_chunks)
+				delete tch.ch;
 		}
 		
 		{
@@ -180,7 +187,7 @@ namespace hCraft {
 		world *wr = new world (wtyp, srv, name, srv.get_logger (), gen, prov);
 		wr->set_size (winf.width, winf.depth);
 		wr->set_spawn (winf.spawn_pos);
-		
+		wr->def_gm = (winf.def_gm == "CREATIVE") ? GT_CREATIVE : GT_SURVIVAL;
 		
 		wr->prov->open (*wr);
 		wr->prov->load_portals (*wr, wr->portals);
@@ -190,6 +197,101 @@ namespace hCraft {
 		wr->prepare_spawn (10, false);
 		
 		return wr;
+	}
+	
+	
+	
+	/* 
+	 * Reloads the world from the specified path.
+	 */
+	void
+	world::reload_world (const char *name)
+	{
+		{
+			// acquire all locks
+			std::lock_guard<std::mutex> ch_guard {this->chunk_lock};
+			std::lock_guard<std::mutex> gen_guard {this->gen_lock};
+			std::lock_guard<std::mutex> guard {this->bad_chunk_lock};
+			std::lock_guard<std::mutex> ent_guard {this->entity_lock};
+			std::lock_guard<std::mutex> ptl_guard {this->portal_lock};
+			
+			this->srv.cgen.cancel_requests (this);
+			
+			std::string prov_name = world_provider::determine ("data/worlds", name);
+			if (prov_name.empty ())
+				{
+					srv.get_logger () (LT_ERROR) << " - Failed to reload world: world does not exist" << std::endl;
+					throw world_load_error ("World does not exist");
+				}
+			
+			world_provider *prov = world_provider::create (prov_name.c_str (),
+				"data/worlds", name);
+			if (!prov)
+				{
+					srv.get_logger () (LT_ERROR) << " - Failed to reload world: invalid provider \"" << prov_name << "\"" << std::endl;
+					throw world_load_error ("Invalid provider");
+				}
+			
+			const world_information& winf = prov->info ();
+			world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
+			if (!gen)
+				{
+					srv.get_logger () (LT_ERROR) << " - Failed to reload world: invalid generator \"" << winf.generator << "\"" << std::endl;
+					delete prov;
+					throw world_load_error ("Invalid generator");
+				}
+			
+			world_type wtyp;
+			if (winf.world_type.compare ("NORMAL") == 0)
+				wtyp = WT_NORMAL;
+			else if (winf.world_type.compare ("LIGHT") == 0)
+				wtyp = WT_LIGHT;
+			else
+				{
+					srv.get_logger () (LT_ERROR) << " - Failed to reload world: world type" << std::endl;
+					delete gen;
+					delete prov;
+					throw world_load_error ("Corrupt world");
+				}
+			
+			/* 
+			 * Release resources
+			 */
+			delete this->gen;
+			if (this->prov)
+				delete this->prov;
+			
+			for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
+				{
+					chunk *ch = itr->second;
+					
+					int cx, cz;
+					chunk_coords (itr->first, &cx, &cz);
+					
+					this->bad_chunks.push_back ({cx, cz, ch});
+				}
+			this->chunks.clear ();
+			
+			for (portal *ptl : this->portals)
+				delete ptl;
+			this->portals.clear ();
+			
+			// reassign
+			this->typ = wtyp;
+			this->gen = gen;
+			this->prov = prov;
+		
+			this->set_size (winf.width, winf.depth);
+			this->set_spawn (winf.spawn_pos);
+			this->def_gm = (winf.def_gm == "CREATIVE") ? GT_CREATIVE : GT_SURVIVAL;
+			
+			this->prov->open (*this);
+			this->prov->load_portals (*this, this->portals);
+			this->prov->load_security (*this, this->security ());
+			this->prov->close ();
+		}
+		
+		this->prepare_spawn (10, false);
 	}
 	
 	
@@ -344,6 +446,7 @@ namespace hCraft {
 		if (gen == this->gen)
 			return;
 		
+		this->srv.cgen.cancel_requests (this);
 		delete this->gen;
 		this->gen = gen;
 	}
@@ -464,6 +567,37 @@ namespace hCraft {
 				++ this->ticks;
 				{
 					std::lock_guard<std::mutex> guard {this->update_lock};
+					
+					/* 
+					 * Dispose of unused chunks.
+					 */
+					{
+						std::lock_guard<std::mutex> guard {this->bad_chunk_lock};
+						for (auto itr = this->bad_chunks.begin (); itr != this->bad_chunks.end (); )
+							{
+								auto tch = *itr;
+								
+								// make sure there aren't any players near this chunk
+								bool used = false;
+								this->get_players ().all (
+									[&used, tch] (player *pl)
+										{
+											if (used) return;
+											
+											if (pl->can_see_chunk (tch.cx, tch.cz))
+												used = true;
+										});
+								
+								if (!used)
+									{
+										delete tch.ch;
+										itr = this->bad_chunks.erase (itr);
+									}
+								else
+									++ itr;
+							}
+					}
+					
 					
 					/* 
 					 * Block updates.
@@ -659,6 +793,7 @@ namespace hCraft {
 		inf.seed = this->gen ? this->gen->seed () : 0;
 		inf.chunk_count = 0;
 		inf.world_type = (this->typ == WT_LIGHT) ? "LIGHT" : "NORMAL";
+		inf.def_gm = (this->def_gm == GT_SURVIVAL) ? "SURVIVAL" : "CREATIVE";
 	}
 	
 	
@@ -672,7 +807,10 @@ namespace hCraft {
 		if (this->prov == nullptr)
 			return;
 		
-		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		std::lock_guard<std::mutex> ch_guard {this->chunk_lock};
+		std::lock_guard<std::mutex> gen_guard {this->gen_lock};
+		std::lock_guard<std::mutex> ptl_guard {this->portal_lock};
+		std::lock_guard<std::mutex> ent_guard {this->entity_lock};
 		
 		if (this->chunks.empty ())
 			{
@@ -788,9 +926,18 @@ namespace hCraft {
 	void
 	world::put_chunk (int x, int z, chunk *ch)
 	{
+		this->put_chunk_nolock (x, z, ch, true);
+	}
+	
+	void
+	world::put_chunk_nolock (int x, int z, chunk *ch, bool lock)
+	{
 		unsigned long long key = chunk_key (x, z);
 		
-		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		std::unique_lock<std::mutex> guard {this->chunk_lock, std::defer_lock};
+		if (lock)
+			guard.lock ();
+		
 		auto itr = this->chunks.find (key);
 		if (itr != this->chunks.end ())
 			{
@@ -848,18 +995,6 @@ namespace hCraft {
 	}
 	
 	
-	chunk*
-	world::get_chunk_nolock (int x, int z)
-	{
-		if (!this->chunk_in_bounds (x, z))
-			return this->edge_chunk;
-		
-		auto itr = this->chunks.find ((unsigned long long)chunk_key (x, z));
-		if (itr != this->chunks.end ())
-			return itr->second;
-		
-		return nullptr;
-	}
 	
 	/* 
 	 * Searches the chunk world for a chunk located at the specified coordinates.
@@ -867,12 +1002,21 @@ namespace hCraft {
 	chunk*
 	world::get_chunk (int x, int z)
 	{
+		return this->get_chunk_nolock (x, z, true);
+	}
+	
+	chunk*
+	world::get_chunk_nolock (int x, int z, bool lock)
+	{
 		if (!this->chunk_in_bounds (x, z))
 			return this->edge_chunk;
 		
 		unsigned long long key = chunk_key (x, z);
 		
-		std::lock_guard<std::mutex> guard {this->chunk_lock};
+		std::unique_lock<std::mutex> guard {this->chunk_lock, std::defer_lock};
+		if (lock)
+			guard.lock ();
+		
 		auto itr = this->chunks.find (key);
 		if (itr != this->chunks.end ())
 			return itr->second;
@@ -904,16 +1048,28 @@ namespace hCraft {
 	chunk*
 	world::load_chunk (int x, int z)
 	{
-		chunk *ch = this->get_chunk (x, z);
+		return this->load_chunk_nolock (x, z, true);
+	}
+	
+	chunk*
+	world::load_chunk_nolock (int x, int z, bool lock)
+	{
+		std::unique_lock<std::mutex> ch_guard {this->chunk_lock, std::defer_lock};
+		if (lock)
+			ch_guard.lock ();
 		
+		chunk *ch = this->get_chunk_nolock (x, z);
 		if (ch && ch->generated) return ch;
 		else if (!ch)
 			{
 				ch = new chunk ();
-		
+				
 				// try to load from disk
 				{
-					std::lock_guard<std::mutex> guard {this->gen_lock};
+					std::unique_lock<std::mutex> gen_guard {this->gen_lock, std::defer_lock};
+					if (lock)
+						gen_guard.lock ();
+					
 					this->prov->open (*this);
 					if (this->prov->load (*this, ch, x, z))
 						{
@@ -921,15 +1077,18 @@ namespace hCraft {
 								{
 									ch->recalc_heightmap ();
 									this->prov->close ();
-									this->put_chunk (x, z, ch);
+									this->put_chunk_nolock (x, z, ch);
 									return ch;
 								}
 						}
+					this->prov->close ();
 				}
 				
-				this->prov->close ();
-				this->put_chunk (x, z, ch);
+				this->put_chunk_nolock (x, z, ch);
 			}
+		
+		if (lock)
+			ch_guard.unlock ();
 		
 		this->gen->generate (*this, ch, x, z);
 		ch->generated = true;
@@ -956,7 +1115,6 @@ namespace hCraft {
 		if (itr != this->chunks.end ())
 			{
 				chunk *ch = itr->second;
-				delete ch;
 				
 				if (save)
 					{
@@ -966,6 +1124,11 @@ namespace hCraft {
 					}
 				
 				this->chunks.erase (itr);
+				
+				{
+					std::lock_guard<std::mutex> guard {this->bad_chunk_lock};
+					this->bad_chunks.push_back ({x, z, ch});
+				}
 			}
 	}
 	
@@ -987,13 +1150,18 @@ namespace hCraft {
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
 				chunk *ch = itr->second;
+				int x, z;
+				chunk_coords (itr->first, &x, &z);
+						
 				if (save)
 					{
-						int x, z;
-						chunk_coords (itr->first, &x, &z);
 						this->prov->save (*this, ch, x, z);
 					}
-				delete ch;
+				
+				{
+					std::lock_guard<std::mutex> guard {this->bad_chunk_lock};
+					this->bad_chunks.push_back ({x, z, ch});
+				}
 			}
 		this->chunks.clear ();
 		

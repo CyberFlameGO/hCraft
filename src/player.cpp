@@ -614,9 +614,9 @@ namespace hCraft {
 	 * Sends the player to the given world.
 	 */
 	void
-	player::join_world (world* w, bool broadcast)
+	player::join_world (world* w, bool broadcast, bool first_join)
 	{
-		this->join_world_at (w, w->get_spawn (), broadcast);
+		this->join_world_at (w, w->get_spawn (), broadcast, first_join);
 	}
 	
 	
@@ -681,7 +681,7 @@ namespace hCraft {
 	 * Sends the player to the given world at the specified location.
 	 */
 	void
-	player::join_world_at (world *w, entity_pos destpos, bool broadcast)
+	player::join_world_at (world *w, entity_pos destpos, bool broadcast, bool first_join)
 	{
 		if (this->bad ())
 			return;
@@ -747,6 +747,12 @@ namespace hCraft {
 		block_pos bpos = destpos;
 		this->send (packet::make_spawn_pos (bpos.x, bpos.y, bpos.z));
 		
+		if (!first_join)
+			{
+				std::cout << "not first join, changing gamemode to" << w->def_gm << std::endl;
+				this->change_gamemode ((gamemode_type)w->def_gm);
+			}
+		
 		this->need_new_chunks = true;
 		
 		// start physics
@@ -761,10 +767,9 @@ namespace hCraft {
 	 * Reloads the map for the player.
 	 */
 	void
-	player::rejoin_world ()
+	player::rejoin_world (bool respawn)
 	{
 		std::lock_guard<std::mutex> wguard {this->world_lock};
-		
 		for (auto itr = this->known_chunks.begin (); itr != this->known_chunks.end (); ++ itr)
 			{
 				known_chunk kc = *itr;
@@ -790,6 +795,13 @@ namespace hCraft {
 					}
 			}
 		this->known_chunks.clear ();
+		
+		if (respawn)
+			{
+				entity_pos epos = this->pos = this->get_world ()->get_spawn ();
+				this->send (packet::make_player_pos_and_look (
+					epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+			}
 		
 		this->need_new_chunks = true;
 		this->joining_world = true;
@@ -1793,29 +1805,34 @@ namespace hCraft {
 				}
 			
 			// load previous position
-			{
-				std::string world;
-				double pos_x, pos_y, pos_z, pos_r, pos_l;
-				int gm;
+			if (this->srv.get_config ().load_prev_pos)
+				{
+					std::string world;
+					double pos_x, pos_y, pos_z, pos_r, pos_l;
+					int gm;
 				
-				try
-					{
-						sql << "SELECT world,pos_x,pos_y,pos_z,pos_r,pos_l,gm FROM `player-logout-data` WHERE `name`='" << this->get_username () << "'",
-							soci::into (world), soci::into (pos_x), soci::into (pos_y),
-							soci::into (pos_z), soci::into (pos_r), soci::into (pos_l), 
-							soci::into (gm);
-					}
-				catch (const std::exception& ex)
-					{ }
+					try
+						{
+							sql << "SELECT world,pos_x,pos_y,pos_z,pos_r,pos_l,gm FROM `player-logout-data` WHERE `name`='" << this->get_username () << "'",
+								soci::into (world), soci::into (pos_x), soci::into (pos_y),
+								soci::into (pos_z), soci::into (pos_r), soci::into (pos_l), 
+								soci::into (gm);
+						}
+					catch (const std::exception& ex)
+						{ }
 					
-				entity_pos last_pos = {pos_x, pos_y, pos_z, (float)pos_r, (float)pos_l, true};
-				this->curr_world = this->srv.get_worlds ().find (world.c_str ());
-				if (this->curr_world)
-					{
-						this->pos = last_pos;
-						this->curr_gamemode = (gm == 1) ? GT_CREATIVE : GT_SURVIVAL;
-					}
-			}
+					entity_pos last_pos = {pos_x, pos_y, pos_z, (float)pos_r, (float)pos_l, true};
+					this->curr_world = this->srv.get_worlds ().find (world.c_str ());
+					if (this->curr_world)
+						{
+							this->pos = last_pos;
+							this->curr_gamemode = (pd.login_count == 1) ? (gamemode_type)this->curr_world->def_gm : ((gm == 1) ? GT_CREATIVE : GT_SURVIVAL);
+						}
+					else
+						this->curr_gamemode = (gamemode_type)this->srv.get_main_world ()->def_gm;
+				}
+			else
+				this->curr_gamemode = (gamemode_type)this->srv.get_main_world ()->def_gm;
 		}
 		
 		
@@ -2632,9 +2649,9 @@ namespace hCraft {
 		}
 		
 		if (this->curr_world)
-			this->join_world_at (this->curr_world, this->pos);
+			this->join_world_at (this->curr_world, this->pos, true, true);
 		else
-			this->join_world (this->get_server ().get_main_world ());
+			this->join_world (this->get_server ().get_main_world (), true, true);
 
 		/*
 		// DEBUG

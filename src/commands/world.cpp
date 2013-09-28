@@ -23,8 +23,12 @@
 #include "sqlops.hpp"
 #include "cistring.hpp"
 #include "messages.hpp"
+#include <cstdio>
+#include <sys/stat.h>
 #include <unordered_map>
 #include <sstream>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
@@ -130,7 +134,7 @@ namespace hCraft {
 			    return;
 				}
 			
-			const std::string& arg1 = reader.next ().as_str ();
+			const std::string arg1 = reader.next ().as_str ();
 			if (sutils::iequals (arg1, "add"))
 			  {
 			  	if (!pl->has ("command.world.world.change-owners")
@@ -146,7 +150,7 @@ namespace hCraft {
               return;
             }
            
-           const std::string& arg2 = reader.next ().as_str ();
+           const std::string arg2 = reader.next ().as_str ();
            
            // fetch player info
            soci::session sql {pl->get_server ().sql_pool ()};
@@ -185,7 +189,7 @@ namespace hCraft {
               return;
             }
            
-           const std::string& arg2 = reader.next ().as_str ();
+           const std::string arg2 = reader.next ().as_str ();
            
            // fetch player info
            soci::session sql {pl->get_server ().sql_pool ()};
@@ -239,7 +243,7 @@ namespace hCraft {
 			    return;
 				}
 			
-			const std::string& arg1 = reader.next ().as_str ();
+			const std::string arg1 = reader.next ().as_str ();
 			if (sutils::iequals (arg1, "add"))
 			  {
 			  	if (!pl->has ("command.world.world.change-members")
@@ -255,7 +259,7 @@ namespace hCraft {
               return;
             }
            
-           const std::string& arg2 = reader.next ().as_str ();
+           const std::string arg2 = reader.next ().as_str ();
            
            // fetch player info
            soci::session sql {pl->get_server ().sql_pool ()};
@@ -294,7 +298,7 @@ namespace hCraft {
               return;
             }
            
-           const std::string& arg2 = reader.next ().as_str ();
+           const std::string arg2 = reader.next ().as_str ();
            
            // fetch player info
            soci::session sql {pl->get_server ().sql_pool ()};
@@ -352,7 +356,7 @@ namespace hCraft {
 		      return;
 		    }
 		  
-		  const std::string& arg1 = reader.next ().as_str ();
+		  const std::string arg1 = reader.next ().as_str ();
 		  if (sutils::iequals (arg1, "set"))
 		    {
 		    	if (!pl->has ("command.world.world.set-perms"))
@@ -418,7 +422,7 @@ namespace hCraft {
 		      return;
 		    }
 		  
-		  const std::string& arg1 = reader.next ().as_str ();
+		  const std::string arg1 = reader.next ().as_str ();
 		  if (sutils::iequals (arg1, "set"))
 		    {
 		    	if (!pl->has ("command.world.world.set-perms"))
@@ -453,6 +457,62 @@ namespace hCraft {
 		  else
 		    {
 		      pl->message ("§c * §7Invalid sub-command§f: §cjoin-perms." + arg1);
+		      return;
+		    }
+		}
+		
+		
+		
+		static void
+		_handle_def_gm (player *pl, world *w, command_reader& reader)
+		{
+			if (!reader.has_next ())
+		    {
+		    	if (!pl->has ("command.world.world.get-perms"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      pl->message ("§6Displaying " + w->get_colored_name () + "§e'§6s default gamemode§e:");
+		      pl->message ("§7    " + std::string ((w->def_gm == GT_CREATIVE) ? "Creative" : "Survival"));
+		      return;
+		    }
+		  
+		  const std::string arg1 = reader.next ().as_str ();
+		  if (sutils::iequals (arg1, "set"))
+		    {
+		    	if (!pl->has ("command.world.world.def-gm"))
+		    		{
+		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			return;
+		    		}
+		    	
+		      if (!reader.has_next ())
+          	{
+          		pl->message ("§c * §7Usage§f: §e/world def-gm set §cnew-def-gm");
+          		return;
+          	}
+          
+          std::string val = reader.rest ();
+          gamemode_type new_gm = GT_SURVIVAL;
+          if (sutils::iequals (val, "survival"))
+          	;
+          else if (sutils::iequals (val, "creative"))
+          	new_gm = GT_CREATIVE;
+          else
+          	{
+          		pl->message ("§c * §7Invalid gamemode§f: §c" + val);
+          		return;
+          	}
+          
+          pl->get_world ()->def_gm = (int)new_gm;
+          pl->message (w->get_colored_name () + "§f'§es default gamemode has been set to§f:");
+          pl->message_spaced ("§f  > §7" + std::string ((new_gm == GT_SURVIVAL) ? "Survival" : "Creative"));
+		    }
+		  else
+		    {
+		      pl->message ("§c * §7Invalid sub-command§f: §cdef-gm." + arg1);
 		      return;
 		    }
 		}
@@ -529,24 +589,9 @@ namespace hCraft {
 			w->get_players ().all (
 				[] (player *pl)
 					{
-						pl->rejoin_world ();
+						pl->rejoin_world (false);
 						pl->message ("§bWorld reloaded");
 					});
-			
-			/*
-			std::ostringstream ss;
-			ss << w->get_colored_name () << "§f'§es dimensions set to §7";
-			if (w->get_width () <= 0)
-				ss << "inf";
-			else
-				ss << w->get_width ();
-			ss << " §fx §7";
-			if (w->get_depth () <= 0)
-				ss << "inf";
-			else
-				ss << w->get_depth ();
-			pl->message (ss.str ());
-			*/
 		}
 		
 		
@@ -605,6 +650,165 @@ namespace hCraft {
 		
 		
 		
+		static bool
+		_copy_file (const char *dest_path, const char *src_path)
+		{
+			FILE *dest = std::fopen (dest_path, "wb");
+			if (!dest)
+				return false;
+			
+			FILE *src = std::fopen (src_path, "rb");
+			if (!src)
+				{
+					std::fclose (dest);
+					return false;
+				}
+			
+#define BACKUP_BUFFER_SIZE		524288
+			unsigned char *buf = new unsigned char [BACKUP_BUFFER_SIZE];
+			
+			std::fseek (src, 0, SEEK_END);
+			long src_size = (long)std::ftell (src);
+			std::fseek (src, 0, SEEK_SET);
+			
+			long copied = 0, need;
+			while (copied < src_size)
+				{
+					need = BACKUP_BUFFER_SIZE;
+					if ((src_size - copied) < need)
+						need = src_size - copied;
+					
+					long read = std::fread (buf, 1, need, src);
+					if (read == 0)
+						{
+							delete[] buf;
+							std::fclose (dest);
+							std::fclose (src);
+							return false;
+						}
+					
+					std::fwrite (buf, 1, need, dest);
+					copied += need;
+				}
+			
+			delete[] buf;
+			std::fclose (dest);
+			std::fclose (src);
+			return true;
+		}
+		
+		static int
+		_determine_backup_number (const std::string& path)
+		{
+			int num = 1;
+			std::ostringstream ss;
+			for (;;)
+				{
+					ss << path << "." << num;
+					
+					FILE *f = std::fopen (ss.str ().c_str (), "rb");
+					if (!f)
+						return num;
+					
+					std::fclose (f);
+					ss.str (std::string ());
+					++ num;
+				}
+		}
+		
+		static void
+		_handle_backup (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.backup"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+    	mkdir ("data/backups", 0744);
+    	mkdir (("data/backups/" + std::string (w->get_name ())).c_str (), 0744);
+    	
+    	std::string dest = w->get_path ();
+    	dest.erase (0, 12); // remove "data/worlds/" part
+    	dest.insert (0, "data/backups/" + std::string (w->get_name ()) + "/");
+    	
+    	int backup_num = _determine_backup_number (dest.c_str ());
+    	std::ostringstream ss;
+    	ss << dest << "." << backup_num;
+    	
+    	w->save_all ();
+    	if (!_copy_file (ss.str ().c_str (), w->get_path ()))
+    		pl->message ("§4 * §cFailed to save backup§4.");
+    	else
+    		{
+    			pl->message ("§eBackup saved");
+    			
+    			ss.str (std::string ());
+    			ss << "§7 | Use §e/world restore §b" << backup_num << " §7to restore this backup.";
+    			pl->message (ss.str ());
+    		}
+		}
+		
+		
+		
+		static void
+		_handle_restore (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.restore"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+    	if (!reader.has_next ())
+    		{
+    			pl->message ("§c * §7Usage§f: §e/world restore §cbackup-number");
+    			return;
+    		}
+    	
+    	int backup_num;
+    	auto arg = reader.next ();
+    	if (!arg.is_int () || ((backup_num = arg.as_int ()) <= 0))
+    		{
+    			pl->message ("§c * §7The backup number should a positive non-zero integer§c.");
+    			return;
+    		}
+    	
+    	std::string src = w->get_path ();
+    	src.erase (0, 12); // remove "data/worlds/" part
+    	src.insert (0, "data/backups/" + std::string (w->get_name ()) + "/");
+    	std::ostringstream ss;
+    	ss << src << "." << backup_num;
+    	
+    	FILE *f = std::fopen (ss.str ().c_str (), "rb");
+    	if (!f)
+    		{
+    			pl->message ("§c * §7Backup does not exist§c.");
+    			return;
+    		}
+    	std::fclose (f);
+    	
+    	std::cout << "W 1" << std::endl;
+    	_copy_file (w->get_path (), ss.str ().c_str ());
+    	std::cout << "W 2" << std::endl;
+    	w->reload_world (w->get_name ());
+    	std::cout << "W 3" << std::endl;
+    	w->get_players ().all (
+				[] (player *pl)
+					{
+						std::cout << "W a" << std::endl;
+						pl->rejoin_world ();
+						std::cout << "W b" << std::endl;
+						pl->message ("§bWorld reloaded");
+					});
+			std::cout << "W 4" << std::endl;
+			ss.str (std::string ());
+			ss << "§eRestored backup #§b" << backup_num;
+			pl->message (ss.str ());
+		}
+		
+		
+		
 		/* 
 		 * /world - 
 		 * 
@@ -625,6 +829,8 @@ namespace hCraft {
 		 *       Required to set build-perms or join-perms
 		 *   - command.world.world.get-perms
 		 *       Required to view build-perms or join-perms
+		 *   - commands.world.world.def-gm
+		 *       Needed to change the world's default gamemode.
 		 *   - commands.world.world.resize
 		 *       Required to resize the world.
 		 *   - commands.world.world.regenerate
@@ -665,8 +871,11 @@ namespace hCraft {
 						{ "members", _handle_members },
 						{ "build-perms", _handle_build_perms },
 						{ "join-perms", _handle_join_perms },
+						{ "def-gm", _handle_def_gm },
 						{ "resize", _handle_resize },
 						{ "regenerate", _handle_regenerate },
+						{ "backup", _handle_backup },
+						{ "restore", _handle_restore },
 					};
 					
 					auto itr = _map.find (arg1.c_str ());

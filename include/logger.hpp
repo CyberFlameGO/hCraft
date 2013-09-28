@@ -23,6 +23,7 @@
 #include <sstream>
 #include <pthread.h> // used for thread-local storage.
 #include <mutex>
+#include <fstream>
 
 
 namespace hCraft {
@@ -56,15 +57,16 @@ namespace hCraft {
 	 */
 	class logger
 	{
+		friend class logger_buf;
 		class logger_buf: public std::stringbuf
 		{
-			std::mutex& lock;
+			logger& log;
 			
 		public:
 			/* 
 			 * Class constructor.
 			 */
-			logger_buf (std::mutex& lock);
+			logger_buf (logger& log);
 			
 			
 			/* 
@@ -83,12 +85,23 @@ namespace hCraft {
 			/* 
 			 * Class constructor.
 			 */
-			logger_strm (std::mutex& lock);
+			logger_strm (logger& log);
 		};
 		
 	private:
 		std::mutex lock;
 		pthread_key_t strm_key; // a key to per-thread instances of `logger_strm'.
+		
+		std::ofstream fs;
+		int fsc;
+		int day;
+		
+	private:
+		/* 
+		 * Reopens the internal file stream and sets its path to a file whose name
+		 * contains the appropriate date.
+		 */
+		void recalc_date ();
 		
 	public:
 		/* 

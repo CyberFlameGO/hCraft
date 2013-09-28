@@ -145,5 +145,28 @@ namespace hCraft {
 		std::lock_guard<std::mutex> guard {this->request_mutex};
 		this->requests.push ({pid, w, cx, cz, flags, extra});
 	}
+	
+	
+	
+	/* 
+	 * Cancels all chunk requests for the given world.
+	 */
+	void
+	chunk_generator::cancel_requests (world *w)
+	{
+		std::queue<gen_request> valid_reqs;
+			
+		std::lock_guard<std::mutex> guard {this->request_mutex};
+		while (!this->requests.empty ())
+			{
+				gen_request req = this->requests.front ();
+				this->requests.pop ();
+				
+				if (req.w != w)
+					valid_reqs.push (req);
+			}
+		
+		this->requests = valid_reqs;
+	}
 }
 

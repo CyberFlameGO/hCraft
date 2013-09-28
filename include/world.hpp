@@ -106,6 +106,13 @@ namespace hCraft {
 	};
 	
 	
+	struct tagged_chunk
+	{
+		int cx, cz;
+		chunk *ch;
+	};
+	
+	
 	
 	/* 
 	 * The world provides methods to easily retreive or modify chunks, and
@@ -129,7 +136,9 @@ namespace hCraft {
 		unsigned long long ticks;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
+		std::vector<tagged_chunk> bad_chunks;
 		std::mutex chunk_lock;
+		std::mutex bad_chunk_lock;
 		
 		struct { int x, z; chunk *ch; } last_chunk;
 		
@@ -160,6 +169,8 @@ namespace hCraft {
 		std::mutex estage_lock;
 		std::mutex update_lock;
 		
+		int def_gm;
+		
 		int id;
 		
 	public:
@@ -184,6 +195,7 @@ namespace hCraft {
 		
 		inline world_physics_state physics_state () const { return this->ph_state; }
 		inline std::mutex& get_update_lock () { return this->update_lock; }
+		inline std::mutex& get_chunk_lock () { return this->chunk_lock; }
 		
 		inline world_security& security () { return this->wsec; }
 		
@@ -198,8 +210,6 @@ namespace hCraft {
 		 * The function ran by the world's thread.
 		 */
 		void worker ();
-		
-		chunk* get_chunk_nolock (int x, int z);
 		
 		std::unordered_set<entity *>::iterator
 		despawn_entity_nolock (std::unordered_set<entity *>::iterator itr);
@@ -220,6 +230,13 @@ namespace hCraft {
 		 * Class destructor.
 		 */
 		~world ();
+		
+		
+		
+		/* 
+		 * Reloads the world from the specified path.
+		 */
+		void reload_world (const char *name);
 		
 	//----
 		
@@ -272,11 +289,13 @@ namespace hCraft {
 		 * Inserts the specified chunk into this world at the given coordinates.
 		 */
 		void put_chunk (int x, int z, chunk *ch);
+		void put_chunk_nolock (int x, int z, chunk *ch, bool lock = false);
 		
 		/* 
 		 * Searches the chunk world for a chunk located at the specified coordinates.
 		 */
 		chunk* get_chunk (int x, int z);
+		chunk* get_chunk_nolock (int x, int z, bool lock = false);
 		
 		/* 
 		 * Returns the chunk located at the given block coordinates.
@@ -290,6 +309,7 @@ namespace hCraft {
 		 */
 		chunk* load_chunk (int x, int z);
 		chunk* load_chunk_at (int bx, int bz);
+		chunk* load_chunk_nolock (int x, int z, bool lock = false);
 		
 		/* 
 		 * Unloads and saves (if save = true) the chunk located at the specified

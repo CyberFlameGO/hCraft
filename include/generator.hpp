@@ -109,6 +109,11 @@ namespace hCraft {
 		 * The specified player is then informed when it's ready.
 		 */
 		void request (world *w, int cx, int cz, int pid, int flags = 0, int extra = 0);
+		
+		/* 
+		 * Cancels all chunk requests for the given world.
+		 */
+		void cancel_requests (world *w);
 	};
 }
 

@@ -24,8 +24,12 @@
 #include <chrono>
 #include <iomanip>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <cctype>
+#include <fstream>
+#include <ctime>
+#include <sstream>
 
 
 namespace hCraft {
@@ -33,8 +37,8 @@ namespace hCraft {
 	/* 
 	 * Class constructor.
 	 */
-	logger::logger_buf::logger_buf (std::mutex& lock)
-		: lock (lock)
+	logger::logger_buf::logger_buf (logger& log)
+		: log (log)
 		{ }
 	
 	
@@ -45,7 +49,7 @@ namespace hCraft {
 	int
 	logger::logger_buf::sync ()
 	{
-		std::lock_guard<std::mutex> guard {this->lock};
+		std::lock_guard<std::mutex> guard {this->log.lock};
 		
 		struct winsize w;
 		ioctl (STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -81,6 +85,19 @@ namespace hCraft {
 					}
 			}
 		
+		// write to disk
+		{
+			std::time_t t = std::time (nullptr);
+			struct tm lt;
+			localtime_r (&t, &lt);
+			
+			if (lt.tm_mday != this->log.day)
+				this->log.recalc_date ();
+		}
+		this->log.fs << output;
+		if (this->log.fsc++ % 30 == 0)
+			this->log.fs.flush ();
+		
 		this->str (std::string ());
 		return 0;
 	}
@@ -90,13 +107,37 @@ namespace hCraft {
 	/* 
 	 * Class constructor.
 	 */
-	logger::logger_strm::logger_strm (std::mutex& lock)
-		: std::ostream (&buf), buf (lock)
+	logger::logger_strm::logger_strm (logger& log)
+		: std::ostream (&buf), buf (log)
+		{ }
+	
+	
+	
+	static void
+	_mark_session (std::ofstream& fs)
 	{
+		if (!fs) return;
 		
+		std::time_t t = std::time (nullptr);
+		struct tm lt;
+		localtime_r (&t, &lt);
+		
+		if (fs.tellp () > 0)
+			fs << "\n\n" << std::flush;
+		
+		fs <<
+"********************************************************************************\n"
+"    New Session:\n"
+"      @ " << std::setfill ('0')
+ 					 << std::setw (2) << lt.tm_hour << ":"
+ 					 << std::setw (2) << lt.tm_min << ":"
+ 					 << std::setw (2) << lt.tm_sec << "   "
+ 					 << std::setw (2) << lt.tm_mon << "/"
+ 					 << std::setw (2) << lt.tm_mday << "/"
+ 					 << (lt.tm_year + 1900) << std::setfill (' ') << "\n" <<
+"********************************************************************************\n"
+			 << std::endl;
 	}
-	
-	
 	
 	/* 
 	 * Class constructor.
@@ -105,12 +146,50 @@ namespace hCraft {
 	 */
 	logger::logger ()
 	{
+		// create log file
+		this->recalc_date ();
+		
+		_mark_session (this->fs);
+		
 		if (pthread_key_create (&this->strm_key,
 			[] (void *param)
 				{
 					delete static_cast<logger::logger_strm *> (param);
 				}))
 			throw std::runtime_error ("failed to create stream key");
+	}
+	
+	
+	
+	/* 
+	 * Reopens the internal file stream and sets its path to a file whose name
+	 * contains the appropriate date.
+	 */
+	void
+	logger::recalc_date ()
+	{
+		if (this->fs.is_open ())
+			this->fs.close ();
+		this->fsc = 0;
+		
+		std::time_t t = std::time (nullptr);
+		struct tm lt;
+		localtime_r (&t, &lt);
+		this->day = lt.tm_mday;
+		
+		std::ostringstream ss;
+		ss << "data/logs/log-" << std::setfill ('0')
+			 << std::setw (2) << lt.tm_mon << "-"
+			 << std::setw (2) << lt.tm_mday << "-"
+			 << (lt.tm_year + 1900) << ".log";
+		
+		mkdir ("data/logs", 0744);
+		fs.open (ss.str (), std::ios_base::out | std::ios_base::app);
+		if (!fs)
+			{
+				std::cout << "[LOGGER ERROR] Failed to open logfile for writing!" << std::endl;
+				return;
+			}
 	}
 	
 	
@@ -166,7 +245,7 @@ namespace hCraft {
 		ptr = pthread_getspecific (this->strm_key);
 		if (!ptr)
 			{
-				ptr = new logger_strm (this->lock);
+				ptr = new logger_strm (*this);
 				if (pthread_setspecific (this->strm_key, ptr))
 					{
 						delete static_cast<logger_strm *> (ptr);

@@ -75,6 +75,7 @@ namespace hCraft {
 		int  max_players;
 		char main_world[33];
 		bool online_mode;
+		bool load_prev_pos;
 		
 		char ip[16];
 		int  port;
