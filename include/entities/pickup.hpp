@@ -20,7 +20,7 @@
 #define _hCraft__PICKUP_H_
 
 #include "entities/entity.hpp"
-#include "slot.hpp"
+#include "slot/slot.hpp"
 
 
 namespace hCraft {

@@ -17,12 +17,10 @@
  */
 
 #include "entities/pickup.hpp"
-#include "player.hpp"
-#include "server.hpp"
+#include "player/player.hpp"
+#include "system/server.hpp"
 #include <vector>
 #include <utility>
-
-#include <iostream> // DEBUG
 
 
 namespace hCraft {

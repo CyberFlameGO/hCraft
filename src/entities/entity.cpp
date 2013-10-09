@@ -17,8 +17,8 @@
  */
 
 #include "entities/entity.hpp"
-#include "player.hpp"
-#include "server.hpp"
+#include "player/player.hpp"
+#include "system/server.hpp"
 #include <cstring>
 
 

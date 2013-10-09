@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/infoc.hpp"
-#include "player.hpp"
-#include "server.hpp"
+#include "commands/rules.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
 
 
 namespace hCraft {

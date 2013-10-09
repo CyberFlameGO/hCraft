@@ -17,7 +17,7 @@
  */
 
 #include "physics/blocks/sand.hpp"
-#include "world.hpp"
+#include "world/world.hpp"
 
 
 namespace hCraft {

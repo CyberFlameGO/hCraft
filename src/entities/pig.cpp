@@ -17,7 +17,7 @@
  */
 
 #include "entities/pig.hpp"
-#include "player.hpp"
+#include "player/player.hpp"
 
 
 namespace hCraft {

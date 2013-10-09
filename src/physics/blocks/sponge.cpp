@@ -17,7 +17,7 @@
  */
 
 #include "physics/blocks/sponge.hpp"
-#include "world.hpp"
+#include "world/world.hpp"
 
 
 namespace hCraft {

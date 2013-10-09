@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/drawc.hpp"
-#include "player.hpp"
-#include "server.hpp"
-#include "stringutils.hpp"
-#include "position.hpp"
-#include "drawops.hpp"
+#include "commands/circle.hpp"
+#include "player/player.hpp"
+#include "system/server.hpp"
+#include "util/stringutils.hpp"
+#include "util/position.hpp"
+#include "drawing/drawops.hpp"
 #include <sstream>
 #include <vector>
 #include <cmath>

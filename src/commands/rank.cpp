@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/adminc.hpp"
-#include "player.hpp"
-#include "server.hpp"
-#include "sqlops.hpp"
-#include "rank.hpp"
-#include "stringutils.hpp"
+#include "commands/rank.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "system/sqlops.hpp"
+#include "player/rank.hpp"
+#include "util/stringutils.hpp"
 
 
 namespace hCraft { 

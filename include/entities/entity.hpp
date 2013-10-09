@@ -19,7 +19,7 @@
 #ifndef _hCraft__ENTITY_H_
 #define _hCraft__ENTITY_H_
 
-#include "position.hpp"
+#include "util/position.hpp"
 #include <vector>
 #include <chrono>
 

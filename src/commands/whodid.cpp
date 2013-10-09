@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/infoc.hpp"
-#include "player.hpp"
-#include "server.hpp"
-#include "world.hpp"
-#include "stringutils.hpp"
-#include "utils.hpp"
-#include "sqlops.hpp"
+#include "commands/whodid.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "util/stringutils.hpp"
+#include "util/utils.hpp"
+#include "system/sqlops.hpp"
 #include <sstream>
 #include <ctime>
 #include <map>

@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/infoc.hpp"
-#include "server.hpp"
-#include "player.hpp"
-#include "stringutils.hpp"
-#include "utils.hpp"
-#include "sqlops.hpp"
+#include "commands/money.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "util/stringutils.hpp"
+#include "util/utils.hpp"
+#include "system/sqlops.hpp"
 #include <sstream>
 
 

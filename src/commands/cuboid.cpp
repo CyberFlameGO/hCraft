@@ -16,14 +16,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/drawc.hpp"
-#include "player.hpp"
-#include "server.hpp"
-#include "world.hpp"
-#include "stringutils.hpp"
-#include "utils.hpp"
-#include "drawops.hpp"
-#include "messages.hpp"
+#include "commands/cuboid.hpp"
+#include "player/player.hpp"
+#include "system/server.hpp"
+#include "world/world.hpp"
+#include "util/stringutils.hpp"
+#include "util/utils.hpp"
+#include "drawing/drawops.hpp"
+#include "system/messages.hpp"
 #include <sstream>
 
 

@@ -1,60 +1,81 @@
 
 hCraft_sources = Split("""
 		main.cpp
-		logger.cpp
-		server.cpp
-		player.cpp
-		player_list.cpp 
-		packet.cpp
-		scheduler.cpp
-		position.cpp
-		chunk.cpp
-		world.cpp
-		blocks.cpp
-		stringutils.cpp
-		wordwrap.cpp
-		threadpool.cpp
-		utils.cpp
-		rank.cpp
-		permissions.cpp
-		messages.cpp
-		nbt.cpp
-		window.cpp
-		items.cpp
-		slot.cpp
-		lighting.cpp
-		manual.cpp
-		crafting.cpp
-		editstage.cpp
-		drawops.cpp
-		sqlops.cpp
-		authentication.cpp
-		generator.cpp
-		config.cpp
-		world_list.cpp
-		noise.cpp
-		portal.cpp
-		block_history.cpp
-		world_security.cpp
-		block_undo.cpp
+		
+		system/logger.cpp
+		system/server.cpp
+		system/packet.cpp
+		system/scheduler.cpp
+		system/threadpool.cpp
+		system/sqlops.cpp
+		system/authentication.cpp
+		system/messages.cpp
+		
+		player/player.cpp
+		player/player_list.cpp 
+		player/rank.cpp
+		player/permissions.cpp
+		
+		world/chunk.cpp
+		world/world.cpp
+		world/lighting.cpp
+		world/world_list.cpp
+		world/portal.cpp
+		world/block_history.cpp
+		world/world_security.cpp
+		world/block_undo.cpp
+		
+		world/providers/worldprovider.cpp
+		world/providers/hwprovider.cpp
+		
+		world/generation/generator.cpp
+		world/generation/worldgenerator.cpp
+		world/generation/flatgrass.cpp
+		world/generation/plains.cpp
+		world/generation/overhang.cpp
+		world/generation/flatplains.cpp
+		world/generation/experiment.cpp
+		world/generation/islands.cpp
+		world/generation/empty.cpp
+		world/generation/detail/trees.cpp
+		
+		slot/blocks.cpp
+		slot/window.cpp
+		slot/items.cpp
+		slot/slot.cpp
+		slot/crafting.cpp
+		
+		util/position.cpp
+		util/stringutils.cpp
+		util/wordwrap.cpp
+		util/utils.cpp
+		util/nbt.cpp
+		util/manual.cpp
+		util/config.cpp
+		util/noise.cpp
+		
+		drawing/editstage.cpp
+		drawing/drawops.cpp
+		
+		drawing/selection/cuboid_selection.cpp
+		drawing/selection/block_selection.cpp
+		drawing/selection/sphere_selection.cpp
 		
 		entities/entity.cpp
 		entities/pickup.cpp
 		entities/pig.cpp
 		
-		providers/worldprovider.cpp
-		providers/hwprovider.cpp
-		
-		generation/worldgenerator.cpp
-		generation/flatgrass.cpp
-		generation/plains.cpp
-		generation/overhang.cpp
-		generation/flatplains.cpp
-		generation/experiment.cpp
-		generation/islands.cpp
-		generation/empty.cpp
-		
-		generation/detail/trees.cpp
+		physics/physics.cpp
+		physics/blocks/physics_block.cpp
+		physics/blocks/sand.cpp
+		physics/blocks/langtons_ant.cpp
+		physics/blocks/water.cpp
+		physics/blocks/snow.cpp
+		physics/blocks/activewater.cpp
+		physics/blocks/sponge.cpp
+		physics/blocks/firework.cpp
+		physics/blocks/water_faucet.cpp
+		physics/blocks/shark.cpp
 		
 		commands/command.cpp
 		commands/help.cpp
@@ -98,22 +119,6 @@ hCraft_sources = Split("""
 		commands/realm.cpp
 		commands/rules.cpp
 		commands/players.cpp
-		
-		selection/cuboid_selection.cpp
-		selection/block_selection.cpp
-		selection/sphere_selection.cpp
-		
-		physics/physics.cpp
-		physics/blocks/physics_block.cpp
-		physics/blocks/sand.cpp
-		physics/blocks/langtons_ant.cpp
-		physics/blocks/water.cpp
-		physics/blocks/snow.cpp
-		physics/blocks/activewater.cpp
-		physics/blocks/sponge.cpp
-		physics/blocks/firework.cpp
-		physics/blocks/water_faucet.cpp
-		physics/blocks/shark.cpp
 		""")
 
 hCraft_libs = Split("""

@@ -17,9 +17,9 @@
  */
 
 #include "physics/blocks/water_faucet.hpp"
-#include "world.hpp"
-#include "utils.hpp"
-#include "position.hpp"
+#include "world/world.hpp"
+#include "util/utils.hpp"
+#include "util/position.hpp"
 #include <random>
 
 

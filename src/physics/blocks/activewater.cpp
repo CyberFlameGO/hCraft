@@ -17,7 +17,7 @@
  */
 
 #include "physics/blocks/activewater.hpp"
-#include "world.hpp"
+#include "world/world.hpp"
 
 
 namespace hCraft {

@@ -16,11 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/worldc.hpp"
-#include "server.hpp"
-#include "player.hpp"
-#include "world.hpp"
-#include "stringutils.hpp"
+#include "commands/goto.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "util/stringutils.hpp"
 #include <string>
 #include <sstream>
 #include <vector>

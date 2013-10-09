@@ -16,19 +16,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/drawc.hpp"
-#include "player.hpp"
-#include "position.hpp"
-#include "stringutils.hpp"
-#include "cistring.hpp"
-#include "messages.hpp"
+#include "commands/select.hpp"
+#include "player/player.hpp"
+#include "util/position.hpp"
+#include "util/stringutils.hpp"
+#include "util/cistring.hpp"
+#include "system/messages.hpp"
 #include <vector>
 #include <sstream>
 #include <utility>
 
-#include "selection/cuboid_selection.hpp"
-#include "selection/block_selection.hpp"
-#include "selection/sphere_selection.hpp"
+#include "drawing/selection/cuboid_selection.hpp"
+#include "drawing/selection/block_selection.hpp"
+#include "drawing/selection/sphere_selection.hpp"
 
 
 namespace hCraft {

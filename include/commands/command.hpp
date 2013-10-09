@@ -19,11 +19,11 @@
 #ifndef _hCraft__COMMAND_H_
 #define _hCraft__COMMAND_H_
 
+#include "slot/blocks.hpp"
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include "chunk.hpp"
 
 
 namespace hCraft {

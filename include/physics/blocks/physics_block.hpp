@@ -20,7 +20,7 @@
 #define _hCraft__PHYSICS_BLOCK_H_
 
 #include <random>
-#include "blocks.hpp"
+#include "slot/blocks.hpp"
 
 
 namespace hCraft {

@@ -17,8 +17,8 @@
  */
 
 #include "physics/blocks/firework.hpp"
-#include "world.hpp"
-#include "utils.hpp"
+#include "world/world.hpp"
+#include "util/utils.hpp"
 #include <random>
 
 

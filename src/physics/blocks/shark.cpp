@@ -17,9 +17,9 @@
  */
 
 #include "physics/blocks/shark.hpp"
-#include "world.hpp"
-#include "player.hpp"
-#include "player_list.hpp"
+#include "world/world.hpp"
+#include "player/player.hpp"
+#include "player/player_list.hpp"
 
 
 namespace hCraft {

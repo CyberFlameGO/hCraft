@@ -17,8 +17,8 @@
  */
 
 #include "physics/blocks/langtons_ant.hpp"
-#include "world.hpp"
-#include "utils.hpp"
+#include "world/world.hpp"
+#include "util/utils.hpp"
 
 
 namespace hCraft {

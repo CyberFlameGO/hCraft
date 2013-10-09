@@ -17,8 +17,8 @@
  */
 
 #include "physics/blocks/water.hpp"
-#include "world.hpp"
-#include "blocks.hpp"
+#include "world/world.hpp"
+#include "slot/blocks.hpp"
 
 
 namespace hCraft {

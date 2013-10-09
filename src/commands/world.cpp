@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/worldc.hpp"
-#include "server.hpp"
-#include "world.hpp"
-#include "stringutils.hpp"
-#include "sqlops.hpp"
-#include "cistring.hpp"
-#include "messages.hpp"
+#include "commands/world.hpp"
+#include "system/server.hpp"
+#include "world/world.hpp"
+#include "util/stringutils.hpp"
+#include "system/sqlops.hpp"
+#include "util/cistring.hpp"
+#include "system/messages.hpp"
 #include <cstdio>
 #include <sys/stat.h>
 #include <unordered_map>

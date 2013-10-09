@@ -17,7 +17,7 @@
  */
 
 #include "physics/blocks/snow.hpp"
-#include "world.hpp"
+#include "world/world.hpp"
 
 
 namespace hCraft {

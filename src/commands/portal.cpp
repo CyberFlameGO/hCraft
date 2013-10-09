@@ -16,13 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/worldc.hpp"
-#include "player.hpp"
-#include "world.hpp"
-#include "stringutils.hpp"
-#include "server.hpp"
-#include "portal.hpp"
-#include "editstage.hpp"
+#include "commands/portal.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "util/stringutils.hpp"
+#include "world/portal.hpp"
+#include "drawing/editstage.hpp"
 #include <sstream>
 
 

@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/worldc.hpp"
-#include "server.hpp"
-#include "player.hpp"
-#include "world.hpp"
-#include "providers/worldprovider.hpp"
-#include "generation/worldgenerator.hpp"
+#include "commands/wload.hpp"
+#include "system/server.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "world/providers/worldprovider.hpp"
+#include "world/generation/worldgenerator.hpp"
 
 
 namespace hCraft {

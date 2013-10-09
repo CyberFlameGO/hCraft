@@ -28,7 +28,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <random>
-#include "position.hpp"
+#include "util/position.hpp"
 #include "tbb/concurrent_queue.h"
 
 

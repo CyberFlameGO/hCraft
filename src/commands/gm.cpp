@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/adminc.hpp"
-#include "player.hpp"
-#include "stringutils.hpp"
-#include "server.hpp"
+#include "commands/gm.hpp"
+#include "player/player.hpp"
+#include "util/stringutils.hpp"
+#include "system/server.hpp"
 #include <sstream>
 
 

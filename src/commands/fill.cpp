@@ -16,12 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/drawc.hpp"
-#include "player.hpp"
-#include "world.hpp"
-#include "server.hpp"
-#include "stringutils.hpp"
-#include "utils.hpp"
+#include "commands/fill.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "system/server.hpp"
+#include "util/stringutils.hpp"
+#include "util/utils.hpp"
 #include <sstream>
 #include <mutex>
 #include <random>

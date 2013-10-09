@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "commands/worldc.hpp"
-#include "player.hpp"
-#include "world.hpp"
-#include "position.hpp"
+#include "commands/wsetspawn.hpp"
+#include "player/player.hpp"
+#include "world/world.hpp"
+#include "util/position.hpp"
 
 
 namespace hCraft {

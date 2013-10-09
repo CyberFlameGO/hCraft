@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "logger.hpp"
-#include "server.hpp"
+#include "system/logger.hpp"
+#include "system/server.hpp"
 #include <iostream>
 #include <cstring>
 #include <exception>

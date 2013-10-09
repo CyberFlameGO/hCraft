@@ -18,12 +18,12 @@
 
 #include "physics/physics.hpp"
 #include "physics/physics.hpp"
-#include "world.hpp"
-#include "utils.hpp"
-#include "server.hpp"
-#include "stringutils.hpp"
+#include "world/world.hpp"
+#include "util/utils.hpp"
+#include "system/server.hpp"
+#include "util/stringutils.hpp"
 #include "entities/entity.hpp"
-#include "player.hpp"
+#include "player/player.hpp"
 #include <functional>
 #include <cstring>
 
