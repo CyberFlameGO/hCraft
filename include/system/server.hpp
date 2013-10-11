@@ -33,6 +33,7 @@
 #include "world/generation/generator.hpp"
 #include "world/world_list.hpp"
 #include "system/messages.hpp"
+#include "irc/irc.hpp"
 
 #include <soci/soci.h>
 #include <unordered_map>
@@ -83,11 +84,19 @@ namespace hCraft {
 		char self_highlight_color;
 		char name_highlight_color;
 		
+		// sql:
 		std::string db_name;
 		std::string db_user;
 		std::string db_pass;
 		std::string db_host;
 		int db_port;
+		
+		// irc:
+		bool irc_enabled;
+		std::string irc_net;
+		int irc_port;
+		std::string irc_chan;
+		std::string irc_nick;
 		
 		std::set<std::string> dcmds; // disabled commands
 	};
@@ -199,6 +208,9 @@ namespace hCraft {
 		std::vector<muted_player> muted;
 		std::mutex mute_lock;
 		
+		// IRC client
+		irc_client *ircc;
+		
 	public:
 		physics_manager global_physics; // initially shared between all worlds
 		authenticator auth;
@@ -276,6 +288,13 @@ namespace hCraft {
 		 */
 		void init_listener ();
 		void destroy_listener ();
+
+		/* 
+		 * Initializes the IRC client, and connects it to the IRC network/channel
+		 * specified in the configuration file.
+		 */
+		void init_irc ();
+		void destroy_irc ();
 		
 	private:
 		/* 
@@ -322,6 +341,7 @@ namespace hCraft {
 		inline const server_config& get_config () { return this->cfg; }
 		inline logger& get_logger () { return this->log; }
 		inline player_list& get_players () { return *this->players; }
+		inline irc_client* get_irc () { return this->ircc; }
 		inline scheduler& get_scheduler () { return this->sched; }
 		inline thread_pool& get_thread_pool () { return this->tpool; }
 		inline world* get_main_world () { return this->main_world; }

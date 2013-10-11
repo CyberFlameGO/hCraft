@@ -210,6 +210,7 @@ namespace hCraft {
 				"system ",
 				
 				"chat   ",
+				"irc    ",
 				"draw   ",
 				"console",
 				

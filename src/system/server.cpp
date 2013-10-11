@@ -24,6 +24,7 @@
 #include <fstream>
 #include <cstring>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <sys/stat.h>
 #include <algorithm>
 #include <event2/thread.h>
@@ -123,7 +124,12 @@ namespace hCraft {
 			_noop,
 			std::bind (std::mem_fn (&hCraft::server::initial_cleanup), this)));
 		
+		this->inits.push_back (initializer (
+			std::bind (std::mem_fn (&hCraft::server::init_irc), this),
+			std::bind (std::mem_fn (&hCraft::server::destroy_irc), this)));
+		
 		this->running = false;
+		this->ircc = nullptr;
 	}
 	
 	/* 
@@ -594,6 +600,12 @@ namespace hCraft {
 		out.db_host = "localhost";
 		out.db_port = 3306;
 		
+		out.irc_enabled = false;
+		out.irc_net = "irc.panicirc.net";
+		out.irc_port = 6667;
+		out.irc_chan = "#channel";
+		out.irc_nick = "hCraftBot";
+		
 		out.dcmds.clear ();
 		out.dcmds.insert ("realm");
 		out.dcmds.insert ("money");
@@ -647,6 +659,18 @@ namespace hCraft {
 			grp_sql->add_integer ("port", in.db_port);
 		
 			root.add ("sql", grp_sql);
+		}
+		
+		{
+			cfg::group *grp_irc = new cfg::group ();
+			
+			grp_irc->add_boolean ("enabled", in.irc_enabled);
+			grp_irc->add_string ("nick", in.irc_nick);
+			grp_irc->add_string ("network", in.irc_net);
+			grp_irc->add_integer ("port", in.irc_port);
+			grp_irc->add_string ("channel", in.irc_chan);
+		
+			root.add ("irc", grp_irc);
 		}
 		
 		{
@@ -927,6 +951,70 @@ namespace hCraft {
 	}
 	
 	static void
+	_cfg_read_irc_grp (logger& log, cfg::group *grp_irc, server_config& out)
+	{
+		std::string str;
+		long long int num;
+		bool error = false;
+		bool b;
+		
+		// enabled
+		if (grp_irc->try_get_boolean ("enabled", b))
+			out.irc_enabled = b;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"irc\":" << std::endl;
+				log (LT_INFO) << " - \"enabled\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// nick
+		if (grp_irc->try_get_string ("nick", str))
+			out.irc_nick = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"irc\":" << std::endl;
+				log (LT_INFO) << " - \"nick\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// network
+		if (grp_irc->try_get_string ("network", str))
+			out.irc_net = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"irc\":" << std::endl;
+				log (LT_INFO) << " - \"network\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// port
+		if (grp_irc->try_get_integer ("port", num))
+			out.irc_port = num;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"irc\":" << std::endl;
+				log (LT_INFO) << " - \"port\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+		
+		// channel
+		if (grp_irc->try_get_string ("channel", str))
+			out.irc_chan = str;
+		else
+			{
+				if (!error)
+					log (LT_ERROR) << "Config: at group \"irc\":" << std::endl;
+				log (LT_INFO) << " - \"channel\" is either invalid or does not exist." << std::endl;
+				error = true;
+			}
+	}
+	
+	static void
 	_cfg_read_dcmds_arr (logger& log, cfg::array *arr_dcmds, server_config& out)
 	{
 		out.dcmds.clear ();
@@ -985,6 +1073,17 @@ namespace hCraft {
 		catch (const std::exception& ex)
 			{
 				log (LT_WARNING) << "Config: Group \"sql\" not found or invalid, using defaults" << std::endl;
+			}
+		
+		try
+			{
+				cfg::group *grp_irc = root->find_group ("irc");
+				if (!grp_irc) throw server_error ("not found");
+				_cfg_read_irc_grp (log, grp_irc, out);
+			}
+		catch (const std::exception& ex)
+			{
+				log (LT_WARNING) << "Config: Group \"irc\" not found or invalid, using defaults" << std::endl;
 			}
 		
 		try
@@ -1883,12 +1982,90 @@ namespace hCraft {
 	
 	
 //----
-	// final_cleanup (), initial_cleanup ():
+	// init_irc (), destroy_irc ():
+	/* 
+	 * Initializes the IRC client, and connects it to the IRC network/channel
+	 * specified in the configuration file.
+	 */
 	
+	void
+	server::init_irc ()
+	{
+		if (!this->cfg.irc_enabled)
+			return;
+		
+		log (LT_SYSTEM) << "Initializing IRC client" << std::endl;
+		
+		/* resolve domain name */
+		struct hostent *he;
+		struct in_addr net_addr;
+			{
+				struct in_addr **addr_list;
+			
+				if (!(he = gethostbyname (this->cfg.irc_net.c_str ())))
+					{
+						log (LT_ERROR) << "Failed to resolve IRC network address" << std::endl;
+						return;
+					}
+			
+				addr_list = (struct in_addr **)he->h_addr_list;
+				if (!*addr_list)
+					{
+						log (LT_ERROR) << "Failed to resolve IRC network address" << std::endl;
+						return;
+					}
+			
+				net_addr = **addr_list;
+			}
+		
+		log (LT_INFO) << "  - Network: " << this->cfg.irc_net << "/" << this->cfg.irc_port << std::endl;
+		log (LT_INFO) << "  - Channel: " << this->cfg.irc_chan << std::endl;
+		log (LT_INFO) << "  - Nickname: " << this->cfg.irc_nick << std::endl;
+	
+		/* create socket */
+		int sock = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (sock < 0)
+			{
+				log (LT_ERROR) << "Failed to create IRC socket" << std::endl;
+				return;
+			}
+		struct sockaddr_in s_addr;
+		std::memset (&s_addr, 0, sizeof s_addr);
+		s_addr.sin_family = AF_INET;
+		std::memcpy (&s_addr.sin_addr.s_addr, &net_addr, he->h_length);
+		s_addr.sin_port = htons (this->cfg.irc_port);
+		
+		/* connect */
+		if (connect (sock, (struct sockaddr *)&s_addr, sizeof s_addr) < 0)
+			{
+				close (sock);
+				log (LT_ERROR) << "Failed to connect to IRC server" << std::endl;
+				return;
+			}
+		
+		worker &w = this->get_min_worker ();
+		this->ircc = new irc_client (*this, w.evbase, sock);
+		this->ircc->connect (this->cfg.irc_nick, this->cfg.irc_chan);
+	}
+	
+	void
+	server::destroy_irc ()
+	{
+		if (!this->cfg.irc_enabled || !this->ircc)
+			return;
+		
+		delete this->ircc;
+	}
+	
+	
+	
+//----
+	// final_cleanup (), initial_cleanup ():
 	/* 
 	 * Performs cleanup on resources that can be only done before all other
 	 * <init, destory> pairs have been executed.
 	 */
+	 
 	void
 	server::initial_cleanup ()
 	{

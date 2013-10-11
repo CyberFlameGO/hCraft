@@ -39,6 +39,7 @@ namespace hCraft {
 		LT_SYSTEM,
 		
 		LT_CHAT,
+		LT_IRC,
 		LT_DRAW,
 		LT_CONSOLE,
 		

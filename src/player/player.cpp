@@ -238,7 +238,7 @@ namespace hCraft {
 	player::handle_read (struct bufferevent *bufev, void *ctx)
 	{
 		player *pl = static_cast<player *> (ctx);
-		if (pl->bad () || pl->srv.is_shutting_down ())return;
+		if (pl->bad () || pl->srv.is_shutting_down ()) return;
 		pl->reading = true;
 		
 		struct evbuffer *buf = bufferevent_get_input (bufev);
@@ -458,6 +458,8 @@ namespace hCraft {
 								// leave message
 								this->get_server ().get_players ().message (
 									messages::compile (this->get_server ().msgs.server_leave, messages::environment (this)));
+								if (this->get_server ().get_irc ())
+									this->get_server ().get_irc ()->chan_msg (std::string ("- ") + this->get_username () + " has left the server");
 							}
 				
 						chunk *curr_chunk = this->curr_world->get_chunk (
@@ -2629,6 +2631,8 @@ namespace hCraft {
 			messages::compile (this->srv.msgs.server_join, messages::environment (this)));
 		for (const std::string& str : this->get_server ().msgs.join_msg)
 			this->message (messages::compile (str, messages::environment (this)));
+		if (this->get_server ().get_irc ())
+			this->get_server ().get_irc ()->chan_msg (std::string ("+ ") + this->get_username () + " has joined the server");
 		
 		this->inv.subscribe (this);
 		this->inv.add (slot_item (BT_STONE, 0, 1));
@@ -3057,11 +3061,19 @@ namespace hCraft {
 			{
 				pl->get_logger () (LT_CHAT) << "#" << pl->get_username () << ": " << msg << std::endl;
 				target = &pl->get_server ().get_players ();
+				
+				irc_client *ircc = pl->get_server ().get_irc ();
+				if (ircc)
+					ircc->chan_msg (std::string (pl->get_username ()) + "[#]: " + msg);
 			}
 		else
 			{
 				pl->get_logger () (LT_CHAT) << pl->get_username () << ": " << msg << std::endl;
 				target = &pl->get_world ()->get_players ();
+				
+				irc_client *ircc = pl->get_server ().get_irc ();
+				if (ircc)
+					ircc->chan_msg (std::string (pl->get_username ()) + "[@" + pl->get_world ()->get_name () + "]: " + msg);
 			}
 		
 		target->all (

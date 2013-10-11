@@ -65,6 +65,8 @@ hCraft_sources = Split("""
 		entities/pickup.cpp
 		entities/pig.cpp
 		
+		irc/irc.cpp
+		
 		physics/physics.cpp
 		physics/blocks/physics_block.cpp
 		physics/blocks/sand.cpp
