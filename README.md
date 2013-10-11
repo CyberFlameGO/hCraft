@@ -14,6 +14,7 @@ Features
 --------
 
 The _currently_ implemented features are:
+*  IRC support!
 *  MySQL* integration (used to be SQLite).
 *  Authentication and encryption are supported.
 *  Worlds can be loaded from/saved to an experimental world format (*HWv1*) -

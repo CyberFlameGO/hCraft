@@ -751,7 +751,6 @@ namespace hCraft {
 		
 		if (!first_join)
 			{
-				std::cout << "not first join, changing gamemode to" << w->def_gm << std::endl;
 				this->change_gamemode ((gamemode_type)w->def_gm);
 			}
 		

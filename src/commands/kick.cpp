@@ -93,6 +93,10 @@ namespace hCraft {
 				ss << "§4 > " << target->get_colored_nickname () << " §chas been kicked by "
 					 << pl->get_colored_nickname () << "§c!";
 				srv.get_players ().message (ss.str ());
+				
+				srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been kicked by " << pl->get_username () << "! (reason: " << reason << ")" << std::endl;
+				if (srv.get_irc ())
+					srv.get_irc ()->chan_msg ("! " + target_name + " has been kicked by " + pl->get_username () + "! (reason: " + reason + ")");
 			}
 			target->kick (kick_msg.c_str (), reason.c_str ());
 		}

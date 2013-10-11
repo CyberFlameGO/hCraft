@@ -82,6 +82,7 @@ namespace hCraft {
 			
 			std::string& target_name = reader.next ().as_str ();
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
+			std::string dur_str = "10m";
 			if (!target)
 				{
 					pl->message ("§c * §7Unknown player§f: §c" + target_name);
@@ -96,7 +97,8 @@ namespace hCraft {
 			int time = 10 * 60; // ten minutes
 			if (reader.has_next ())
 				{
-					time = secs_from_time_string (reader.next ().as_str ());
+					dur_str = reader.next ().as_str ();
+					time = secs_from_time_string (dur_str);
 					if (time <= 0)
 						{
 							pl->message ("§c * §7Invalid amount of time§c.");
@@ -130,6 +132,10 @@ namespace hCraft {
 				
 				srv.get_players ().message (ss.str ());
 			}
+			
+			srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been muted by " << pl->get_username () << "! (duration: " << dur_str << ")" << std::endl;
+			if (srv.get_irc ())
+				srv.get_irc ()->chan_msg ("! " + target_name + " has been muted by " + pl->get_username () + "! (duration: " + dur_str + ")");
 		}
 	}
 }

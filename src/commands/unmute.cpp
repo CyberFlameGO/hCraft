@@ -52,7 +52,7 @@ namespace hCraft {
 			if (reader.arg_count () != 1)
 				{ show_usage (pl); return; }
 			
-			std::string& target_name = reader.next ().as_str ();
+			std::string target_name = reader.next ().as_str ();
 			player *target = pl->get_server ().get_players ().find (target_name.c_str ());
 			if (!target)
 				{
@@ -70,6 +70,10 @@ namespace hCraft {
 			srv.unmute_player (target->get_username ());
 			pl->message ("§7 | " + std::string (target->get_colored_username ()) + " §ehas been unmuted§7.");
 			target->message ("§9You are no longer muted§3.");
+			
+			srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been unmuted by " << pl->get_username () << std::endl;
+			if (srv.get_irc ())
+				srv.get_irc ()->chan_msg ("! " + target_name + " has been unmuted by " + pl->get_username ());
 		}
 	}
 }
