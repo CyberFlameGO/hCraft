@@ -24,6 +24,7 @@
 #include "util/utils.hpp"
 #include "drawing/drawops.hpp"
 #include "system/messages.hpp"
+#include "drawing/selection/cuboid_selection.hpp"
 #include <sstream>
 
 
@@ -32,6 +33,7 @@ namespace hCraft {
 	
 		namespace {
 			struct cuboid_data {
+				bool select;
 				blocki bl;
 			};
 		}
@@ -42,6 +44,22 @@ namespace hCraft {
 		{
 			cuboid_data *data = static_cast<cuboid_data *> (pl->get_data ("cuboid"));
 			if (!data) return true; // shouldn't happen
+			
+			if (data->select)
+				{
+					std::ostringstream ss;
+					ss << pl->sb_next_unused ();
+					
+					world_selection *sel = new cuboid_selection (marked[0], marked[1]);
+					pl->selections[ss.str ().c_str ()] = sel;
+					pl->curr_sel = sel;
+					
+					sel->show (pl);
+					pl->sb_commit ();
+					
+					pl->message ("§7Select§f: §eCreated new selection §b@§e" + ss.str () + " §eof type§f: §acuboid");
+					return true;
+				}
 			
 			int bc;
 			
@@ -82,31 +100,65 @@ namespace hCraft {
 			if (!pl->perm (this->get_exec_permission ()))
 					return;
 		
+			reader.add_option ("select", "s");
 			if (!reader.parse (this, pl))
 					return;
-			if (reader.no_args () || reader.arg_count () > 1)
-				{ this->show_summary (pl); return; }
 			
-			std::string& str = reader.next ().as_str ();
-			if (!sutils::is_block (str))
+			bool select = reader.opt ("select")->found ();
+			if (select)
 				{
-					pl->message ("§c * §7Invalid block§f: §c" + str);
-					return;
+					if (!pl->has ("command.draw.select"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
 				}
 			
-			blocki bl = sutils::to_block (str);
-			if (bl.id == BT_UNKNOWN)
+			blocki bl = BT_UNKNOWN;
+			std::string bl_str = "";
+			
+			auto held = pl->held_item ();
+			if (held.is_block ())
 				{
-					pl->message ("§c * §7Unknown block§f: §c" + str);
-					return;
+					bl = { held.id (), (unsigned char)held.damage () };
+					bl_str = block_info::from_id (held.id ())->name;
 				}
 			
-			cuboid_data *data = new cuboid_data {bl};
+			if (!select)
+				{
+					if (reader.has_next ())
+						{
+							bl_str = reader.next ().as_str ();
+							if (!sutils::is_block (bl_str))
+								{
+									pl->message ("§c * §7Invalid block§f: §c" + bl_str);
+									return;
+								}
+			
+							bl = sutils::to_block (bl_str);
+							if (bl.id == BT_UNKNOWN)
+								{
+									pl->message ("§c * §7Unknown block§f: §c" + bl_str);
+									return;
+								}
+						}
+					else if (bl == BT_UNKNOWN)
+						{
+							pl->message ("§c * §7Block name required§c.");
+							return;
+						}
+				}
+			
+			
+			cuboid_data *data = new cuboid_data {select, bl};
 			pl->create_data ("cuboid", data,
 				[] (void *ptr) { delete static_cast<cuboid_data *> (ptr); });
 			pl->get_nth_marking_callback (2) += on_blocks_marked;
 			
-			pl->message ("§5Draw§f: §3regular cuboid §f[§7block§f: §8" + str + "§f]:");
+			if (select)
+				pl->message ("§5Draw§f: §3selection cuboid§f:");
+			else
+				pl->message ("§5Draw§f: §3regular cuboid §f[§7block§f: §8" + bl_str + "§f]:");
 			pl->message ("§7 | §ePlease mark §btwo §eblocks to determine the edges§f.");
 		}
 	}

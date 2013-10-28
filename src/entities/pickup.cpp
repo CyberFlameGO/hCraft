@@ -60,13 +60,13 @@ namespace hCraft {
 		if (!this->valid) return;
 		
 		pl->send (
-			packet::make_spawn_object (this->eid, 2, this->pos.x, this->pos.y,
+			packets::play::make_spawn_object (this->eid, 2, this->pos.x, this->pos.y,
 				this->pos.z, 0.0f, 0.0f, 1, 0, 2000, 0));
 			
 		entity_metadata dict;
 		this->build_metadata (dict);
 		pl->send (
-			packet::make_entity_metadata (this->eid, dict));
+			packets::play::make_entity_metadata (this->eid, dict));
 	}
 	
 	
@@ -142,11 +142,11 @@ namespace hCraft {
 		int r = pl->inv.add (this->data);
 		if (r == 0)
 			{
-				pl->send (packet::make_collect_item (this->eid, pl->get_eid ()));
+				pl->send (packets::play::make_collect_item (this->eid, pl->get_eid ()));
 			}
 		
 		this->data.set_amount (r);
-		pl->send (packet::make_named_sound_effect ("random.pop",
+		pl->send (packets::play::make_sound_effect ("random.pop",
 			this->pos.x, this->pos.y, this->pos.z, 0.2f, 98));
 		
 		if (this->data.empty ())

@@ -334,6 +334,11 @@ namespace hCraft {
 		 */
 		static void save_worlds (scheduler_task& task);
 		
+		/* 
+		 * Pings all online players (every eight seconds).
+		 */
+		static void ping_players (scheduler_task& task);
+		
 	public:
 		inline bool is_running () { return this->running; }
 		inline bool is_shutting_down () { return this->shutting_down; }

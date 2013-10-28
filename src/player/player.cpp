@@ -23,6 +23,8 @@
 #include "commands/command.hpp"
 #include "util/utils.hpp"
 #include "entities/pickup.hpp"
+#include "util/json.hpp"
+#include "util/uuid.hpp"
 
 #include <ctime>
 #include <memory>
@@ -67,10 +69,11 @@ namespace hCraft {
 		this->held_slot = 36;
 		this->inv_painting = false;
 		
+		this->uuid = generate_uuid ();
+		this->pstate = PS_HANDSHAKE;
 		this->logged_in = false;
 		this->fail = false;
 		this->kicked = false;
-		this->handshake = false;
 		this->op = false;
 		this->authenticated = false;
 		this->encrypted = false;
@@ -255,8 +258,8 @@ namespace hCraft {
 				tl = pl->total_read;
 				pl->total_read += n;
 				
-				/*
 				// DEBUG
+				/*
 				if (pl->total_read == 1)
 					{
 						pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
@@ -284,27 +287,6 @@ namespace hCraft {
 						
 						std::memcpy (pl->rdbuf + tl, tar.data (), tar.size ());
 						pl->total_read = tar.size () + tl; // might not be necessary...
-					}
-				
-				// a small check...
-				if (!pl->handshake && (pl->total_read == 1))
-					{
-						if (pl->rdbuf[0] != 0x02 && pl->rdbuf[0] != 0xFE)
-							{
-								if (pl->rdbuf[0] == 0xFA)
-									{
-										// plugin messages...
-										// TODO
-										
-									}
-								else
-									{
-										pl->log (LT_WARNING) << "Expected handshake from @" << pl->get_ip () << " (got " << (int)pl->rdbuf[0] << ")" << std::endl;
-										pl->reading = false; 
-										pl->disconnect ();
-										return;
-									}
-							}
 					}
 				
 				pl->read_rem = packet::remaining (pl->rdbuf, pl->total_read);
@@ -369,10 +351,16 @@ namespace hCraft {
 				// dispose of the packet that we just completed sending.
 				packet *pack = pl->out_queue.front ();
 				pl->out_queue.pop ();
-				opcode = pack->data[0];
+				
+				{
+					packet_reader reader {pack->data};
+					reader.read_varint (); // skip length
+					opcode = reader.read_varint ();
+				}
 				delete pack;
 				
-				if (pl->kicked && (opcode == 0xFF))
+				if (pl->kicked && ((pl->pstate == PS_PLAY && opcode == 0x40)
+					|| (pl->pstate == PS_LOGIN && opcode == 0x00)))
 					{
 						if (pl->kick_msg[0] == '\0')
 							pl->log () << pl->get_username () << " has been kicked." << std::endl;
@@ -452,14 +440,14 @@ namespace hCraft {
 					{
 						this->curr_world->get_players ().remove (this);
 						this->remove_from_tab_list (false);
-				
-						if (this->handshake && !silent)
+					
+						if (this->pstate == PS_LOGIN && !silent)
 							{
 								// leave message
 								this->get_server ().get_players ().message (
 									messages::compile (this->get_server ().msgs.server_leave, messages::environment (this)));
 								if (this->get_server ().get_irc ())
-									this->get_server ().get_irc ()->chan_msg (std::string ("- ") + this->get_username () + " has left the server");
+									this->get_server ().get_irc ()->chan_msg (std::string ("- ") + this->get_colored_username () + " §0has left the server");
 							}
 				
 						chunk *curr_chunk = this->curr_world->get_chunk (
@@ -515,18 +503,11 @@ namespace hCraft {
 		
 		this->kicked = true;
 		if (sanitize)
-			this->send (packet::make_kick (msg));
-		else if (msg[0] == '\0')
 			{
-				// server list ping responses are identified by an empty kick
-				// message and @{sanitize} being false.
-				
-				std::ostringstream ss;
-				auto& cfg = this->get_server ().get_config ();
-				auto& players = this->get_server ().get_players ();
-				
-				this->send (packet::make_ping_kick (cfg.srv_motd, players.count (),
-					cfg.max_players));
+				if (this->pstate == PS_PLAY)
+					this->send (packets::play::make_disconnect (msg));
+				else if (this->pstate == PS_LOGIN)
+					this->send (packets::login::make_disconnect (msg));
 			}
 	}
 	
@@ -537,11 +518,12 @@ namespace hCraft {
 	_redundancy_test (player *pl, packet *pack)
 	{
 		packet_reader reader {pack->data};
+		reader.read_varint (); // skip length
 		
-		switch (reader.read_byte ())
+		switch (reader.read_varint ())
 			{
 				// multi block change
-				case 0x34:
+				case 0x22:
 					{
 						int cx = reader.read_int ();
 						int cz = reader.read_int ();
@@ -551,7 +533,7 @@ namespace hCraft {
 					break;
 				
 				// block change
-				case 0x35:
+				case 0x23:
 					{
 						int x = reader.read_int ();
 						reader.read_byte (); // y
@@ -725,8 +707,8 @@ namespace hCraft {
 				
 				// stop player from moving
 				entity_pos epos = destpos;
-				this->send (packet::make_player_pos_and_look (
-					epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+				this->send (packets::play::make_player_pos_and_look (
+					epos.x, epos.y, epos.z, epos.r, epos.l, true));
 			}
 		
 		// undo data
@@ -747,7 +729,7 @@ namespace hCraft {
 		this->last_ground_height = -128.0;
 		
 		block_pos bpos = destpos;
-		this->send (packet::make_spawn_pos (bpos.x, bpos.y, bpos.z));
+		this->send (packets::play::make_spawn_position (bpos.x, bpos.y, bpos.z));
 		
 		if (!first_join)
 			{
@@ -775,7 +757,7 @@ namespace hCraft {
 			{
 				known_chunk kc = *itr;
 				
-				this->send (packet::make_empty_chunk (kc.cx, kc.cz));
+				this->send (packets::play::make_empty_chunk (kc.cx, kc.cz));
 				
 				// despawn entities from self and vice-versa.
 				chunk *ch = (kc.w)->get_chunk (kc.cx, kc.cz);
@@ -800,8 +782,8 @@ namespace hCraft {
 		if (respawn)
 			{
 				entity_pos epos = this->pos = this->get_world ()->get_spawn ();
-				this->send (packet::make_player_pos_and_look (
-					epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+				this->send (packets::play::make_player_pos_and_look (
+					epos.x, epos.y, epos.z, epos.r, epos.l, true));
 			}
 		
 		this->need_new_chunks = true;
@@ -957,7 +939,7 @@ namespace hCraft {
 							if (es->get_world () == w)
 								es_vec.push_back (es);
 							
-						this->send (packet::make_chunk (resp.cx, resp.cz, resp.ch, es_vec));
+						this->send (packets::play::make_chunk (resp.cx, resp.cz, resp.ch, es_vec));
 						
 						this->known_chunks.push_back ({w, resp.cx, resp.cz});
 						
@@ -965,8 +947,8 @@ namespace hCraft {
 						if (this->joining_world && (my_cpos.x == resp.cx && my_cpos.z == resp.cz))
 							{
 								entity_pos epos = this->pos;
-								this->send (packet::make_player_pos_and_look (
-									epos.x, epos.y, epos.z, epos.y + 1.65, epos.r, epos.l, true));
+								this->send (packets::play::make_player_pos_and_look (
+									epos.x, epos.y, epos.z, epos.r, epos.l, true));
 								this->rej_mov = 3; // reject the next 3 movement packets
 								
 								this->update_home_chunk ();
@@ -1006,7 +988,7 @@ namespace hCraft {
 										{
 											auto& sign = itr->second;
 								
-											this->send (packet::make_update_sign (pos.x, pos.y, pos.z,
+											this->send (packets::play::make_update_sign (pos.x, pos.y, pos.z,
 												sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (),
 												sign.l4.c_str ()));
 											++ itr;
@@ -1023,7 +1005,7 @@ namespace hCraft {
 				bool full_unload = p.second;
 				
 				if (full_unload)
-					this->send (packet::make_empty_chunk (kc.cx, kc.cz));
+					this->send (packets::play::make_empty_chunk (kc.cx, kc.cz));
 				
 				// despawn entities from self and vice-versa.
 				chunk *ch = (kc.w)->get_chunk (kc.cx, kc.cz);
@@ -1081,7 +1063,7 @@ namespace hCraft {
 	{
 		if (y < 0 || y > 255) return;
 		block_data bd = this->curr_world->get_block (x, y, z);
-		this->send (packet::make_block_change (x, y, z, bd.id, bd.meta));
+		this->send (packets::play::make_block_change (x, y, z, bd.id, bd.meta));
 		if (bd.id == BT_SIGN_POST || bd.id == BT_WALL_SIGN)
 			{
 				// resend sign contents
@@ -1089,7 +1071,7 @@ namespace hCraft {
 				if (ch)
 					{
 						auto& sign = ch->ly_signs.get_sign (x, y, z);
-						this->send (packet::make_update_sign (x, y, z,
+						this->send (packets::play::make_update_sign (x, y, z,
 							sign.l1.c_str (), sign.l2.c_str (), sign.l3.c_str (), sign.l4.c_str ()));
 					}
 			}
@@ -1190,8 +1172,8 @@ namespace hCraft {
 				
 				if (changed && !this->joining_world)
 					{
-						this->send (packet::make_player_pos_and_look (
-							dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
+						this->send (packets::play::make_player_pos_and_look (
+							dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
 					}
 			}
 		
@@ -1260,8 +1242,8 @@ namespace hCraft {
 						std::lock_guard<std::mutex> guard {this->visible_player_lock};
 						for (player *pl : this->visible_players)
 							{
-								pl->send (packet::make_entity_look (this->get_eid (), dest.r, dest.l));
-								pl->send (packet::make_entity_head_look (this->get_eid (), dest.r));
+								pl->send (packets::play::make_entity_look (this->get_eid (), dest.r, dest.l));
+								pl->send (packets::play::make_entity_head_look (this->get_eid (), dest.r));
 							}
 					}
 			}
@@ -1272,10 +1254,10 @@ namespace hCraft {
 				std::lock_guard<std::mutex> guard {this->visible_player_lock};
 				for (player *pl : this->visible_players)
 					{
-						pl->send (packet::make_entity_teleport (this->get_eid (),
+						pl->send (packets::play::make_entity_move (this->get_eid (),
 							std::round (dest.x * 32.0), std::round (dest.y * 32.0),
 							std::round (dest.z * 32.0), dest.r, dest.l));
-						pl->send (packet::make_entity_head_look (this->get_eid (), dest.r));
+						pl->send (packets::play::make_entity_head_look (this->get_eid (), dest.r));
 					}
 			}
 		
@@ -1289,11 +1271,11 @@ namespace hCraft {
 	void
 	player::teleport_to (entity_pos dest)
 	{
-		this->send (packet::make_player_pos_and_look (
-			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
+		this->send (packets::play::make_player_pos_and_look (
+			dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
 		this->move_to (dest);
-		this->send (packet::make_player_pos_and_look (
-			dest.x, dest.y, dest.z, dest.y + 1.65, dest.r, dest.l, dest.on_ground));
+		this->send (packets::play::make_player_pos_and_look (
+			dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
 	}
 	
 	/* 
@@ -1323,7 +1305,7 @@ namespace hCraft {
 		this->ping_waiting = true;
 		this->last_ping = std::chrono::system_clock::now ();
 		this->ping_id = std::chrono::system_clock::to_time_t (this->last_ping) & 0xFFFF;
-		this->send (packet::make_ping (this->ping_id));
+		this->send (packets::play::make_keep_alive (this->ping_id));
 	}
 	
 	/* 
@@ -1369,11 +1351,12 @@ namespace hCraft {
 		entity_pos me_pos = this->pos;
 		entity_metadata me_meta;
 		this->build_metadata (me_meta);
-		pl->send (packet::make_spawn_named_entity (
-			this->get_eid (), col_name.c_str (),
+		pl->send (packets::play::make_spawn_player (
+			this->get_eid (), this->get_uuid ().to_str ().c_str (), col_name.c_str (),
 			me_pos.x, me_pos.y, me_pos.z, me_pos.r, me_pos.l, 0, me_meta));
-		pl->send (packet::make_entity_head_look (this->get_eid (), me_pos.r));
-		pl->send (packet::make_entity_equipment (this->eid, 0, this->inv.get (this->held_slot)));
+		pl->send (packets::play::make_entity_head_look (this->get_eid (), me_pos.r));
+		
+		pl->send (packets::play::make_entity_equipment (this->eid, 0, this->inv.get (this->held_slot)));
 		
 		{
 			std::lock_guard<std::mutex> guard {pl->visible_player_lock};
@@ -1453,7 +1436,7 @@ namespace hCraft {
 			[self, me] (player *pl)
 				{
 					if (self || (me != pl))
-						pl->send (packet::make_player_list_item (me->get_colored_username (), true, me->ping_time_ms));
+						pl->send (packets::play::make_player_list_item (me->get_colored_username (), true, me->ping_time_ms));
 				});
 	}
 	
@@ -1468,7 +1451,7 @@ namespace hCraft {
 			[self, me] (player *pl)
 				{
 					if (self || (me != pl))
-						pl->send (packet::make_player_list_item (me->get_colored_username (), false, me->ping_time_ms));
+						pl->send (packets::play::make_player_list_item (me->get_colored_username (), false, me->ping_time_ms));
 				});
 	}
 	
@@ -1482,7 +1465,7 @@ namespace hCraft {
 		this->get_world ()->get_players ().all (
 			[me] (player *pl)
 				{
-					me->send (packet::make_player_list_item (pl->get_colored_username (), false, me->ping_time_ms));
+					me->send (packets::play::make_player_list_item (pl->get_colored_username (), false, me->ping_time_ms));
 				});
 	}
 	
@@ -1496,7 +1479,7 @@ namespace hCraft {
 		this->get_world ()->get_players ().all (
 			[me] (player *pl)
 				{
-					me->send (packet::make_player_list_item (pl->get_colored_username (), true, me->ping_time_ms));
+					me->send (packets::play::make_player_list_item (pl->get_colored_username (), true, me->ping_time_ms));
 				});
 	}
 	
@@ -1511,13 +1494,19 @@ namespace hCraft {
 	void
 	player::message (const char *msg)
 	{
-		this->send (packet::make_message (msg));
+		json::object js;
+		js.insert_string ("text", msg);
+		
+		std::ostringstream ss;
+		js.write (ss);
+		
+		this->send (packets::play::make_chat_message (ss.str ().c_str ()));
 	}
 	
 	void
 	player::message (const std::string& msg)
 	{
-		this->send (packet::make_message (msg.c_str ()));
+		this->message (msg.c_str ());
 	}
 	
 	void
@@ -1528,7 +1517,7 @@ namespace hCraft {
 		wordwrap::wrap_prefix (lines, msg, 64, prefix, first_line);
 		for (auto& line : lines)
 			{
-				this->send (packet::make_message (line.c_str ()));
+				this->message (line);
 			}
 	}
 	
@@ -1546,7 +1535,7 @@ namespace hCraft {
 		wordwrap::wrap_spaced (lines, msg, 64, remove_from_first);
 		for (auto& line : lines)
 			{
-				this->send (packet::make_message (line.c_str ()));
+				this->message (line);
 			}
 	}
 	
@@ -1848,9 +1837,6 @@ namespace hCraft {
 	void
 	player::save_data ()
 	{
-		if (!this->handshake)
-			return;
-		
 		{
 			soci::session sql (this->get_server ().sql_pool ());
 			
@@ -2014,7 +2000,7 @@ namespace hCraft {
 		if (this->have_marking_callbacks ())
 			{
 				// undo the change.
-				this->send (packet::make_block_change (
+				this->send (packets::play::make_block_change (
 					x, y, z,
 					this->get_world ()->get_id (x, y, z),
 					this->get_world ()->get_meta (x, y, z)));
@@ -2134,8 +2120,29 @@ namespace hCraft {
 	player::sb_send (int x, int y, int z)
 	{
 		if (y < 0 || y > 255) return;
-		this->send (packet::make_block_change (x, y, z, this->sb_block.id,
+		this->send (packets::play::make_block_change (x, y, z, this->sb_block.id,
 			this->sb_block.meta));
+	}
+	
+	/* 
+	 * Returns the next unused selection number (@1, @2, ...).
+	 */
+	int
+	player::sb_next_unused ()
+	{
+		int num = 1;
+		std::ostringstream ss;
+		
+		for (;;)
+			{
+				ss << num;
+				auto itr = this->selections.find (ss.str ().c_str ());
+				if (itr == this->selections.end ())
+					return num;
+				
+				ss.clear (); ss.str (std::string ());
+				++ num;
+			}
 	}
 	
 	
@@ -2220,7 +2227,7 @@ namespace hCraft {
 			return;
 		
 		this->curr_gamemode = gm;
-		this->send (packet::make_change_game_state (3, (gm == GT_CREATIVE) ? 1 : 0));
+		this->send (packets::play::make_change_game_state (3, (gm == GT_CREATIVE) ? 1 : 0));
 	}
 	
 	
@@ -2240,14 +2247,14 @@ namespace hCraft {
 		if (p_hunger > 20) p_hunger = 20;
 		
 		bool hurt = p_hearts < this->hearts;
-		this->send (packet::make_update_health (p_hearts, p_hunger, hunger_saturation));
+		this->send (packets::play::make_update_health (p_hearts, p_hunger, hunger_saturation));
 		if (hurt)
 			{
-				this->send (packet::make_entity_status (this->eid, 2));
+				this->send (packets::play::make_entity_status (this->eid, 2));
 				
 				// notify others too
 				this->get_world ()->get_players ().send_to_all_visible (
-					packet::make_entity_status (this->eid, 2), this);
+					packets::play::make_entity_status (this->eid, 2), this);
 				
 				if (hearts <= 0)
 					{
@@ -2373,7 +2380,7 @@ namespace hCraft {
 						
 						// tell the client to stop eating
 						// the entity status packet seems to restore hunger itself.
-						this->send (packet::make_entity_status (this->eid, 9));
+						this->send (packets::play::make_entity_status (this->eid, 9));
 						this->set_health (this->hearts, this->hunger + finf.hunger,
 							this->hunger_saturation + finf.saturation);
 					}
@@ -2426,14 +2433,14 @@ namespace hCraft {
 				pl->get_world ()->queue_update (x, y, z, BT_SIGN_POST, meta, 0, 0, nullptr, pl);
 				++ pl->bl_created;
 				
-				pl->send (packet::make_open_sign_window (x, y, z));
+				pl->send (packets::play::make_open_sign_editor (x, y, z));
 			}
 		else if (dir > 1 && dir < 6)
 			{
 				pl->get_world ()->queue_update (x, y, z, BT_WALL_SIGN, dir, 0, 0, nullptr, pl);
 				++ pl->bl_created;
 				
-				pl->send (packet::make_open_sign_window (x, y, z));
+				pl->send (packets::play::make_open_sign_editor (x, y, z));
 			}
 	}
 	
@@ -2524,6 +2531,8 @@ namespace hCraft {
 				case BT_BIRCH_STAIRS:
 				case BT_JUNGLE_STAIRS:
 				case BT_QUARTZ_STAIRS:
+				case BT_ACACIA_STAIRS:
+				case BT_DARK_OAK_STAIRS:
 					return true;
 				
 				default:
@@ -2593,16 +2602,11 @@ namespace hCraft {
 		
 		this->decryptor = new CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption (this->ssec, 16, this->ssec, 1);
 		
-		this->send (
-			packet::make_empty_encryption_key_response ());
-		
 		// begin encryption
 		this->encryptor = new CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption (this->ssec, 16, this->ssec, 1);
 		this->encrypted = true;
 		
-		/* 
-		 * The player will spawn as soon as the 0xCD packet is received.
-		 */
+		this->login ();
 	}
 	
 	
@@ -2615,32 +2619,44 @@ namespace hCraft {
 		if (this->logged_in)
 			return;
 		
-		this->send (packet::make_login (this->get_eid (), "hCraft", this->curr_gamemode,
-			0, 0, (this->get_server ().get_config ().max_players > 64)
-				? 64 : (this->get_server ().get_config ().max_players)));
+		this->send (packets::login::make_login_success (
+			this->uuid.to_str ().c_str (), this->username));
+		this->pstate = PS_PLAY;
+		
+		this->send (packets::play::make_join_game (this->get_eid (),
+			this->curr_gamemode, 0, 0, (this->get_server ().get_config ().max_players > 64)
+				? 64 : (this->get_server ().get_config ().max_players), "hCraft"));
 		this->logged_in = true;
 		if (!this->get_server ().done_connecting (this))
 			{
 				this->disconnect ();
 				return;
 			}
-
+		
 		// join message
 		this->get_server ().get_players ().message (
 			messages::compile (this->srv.msgs.server_join, messages::environment (this)));
 		for (const std::string& str : this->get_server ().msgs.join_msg)
 			this->message (messages::compile (str, messages::environment (this)));
 		if (this->get_server ().get_irc ())
-			this->get_server ().get_irc ()->chan_msg (std::string ("+ ") + this->get_username () + " has joined the server");
+			this->get_server ().get_irc ()->chan_msg (std::string ("+ ") + this->get_colored_username () + " §0has joined the server");
 		
 		this->inv.subscribe (this);
+		
+		{
+			slot_item feather (IT_FEATHER, 0, 1);
+			feather.lore.emplace_back ("§aClick with this feather to fly faster!");
+			feather.lore.emplace_back ("§aHold §2SHIFT §afor an additional §22.5x §aboost");
+			this->inv.add (feather);
+		}
+		
 		this->inv.add (slot_item (BT_STONE, 0, 1));
 		this->inv.add (slot_item (BT_COBBLE, 0, 1));
 		this->inv.add (slot_item (BT_BRICKS, 0, 1));
 		this->inv.add (slot_item (BT_DIRT, 0, 1));
 		this->inv.add (slot_item (BT_WOOD, 0, 1));
 		this->inv.add (slot_item (BT_TRUNK, 0, 1));
-		this->inv.add (slot_item (BT_LEAVES, 0, 1));
+		//this->inv.add (slot_item (BT_LEAVES, 0, 1));
 		this->inv.add (slot_item (BT_GLASS, 0, 1));
 		this->inv.add (slot_item (BT_SLAB, 0, 1));
 		
@@ -2648,21 +2664,13 @@ namespace hCraft {
 		{
 			std::vector<entity_property> props;
 			props.push_back ({"generic.movementSpeed", 0.1});
-			this->send (packet::make_entity_properties (this->eid, props));
+			this->send (packets::play::make_entity_properties (this->eid, props));
 		}
 		
 		if (this->curr_world)
 			this->join_world_at (this->curr_world, this->pos, true, true);
 		else
 			this->join_world (this->get_server ().get_main_world (), true, true);
-
-		/*
-		// DEBUG
-		slot_item sword (IT_IRON_SWORD, 0, 1);
-		sword.lore.emplace_back ("§7Poison I");
-		sword.enchants.push_back ({ENC_KNOCKBACK, 1});
-		this->inv.add (sword);
-		*/
 	}
 	
 	
@@ -2681,67 +2689,122 @@ namespace hCraft {
 		{ return 0; }
 	
 	
-	int
-	player::handle_packet_00 (player *pl, packet_reader reader)
-	{
-		if (!pl->logged_in)
-			{ return -1; }		
-		int id = reader.read_byte ();
-		
-		if (!pl->ping_waiting)
-			return 0;
-		
-		if ((id != 0) && id != pl->ping_id)
-			{
-				pl->kick ("§cPing timeout");
-				return 0;
-			}
-		
-		pl->ping_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (
-			std::chrono::system_clock::now () - pl->last_ping).count ();
-		pl->ping_waiting = false;
-		
-		if ((pl->keep_alives_received++ % 5) == 0)
-			{
-				/*
-				// update self
-				pl->send (packet::make_player_list_item (pl->get_colored_username (), true, pl->ping_time_ms));
 	
-				// update other players
-				player *me = pl;
-				pl->get_world ()->get_players ().all (
-					[me] (player *pl)
-						{
-							pl->send (packet::make_player_list_item (me->get_colored_username (), true, me->ping_time_ms));
-						});
-				*/
-			}
-		
-		return 0;
-	}
 	
+//------------------------------------------------------------------------------
+	/* 
+	 * Protocol state: Handshake.
+	 */
 	
 	int
-	player::handle_packet_02 (player *pl, packet_reader reader)
+	player::handle_hs_packet_00 (player *pl, packet_reader reader)
 	{
-		int protocol_version = reader.read_byte ();
-		if (protocol_version != packet::protocol_version)
+		int proto = reader.read_varint ();
+		if (proto != packet::protocol_version)
 			{ 
-				if (protocol_version < packet::protocol_version)
+				if (proto < packet::protocol_version)
 					pl->kick ("§cOutdated client", "outdated protocol version");
 				else
 					pl->kick ("§ahCraft has not been updated yet", "newer protocol version");
 				return 0;
 			}
 		
+		char hostname[256];
+		if (reader.read_string (hostname, 255) == -1)
+			return -1;
+		reader.read_short (); // port
+		
+		int state = reader.read_varint ();
+		if (state == 1)
+			{
+				// state: status
+				pl->pstate = PS_STATUS;
+			}
+		else if (state == 2)
+			{
+				// state: login
+				pl->pstate = PS_LOGIN;
+			}
+		else
+			return -1;
+		
+		return 0;
+	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	/* 
+	 * Protocol state: Status
+	 */
+	
+	int
+	player::handle_st_packet_00 (player *pl, packet_reader reader)
+	{
+		if (pl->pstate != PS_STATUS)
+			return -1;
+		
+		// build reponse string
+		json::object js {}; 
+		{
+			json::object *obj_version = new json::object ();
+			obj_version->insert_string ("name", packet::game_version);
+			obj_version->insert_number ("protocol", packet::protocol_version);
+			js.insert ("version", obj_version);
+		}
+		{
+			json::object *obj_players = new json::object ();
+			obj_players->insert_number ("max", pl->srv.get_config ().max_players);
+			obj_players->insert_number ("online", pl->srv.get_players ().count ());
+			obj_players->insert ("sample", new json::array ());
+			js.insert ("players", obj_players);
+		}
+		{
+			json::object *obj = new json::object ();
+			obj->insert_string ("text", pl->srv.get_config ().srv_motd);
+			js.insert ("description", obj);
+		}
+		
+		std::ostringstream ss;
+		js.write (ss);
+		pl->send (packets::status::make_response (ss.str ().c_str ()));
+		
+		return 0;
+	}
+	
+	int
+	player::handle_st_packet_01 (player *pl, packet_reader reader)
+	{
+		if (pl->pstate != PS_STATUS)
+			return -1;
+		
+	 	long long time = reader.read_long ();
+		pl->send (packets::status::make_ping (time));
+		
+		return 0;
+	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	/* 
+	 * Protocol state: Login
+	 */
+	
+	int
+	player::handle_lg_packet_00 (player *pl, packet_reader reader)
+	{
+		if (pl->pstate != PS_LOGIN)
+			return -1;
+		
 		char username[64];
-		///*
 		int ulen = reader.read_string (username, 16);
 		if ((ulen < 2 || ulen > 16) || !sutils::is_valid_username (username))
 			{
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
 			}
+		
 		//*/
 		/*
 		// Used when testing
@@ -2755,7 +2818,6 @@ namespace hCraft {
 			std::strcpy (username, cur);
 		}
 		//*/
-		
 		
 		pl->log () << "Player " << username << " has logged in from @" << pl->get_ip () << std::endl;
 		std::strcpy (pl->username, username);
@@ -2773,7 +2835,6 @@ namespace hCraft {
 			str.append (pl->username);
 			std::strcpy (pl->colored_username, str.c_str ());
 		}
-		pl->handshake = true;
 		
 		
 		// encryption\authentication
@@ -2788,12 +2849,92 @@ namespace hCraft {
 					pl->vtoken[i] = dis (rnd);
 			
 				pl->send (
-					packet::make_encryption_key_request (pl->srv.auth_id (), pkey, pl->vtoken));
+					packets::login::make_encryption_request (pl->srv.auth_id (), pkey, pl->vtoken));
 			}
 		else
 			{
 				pl->login ();
 			}
+		
+		return 0;
+	}
+	
+	int
+	player::handle_lg_packet_01 (player *pl, packet_reader reader)
+	{
+		unsigned short ssec_len = reader.read_short ();
+		unsigned char ssec[1024];
+		reader.read_bytes (ssec, ssec_len);
+		
+		unsigned short vtoken_len = reader.read_short ();
+		unsigned char vtoken[1024];
+		reader.read_bytes (vtoken, vtoken_len);
+		
+		CryptoPP::AutoSeededRandomPool rng;
+		CryptoPP::RSAES_PKCS1v15_Decryptor decrypt (pl->srv.private_key ());
+		
+		// check four verification bytes
+		{
+			CryptoPP::SecByteBlock ct_vtoken (vtoken, vtoken_len);
+			size_t dpl = decrypt.MaxPlaintextLength (ct_vtoken.size ());
+			CryptoPP::SecByteBlock rec ((dpl));
+			auto res = decrypt.Decrypt (rng, ct_vtoken, ct_vtoken.size (), rec);
+			if (res.messageLength != 4)
+				{
+					pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
+					return -1;
+				}
+			rec.resize (res.messageLength);
+			for (int i = 0; i < 4; ++i)
+				if (pl->vtoken[i] != rec[i])
+					{
+						pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
+						return -1;
+					}
+		}
+		
+		// decrypt shared secret
+		{
+			CryptoPP::SecByteBlock ct_ssec (ssec, ssec_len);
+			size_t dpl = decrypt.MaxPlaintextLength (ct_ssec.size ());
+			CryptoPP::SecByteBlock rec ((dpl));
+			auto res = decrypt.Decrypt (rng, ct_ssec, ct_ssec.size (), rec);
+			if (res.messageLength != 16)
+				{
+					pl->log (LT_WARNING) << "Player \"" << pl->username << " sent invalid shared secret" << std::endl;
+					return -1;
+				}
+			std::memcpy (pl->ssec, rec.data (), 16);
+		}
+		
+		pl->srv.auth.enqueue (pl);
+		return 0;
+	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	/* 
+	 * Protocol state: Play
+	 */
+	
+	int
+	player::handle_pl_packet_00 (player *pl, packet_reader reader)
+	{
+		int id = reader.read_byte ();
+		
+		if (!pl->ping_waiting)
+			return 0;
+		
+		if ((id != 0) && id != pl->ping_id)
+			{
+				pl->kick ("§cPing timeout");
+				return 0;
+			}
+		
+		pl->ping_time_ms = std::chrono::duration_cast<std::chrono::milliseconds> (
+			std::chrono::system_clock::now () - pl->last_ping).count ();
+		pl->ping_waiting = false;
 		
 		return 0;
 	}
@@ -2924,7 +3065,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_03 (player *pl, packet_reader reader)
+	player::handle_pl_packet_01 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3063,7 +3204,7 @@ namespace hCraft {
 				
 				irc_client *ircc = pl->get_server ().get_irc ();
 				if (ircc)
-					ircc->chan_msg (std::string (pl->get_username ()) + "[#]: " + msg);
+					ircc->chan_msg (std::string (pl->get_colored_username ()) + "§7[§3#§7]: §0" + msg);
 			}
 		else
 			{
@@ -3072,7 +3213,7 @@ namespace hCraft {
 				
 				irc_client *ircc = pl->get_server ().get_irc ();
 				if (ircc)
-					ircc->chan_msg (std::string (pl->get_username ()) + "[@" + pl->get_world ()->get_name () + "]: " + msg);
+					ircc->chan_msg (std::string (pl->get_colored_username ()) + "§7[§3@" + pl->get_world ()->get_colored_name () + "§7]: §0" + msg);
 			}
 		
 		target->all (
@@ -3091,26 +3232,15 @@ namespace hCraft {
 	
 	
 	int
-	player::handle_packet_07 (player *pl, packet_reader reader)
+	player::handle_pl_packet_03 (player *pl, packet_reader reader)
 	{
-		if (!pl->logged_in)
-			{ return -1; }
-		
-		
-		return 0;
-	}
-	
-	int
-	player::handle_packet_0a (player *pl, packet_reader reader)
-	{
-		if (!pl->handshake) return -1;
 		if (pl->is_dead ()) return 0;
 		if (pl->joining_world) return 0;
 		
 		if (pl->rej_mov > 0)
 			{
-				pl->send (packet::make_player_pos_and_look (
-					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				pl->send (packets::play::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.r, pl->pos.l, true));
 				-- pl->rej_mov;
 				return 0;
 			}
@@ -3124,13 +3254,11 @@ namespace hCraft {
 			curr_pos.l, on_ground};
 		pl->move_to (new_pos);
 		
-		pl->try_ping (5000);
-		
 		return 0;
 	}
 	
 	int
-	player::handle_packet_0b (player *pl, packet_reader reader)
+	player::handle_pl_packet_04 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3138,8 +3266,8 @@ namespace hCraft {
 		
 		if (pl->rej_mov > 0)
 			{
-				pl->send (packet::make_player_pos_and_look (
-					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				pl->send (packets::play::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.r, pl->pos.l, true));
 				-- pl->rej_mov;
 				return 0;
 			}
@@ -3158,13 +3286,11 @@ namespace hCraft {
 		entity_pos new_pos {x, y, z, curr_pos.r, curr_pos.l, on_ground};
 		pl->move_to (new_pos);
 		
-		pl->try_ping (5000);
-		
 		return 0;
 	}
 	
 	int
-	player::handle_packet_0c (player *pl, packet_reader reader)
+	player::handle_pl_packet_05 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3172,8 +3298,8 @@ namespace hCraft {
 		
 		if (pl->rej_mov > 0)
 			{
-				pl->send (packet::make_player_pos_and_look (
-					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				pl->send (packets::play::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.r, pl->pos.l, true));
 				-- pl->rej_mov;
 				return 0;
 			}
@@ -3189,13 +3315,11 @@ namespace hCraft {
 		entity_pos new_pos {curr_pos.x, curr_pos.y, curr_pos.z, r, l, on_ground};
 		pl->move_to (new_pos);
 		
-		pl->try_ping (5000);
-		
 		return 0;
 	}
 	
 	int
-	player::handle_packet_0d (player *pl, packet_reader reader)
+	player::handle_pl_packet_06 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3203,8 +3327,8 @@ namespace hCraft {
 		
 		if (pl->rej_mov > 0)
 			{
-				pl->send (packet::make_player_pos_and_look (
-					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.y + 1.65, pl->pos.r, pl->pos.l, true));
+				pl->send (packets::play::make_player_pos_and_look (
+					pl->pos.x, pl->pos.y, pl->pos.z, pl->pos.r, pl->pos.l, true));
 				-- pl->rej_mov;
 				return 0;
 			}
@@ -3224,15 +3348,11 @@ namespace hCraft {
 		entity_pos new_pos {x, y, z, r, l, on_ground};
 		pl->move_to (new_pos);
 		
-		pl->try_ping (5000);
-		
 		return 0;
 	}
 	
-	
-	
 	int
-	player::handle_packet_0e (player *pl, packet_reader reader)
+	player::handle_pl_packet_07 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3256,7 +3376,7 @@ namespace hCraft {
 		if (((w_width > 0) && ((x >= w_width) || (x < 0))) ||
 				((w_depth > 0) && ((z >= w_depth) || (z < 0))))
 			{
-				pl->send (packet::make_block_change (
+				pl->send (packets::play::make_block_change (
 					x, y, z,
 					w.get_id (x, y, z),
 					w.get_meta (x, y, z)));
@@ -3363,7 +3483,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_0f (player *pl, packet_reader reader)
+	player::handle_pl_packet_08 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3391,7 +3511,7 @@ namespace hCraft {
 								
 								// eating animation
 								pl->get_world ()->get_players ().send_to_all_visible (
-									packet::make_animation (pl->eid, 5), pl);
+									packets::play::make_animation (pl->eid, 5), pl);
 							}
 					}
 				else
@@ -3489,7 +3609,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_10 (player *pl, packet_reader reader)
+	player::handle_pl_packet_09 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3504,13 +3624,13 @@ namespace hCraft {
 		
 		pl->held_slot = index + 36;
 		pl->get_world ()->get_players ().send_to_all_visible (
-			packet::make_entity_equipment (pl->eid, 0, pl->inv.get (pl->held_slot)), pl);
+			packets::play::make_entity_equipment (pl->eid, 0, pl->inv.get (pl->held_slot)), pl);
 		
 		return 0;
 	}
 	
 	int
-	player::handle_packet_12 (player *pl, packet_reader reader)
+	player::handle_pl_packet_0a (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -3522,7 +3642,7 @@ namespace hCraft {
 		{
 			std::vector<block_change_record> records;
 			records.push_back({15, 70, 15, 20, 0});
-			pl->send (packet::make_multi_block_change (500, 200, records));
+			pl->send (packets::play::make_multi_block_change (500, 200, records));
 		}
 		
 		//pl->inv.update ();
@@ -3530,7 +3650,7 @@ namespace hCraft {
 		if (animation == 1)
 			{
 				pl->get_world ()->get_players ().send_to_all_visible (
-					packet::make_animation (pl->eid, animation), pl);
+					packets::play::make_animation (pl->eid, animation), pl);
 			}
 		
 		if (pl->curr_gamemode == GT_CREATIVE && pl->inv.get (pl->held_slot).id () == IT_FEATHER)
@@ -3542,7 +3662,7 @@ namespace hCraft {
 				double uz =  std::cos (pl->pos.l * 0.017453293) * std::cos (pl->pos.r * 0.017453293);
 				
 				int speed = pl->is_crouched () ? 32767 : 13500;
-				pl->send (packet::make_entity_velocity (pl->eid,
+				pl->send (packets::play::make_entity_velocity (pl->eid,
 					ux * speed, uy * speed, uz * speed));
 			}
 		
@@ -3550,7 +3670,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_13 (player *pl, packet_reader reader)
+	player::handle_pl_packet_0b (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in)
 			{ return -1; }
@@ -3576,51 +3696,14 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_cd (player *pl, packet_reader reader)
+	player::handle_pl_packet_0d (player *pl, packet_reader reader)
 	{
-		char payload = reader.read_byte ();
-		if (payload == 0)
-			{
-				/* 
-				 * Finished logging in.
-				 */
-				
-				pl->login ();
-			}
-		else if (payload == 1)
-			{
-				/* 
-				 * Respawn
-				 */
-				
-				pl->send (packet::make_respawn (0, 0, pl->curr_gamemode, "hCraft"));
-				
-				// revert health
-				pl->hearts = pl->hunger = 20;
-				pl->hunger_saturation = 5.0;
-				
-				entity_pos spawn_pos = pl->curr_world->get_spawn ();
-				pl->last_ground_height = -128.0;
-				pl->teleport_to (spawn_pos);
-				
-				pl->spawn_to_all ();
-			}
-		
+		// close window
 		return 0;
 	}
 	
 	int
-	player::handle_packet_65 (player *pl, packet_reader reader)
-	{
-		if (!pl->logged_in)
-			return -1;
-		
-		pl->log (LT_DEBUG) << "close window" << std::endl;
-		return 0;
-	}
-	
-	int
-	player::handle_packet_66 (player *pl, packet_reader reader)
+	player::handle_pl_packet_0e (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -4003,16 +4086,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_6a (player *pl, packet_reader reader)
-	{
-		if (!pl->logged_in) return -1;
-		
-		pl->log (LT_DEBUG) << "confirm transaction" << std::endl;
-		return 0;
-	}
-	
-	int
-	player::handle_packet_6b (player *pl, packet_reader reader)
+	player::handle_pl_packet_10 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -4050,7 +4124,7 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_82 (player *pl, packet_reader reader)
+	player::handle_pl_packet_12 (player *pl, packet_reader reader)
 	{
 		if (!pl->logged_in) return -1;
 		if (pl->is_dead ()) return 0;
@@ -4111,7 +4185,7 @@ namespace hCraft {
 				{
 					if (pl->can_see_chunk (x >> 4, z >> 4))
 						{
-							pl->send (packet::make_update_sign (x, y, z, lines[0].c_str (),
+							pl->send (packets::play::make_update_sign (x, y, z, lines[0].c_str (),
 								lines[1].c_str (), lines[2].c_str (), lines[3].c_str ()));
 						}
 				});
@@ -4120,88 +4194,34 @@ namespace hCraft {
 	}
 	
 	int
-	player::handle_packet_fa (player *pl, packet_reader reader)
+	player::handle_pl_packet_16 (player *pl, packet_reader reader)
 	{
-		char str[1024];
-		reader.read_string (str, 1024);
-		
-		//pl->log (LT_DEBUG) << "Plugin Message: " << str << std::endl;
-		
-		return 0;
-	}
-	
-	int
-	player::handle_packet_fc (player *pl, packet_reader reader)
-	{
-		unsigned short ssec_len = reader.read_short ();
-		unsigned char ssec[1024];
-		reader.read_bytes (ssec, ssec_len);
-		
-		unsigned short vtoken_len = reader.read_short ();
-		unsigned char vtoken[1024];
-		reader.read_bytes (vtoken, vtoken_len);
-		
-		CryptoPP::AutoSeededRandomPool rng;
-		CryptoPP::RSAES_PKCS1v15_Decryptor decrypt (pl->srv.private_key ());
-		
-		// check four verification bytes
-		{
-			CryptoPP::SecByteBlock ct_vtoken (vtoken, vtoken_len);
-			size_t dpl = decrypt.MaxPlaintextLength (ct_vtoken.size ());
-			CryptoPP::SecByteBlock rec ((dpl));
-			auto res = decrypt.Decrypt (rng, ct_vtoken, ct_vtoken.size (), rec);
-			if (res.messageLength != 4)
-				{
-					pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
-					return -1;
-				}
-			rec.resize (res.messageLength);
-			for (int i = 0; i < 4; ++i)
-				if (pl->vtoken[i] != rec[i])
-					{
-						pl->log (LT_WARNING) << "Player \"" << pl->username << " failed token verification" << std::endl;
-						return -1;
-					}
-		}
-		
-		// decrypt shared secret
-		{
-			CryptoPP::SecByteBlock ct_ssec (ssec, ssec_len);
-			size_t dpl = decrypt.MaxPlaintextLength (ct_ssec.size ());
-			CryptoPP::SecByteBlock rec ((dpl));
-			auto res = decrypt.Decrypt (rng, ct_ssec, ct_ssec.size (), rec);
-			if (res.messageLength != 16)
-				{
-					pl->log (LT_WARNING) << "Player \"" << pl->username << " sent invalid shared secret" << std::endl;
-					return -1;
-				}
-			std::memcpy (pl->ssec, rec.data (), 16);
-		}
-		
-		pl->srv.auth.enqueue (pl);
-		return 0;
-	}
-	
-	int
-	player::handle_packet_fe (player *pl, packet_reader reader)
-	{
-		int magic = reader.read_byte ();
-		if (magic != 1)
+		char payload = reader.read_byte ();
+		if (payload == 0)
 			{
-				pl->log (LT_WARNING) << "Received an invalid server list ping packet from @"
-					<< pl->get_ip () << std::endl;
-				return -1;
+				/* 
+				 * Respawn
+				 */
+				
+				pl->send (packets::play::make_respawn (0, 0, pl->curr_gamemode, "hCraft"));
+				
+				// revert health
+				pl->hearts = pl->hunger = 20;
+				pl->hunger_saturation = 5.0;
+				
+				entity_pos spawn_pos = pl->curr_world->get_spawn ();
+				pl->last_ground_height = -128.0;
+				pl->teleport_to (spawn_pos);
+				
+				pl->spawn_to_all ();
 			}
 		
-		pl->kick ("", "server list ping", false);
 		return 0;
 	}
 	
-	int
-	player::handle_packet_ff (player *pl, packet_reader reader)
-	{
-		return -1;
-	}
+	
+	
+//--------
 	
 	/* 
 	 * Executes the appropriate packet handler for the given byte array.
@@ -4209,15 +4229,25 @@ namespace hCraft {
 	int
 	player::handle (const unsigned char *data)
 	{
-		static int (*handlers[0x100]) (player *, packet_reader) =
+		static int (*status_handlers[0x100]) (player *, packet_reader) =
 			{
-				handle_packet_00, handle_packet_xx, handle_packet_02, handle_packet_03, // 0x03
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_07, // 0x07
-				handle_packet_xx, handle_packet_xx, handle_packet_0a, handle_packet_0b, // 0x0B
-				handle_packet_0c, handle_packet_0d, handle_packet_0e, handle_packet_0f, // 0x0F
+				handle_st_packet_00, handle_st_packet_01
+			};
+		
+		static int (*login_handlers[0x100]) (player *, packet_reader) =
+			{
+				handle_lg_packet_00, handle_lg_packet_01,
+			};
+		
+		static int (*play_handlers[0x100]) (player *, packet_reader) =
+			{
+				handle_pl_packet_00, handle_pl_packet_01, handle_packet_xx, handle_pl_packet_03, // 0x03
+				handle_pl_packet_04, handle_pl_packet_05, handle_pl_packet_06, handle_pl_packet_07, // 0x07
+				handle_pl_packet_08, handle_pl_packet_09, handle_pl_packet_0a, handle_pl_packet_0b, // 0x0B
+				handle_packet_xx, handle_pl_packet_0d, handle_pl_packet_0e, handle_packet_xx, // 0x0F
 				
-				handle_packet_10, handle_packet_xx, handle_packet_12, handle_packet_13, // 0x13
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x17
+				handle_pl_packet_10, handle_packet_xx, handle_pl_packet_12, handle_packet_xx, // 0x13
+				handle_packet_xx, handle_packet_xx, handle_pl_packet_16, handle_packet_xx, // 0x17
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x1B
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x1F
 				
@@ -4232,69 +4262,51 @@ namespace hCraft {
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x3F
 				
 				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x43
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x47
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x4B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x4F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x53
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x57
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x5B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x5F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x63
-				handle_packet_xx, handle_packet_65, handle_packet_66, handle_packet_xx, // 0x67
-				handle_packet_xx, handle_packet_xx, handle_packet_6a, handle_packet_6b, // 0x6B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x6F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x73
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x77
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x7B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x7F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_82, handle_packet_xx, // 0x83
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x87
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x8B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x8F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x93
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x97
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x9B
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0x9F
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xA3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xA7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xAB
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xAF
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xB3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xB7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xBB
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xBF
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xC3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xC7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xCB
-				handle_packet_xx, handle_packet_cd, handle_packet_xx, handle_packet_xx, // 0xCF
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xD3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xD7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xDB
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xDF
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xE3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xE7
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xEB
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xEF
-				
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF3
-				handle_packet_xx, handle_packet_xx, handle_packet_xx, handle_packet_xx, // 0xF7
-				handle_packet_xx, handle_packet_xx, handle_packet_fa, handle_packet_xx, // 0xFB
-				handle_packet_fc, handle_packet_xx, handle_packet_fe, handle_packet_ff, // 0xFF
 			};
 		
 		if (this->bad ()) return 0;
+		
 		packet_reader reader {data};
-		return handlers[reader.read_byte ()] (this, reader);
+		reader.read_varint (); // skip packet length
+		unsigned char opcode = reader.read_varint ();
+		
+		switch (this->pstate)
+			{
+				case PS_HANDSHAKE:
+					if (opcode != 0)
+						{
+							this->log (LT_WARNING) << "Did not receive handshake packet from player '" << this->get_username () << "'" << std::endl;
+							return -1;
+						}
+					return handle_hs_packet_00 (this, reader);
+				
+				case PS_STATUS:
+					if (opcode > 0x01)
+						{
+							this->log (LT_WARNING) << "Got invalid packet from player '" << this->get_username () << "' [status]" << std::endl;
+							return -1;
+						}
+					return status_handlers[opcode] (this, reader);
+				
+				case PS_LOGIN:
+					if (opcode > 0x01)
+						{
+							this->log (LT_WARNING) << "Got invalid packet from player '" << this->get_username () << "' [login]" << std::endl;
+							return -1;
+						}
+					return login_handlers[opcode] (this, reader);
+				
+				case PS_PLAY:
+					if (opcode > 0x40)
+						{
+							this->log (LT_WARNING) << "Got invalid packet from player '" << this->get_username () << "' [play]" << std::endl;
+							return -1;
+						}
+					return play_handlers[opcode] (this, reader);
+				
+				default:
+					return -1;
+			}
 	}
 
 
@@ -4302,7 +4314,23 @@ namespace hCraft {
 //----
 	
 	static bool
-	test_packet_66 (packet_reader reader)
+	test_packet_00 (packet_reader reader, int length,
+		std::deque<unsigned char *>& equeue)
+	{
+		/* 
+		 * When a client connects, we expect two packets - the handshake packet
+		 * (opcode: 0x00), followed by a request/login start packet
+		 * (dpending on whether the client is trying to login, or check the server's
+		 * status.
+		 */
+		
+		return !equeue.empty ();
+	}
+	
+	/*
+	static bool
+	test_packet_66 (packet_reader reader, int length,
+		std::deque<unsigned char *>& equeue)
 	{
 		reader.read_byte (); // wid
 		short slot = reader.read_short ();
@@ -4319,7 +4347,7 @@ namespace hCraft {
 			}			
 		
 		return true;
-	}
+	}*/
 	
 	/* 
 	 * Examines the queue that holds packets pending to be handled by
@@ -4329,18 +4357,21 @@ namespace hCraft {
 	bool
 	player::test_packet_chain ()
 	{
-		// if the last packet is different compared to the existing ones,
+		// if the last packet is different compared to the previous ones,
 		// then consider it as the end of chain.
 		if (this->exec_queue.size () > 1)
 			{
 				int last_op = -1;
 				for (auto itr = this->exec_queue.rbegin (); itr != this->exec_queue.rend (); ++itr)
 					{
+						packet_reader reader {*itr};
+						reader.read_varint (); // skip length
+						
 						if (last_op == -1)
-							last_op = (*itr)[0];
+							last_op = reader.read_varint ();
 						else
 							{
-								if (last_op != (*itr)[0])
+								if (last_op != (int)reader.read_varint ())
 									return true;
 							}
 					}
@@ -4348,17 +4379,23 @@ namespace hCraft {
 		
 		// we only test the last packet
 		unsigned char *data = this->exec_queue.back ();
-		packet_reader reader {data};
+		this->exec_queue.pop_back ();
 		
-		switch (reader.read_byte ())
+		packet_reader reader {data};
+		int length = reader.read_varint ();
+		
+		bool ret = true;
+		switch (reader.read_varint ())
 			{
-				// window click
-				case 0x66: return test_packet_66 (reader);
-				case 0x6B: return false;
+				// TODO: 1.7 window click
+				//case 0x66: return test_packet_66 (reader);
+				//case 0x6B: return false;
 				
-				default:
-					return true;
+				case 0x00: ret = test_packet_00 (reader, length, this->exec_queue); break;
 			}
+		
+		this->exec_queue.push_back (data);
+		return ret;
 	}
 }
 

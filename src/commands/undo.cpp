@@ -139,7 +139,7 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
-				ss << "§7 | §b" << count << " §eblock change" << ((count == 1) ? " has" : "s have") << " been undone§7.";
+				ss << "§b" << count << " §eblock change" << ((count == 1) ? " has" : "s have") << " been undone§7.";
 				pl->message (ss.str ());
 			}
 			

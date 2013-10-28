@@ -150,7 +150,7 @@ namespace hCraft {
 	{
 		if (update)
 			{
-				packet *pack = packet::make_set_slot (this->wid (), index, item);
+				packet *pack = packets::play::make_set_slot (this->wid (), index, item);
 				this->notify (pack);
 			}
 		else
@@ -167,7 +167,7 @@ namespace hCraft {
 		if (this->w_out_queue.size () > 2)
 			{
 				// sending the entire inventory will we be faster in this case.
-				this->notify (packet::make_set_window_items (0, this->w_slots));
+				this->notify (packets::play::make_window_items (0, this->w_slots));
 				while (!this->w_out_queue.empty ())
 					this->w_out_queue.pop ();
 			}
@@ -176,7 +176,7 @@ namespace hCraft {
 				while (!this->w_out_queue.empty ())
 					{
 						std::pair<int, slot_item>& p = this->w_out_queue.front ();
-						this->notify (packet::make_set_slot (0, p.first, p.second));
+						this->notify (packets::play::make_set_slot (0, p.first, p.second));
 						this->w_out_queue.pop ();
 					}
 			}
@@ -232,7 +232,7 @@ namespace hCraft {
 				if (!item.empty ())
 					{
 						item.clear ();
-						this->notify (packet::make_set_slot (this->wid (), i, item));
+						this->notify (packets::play::make_set_slot (this->wid (), i, item));
 					}
 			}
 	}

@@ -16,59 +16,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "entities/pig.hpp"
-#include "player/player.hpp"
+#ifndef _hCraft__UUID_H_
+#define _hCraft__UUID_H_
+
+#include <string>
 
 
 namespace hCraft {
 	
-	e_pig::e_pig (server &srv)
-		: living_entity (srv)
-		{ }
+	/* 
+	 * Universally unique identifier.
+	 */
+	struct uuid_t
+	{
+		unsigned int data[4];
+		
+	//---
+		std::string to_str ();
+		
+	//---
+		bool operator== (uuid_t other) const;
+		bool operator!= (uuid_t other) const;
+	};
 	
 	
 	
 	/* 
-	 * Constructs metdata records according to the entity's type.
+	 * Generates and returns a new UUID.
 	 */
-	void
-	e_pig::build_metadata (entity_metadata& dict)
-	{
-		living_entity::build_metadata (dict);
-	}
-		
-		
-		
-	/* 
-	 * Spawns the entity to the specified player.
-	 */
-	void
-	e_pig::spawn_to (player *pl)
-	{
-		entity_pos pos = this->pos;
-		entity_metadata meta;
-		this->build_metadata (meta);
-		
-		// TODO
-		/*
-		pl->send (packet::make_spawn_mob (
-			this->get_eid (), 90,
-			pos.x, pos.y, pos.z, pos.r, pos.l, pos.l, 0, 0, 0, meta));
-		*/
-	}
-	
-	
-	
-	/* 
-	 * Called by the world that's holding the entity every tick (50ms).
-	 * A return value of true will cause the world to destroy the entity.
-	 */
-	bool
-	e_pig::tick (world &w)
-	{
-		
-		
-		return false;
-	}
+	uuid_t generate_uuid ();
 }
+
+#endif
 

@@ -237,16 +237,6 @@ namespace hCraft {
 		if (!srv.is_running () || srv.is_shutting_down ())
 			return;
 		
-		/*
-		//// not necessary?
-		// check list of logged-in players.
-		srv.get_players ().remove_if (
-			[] (player *pl) -> bool
-				{
-					return pl->bad ();
-				});
-		*/
-		
 		// destroy all players that have been idle (no I/O) for over a minute.
 		std::lock_guard<std::mutex> guard {srv.player_lock};
 		for (auto itr = std::begin (srv.to_destroy); itr != std::end (srv.to_destroy);)
@@ -283,6 +273,23 @@ namespace hCraft {
 			});
 		srv.get_players ().message (
 			"§5Autosave: §dAll worlds have been saved");
+	}
+	
+	/* 
+	 * Pings all online players (every eight seconds).
+	 */
+	void
+	server::ping_players (scheduler_task& task)
+	{
+		server &srv = *(static_cast<server *> (task.get_context ()));
+		if (!srv.is_running () || srv.is_shutting_down ())
+			return;
+		
+		srv.get_players ().all (
+			[] (player *pl)
+				{
+					pl->try_ping (8000);
+				});
 	}
 	
 	
@@ -1413,6 +1420,14 @@ namespace hCraft {
 				"FOREIGN KEY (`target`) REFERENCES `players`(`id`), "
 				"FOREIGN KEY (`unbanner`) REFERENCES `players`(`id`))";
 			
+			sql.once << "CREATE TABLE IF NOT EXISTS `warns` ("
+				"`target` INT UNSIGNED NOT NULL, "
+				"`num` INT UNSIGNED NOT NULL, "
+				"`warner` INT UNSIGNED NOT NULL, "
+				"`reason` TEXT, "
+				"`warn_time` BIGINT UNSIGNED, "
+				"PRIMARY KEY (`target`, `num`))";
+			
 			sql.once << "CREATE TABLE IF NOT EXISTS `player-logout-data` ("
 				"`name` TEXT , "
 				"`world` TEXT, "
@@ -1488,6 +1503,9 @@ namespace hCraft {
 		
 		this->get_scheduler ().new_task (hCraft::server::save_worlds, this)
 			.run_forever (5 * 60 * 1000, 50 * 60 * 1000);
+		
+		this->get_scheduler ().new_task (hCraft::server::ping_players, this)
+			.run_forever (8 * 1000);
 		
 		// create pooled threads
 		this->tpool.start (6);
@@ -1572,6 +1590,8 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "realm");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "rules");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "players");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "warn");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "warnlog");
 	}
 	
 	void
@@ -1598,6 +1618,7 @@ namespace hCraft {
 		grp_spectator->add ("command.info.help");
 		grp_spectator->add ("command.info.rules");
 		grp_spectator->add ("command.info.players");
+		grp_spectator->add ("command.info.warnlog");
 		grp_spectator->msuffix = "§f:";
 		
 		group* grp_guest = groups.add (1, "Guest");
@@ -1663,7 +1684,9 @@ namespace hCraft {
 		grp_moderator->add ("command.info.status.logins");
 		grp_moderator->add ("command.admin.mute");
 		grp_moderator->add ("command.admin.unmute");
+		grp_moderator->add ("command.admin.warn");
 		grp_moderator->add ("command.info.whodid");
+		grp_spectator->add ("command.admin.warnlog.others");
 		grp_moderator->msuffix = "§f:";
 		grp_moderator->fill_limit = 8000;
 		grp_moderator->select_limit = 8000;
@@ -1679,6 +1702,7 @@ namespace hCraft {
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
+		grp_admin->add ("command.world.tp.*");
 		grp_admin->add ("command.chat.say.*");
 		grp_admin->add ("command.world.portal.*");
 		grp_admin->add ("command.world.world.get-perms");

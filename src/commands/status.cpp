@@ -137,7 +137,7 @@ namespace hCraft {
 										std::string first_relative;
 										utils::relative_time (now, pd.first_login, first_relative);
 										std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_first);
-										ss << "§6 | §eFirst login§6: §a" << first_relative;
+										ss << "§6 | §eFirst login§6: §a" << first_relative << " ago";
 										pl->message (ss.str ());
 										ss.clear (); ss.str (std::string ());
 										ss << "§6   - (§b" << out << "§6)";
@@ -147,7 +147,7 @@ namespace hCraft {
 										std::string last_relative;
 										utils::relative_time (now, pd.last_login, last_relative);
 										std::strftime (out, sizeof out, "%a %b %d  %H:%M:%S  %Y", &tm_last);
-										ss << "§6 | §eLast login§6: §a" << last_relative;
+										ss << "§6 | §eLast login§6: §a" << last_relative << " ago";
 										pl->message (ss.str ());
 										ss.clear (); ss.str (std::string ());
 										ss << "§6   - (§b" << out << "§6)";

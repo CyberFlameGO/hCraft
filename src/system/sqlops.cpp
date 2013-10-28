@@ -287,6 +287,17 @@ namespace hCraft {
 	}
 	
 	std::string
+	sqlops::player_colored_name (soci::session& sql, int pid, server &srv)
+	{
+		rank rnk = player_rank (sql, player_name (sql, pid).c_str (), srv);
+		std::string str;
+		str.append ("§");
+		str.push_back (rnk.main ()->color);
+		str.append (player_name (sql, pid));
+		return str;
+	}
+	
+	std::string
 	sqlops::player_nick (soci::session& sql, const char *name)
 	{
 		std::string n;
@@ -393,6 +404,21 @@ namespace hCraft {
 		sql << "INSERT INTO `ip-bans` (`ip`, `banner`, `reason`, "
 			"`ban_time`) VALUES (:ip, :ban, :rea, :tim)",
 			soci::use (std::string (ip)), soci::use (banner_pid), soci::use (std::string (reason)), soci::use ((long long)t);
+	}
+	
+	void
+	sqlops::record_warn (soci::session& sql, int target_pid,
+		int warner_pid, const char *reason)
+	{
+		int warn_num = 0;
+		sql << "SELECT Count(*) FROM `warns` WHERE `target`=:tar",
+			soci::into (warn_num), soci::use (target_pid);
+		++ warn_num;
+		
+		std::time_t t = std::time (nullptr);
+		sql << "INSERT INTO `warns` (`target`, `num`, `warner`, `reason`, "
+			"`warn_time`) VALUES (:tar, :num, :war, :rea, :tim)",
+			soci::use (target_pid), soci::use (warn_num), soci::use (warner_pid), soci::use (std::string (reason)), soci::use ((long long)t);
 	}
 	
 	void

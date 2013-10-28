@@ -169,7 +169,7 @@ namespace hCraft {
 			if (dynamic_cast<player *> (this) == pl)
 				return false;
 		
-		pl->send (packet::make_destroy_entity (this->eid));
+		pl->send (packets::play::make_destroy_entity (this->eid));
 		return true;
 	}
 	

@@ -58,6 +58,8 @@
 #include "commands/unban.hpp"
 #include "commands/undo.hpp"
 #include "commands/unmute.hpp"
+#include "commands/warn.hpp"
+#include "commands/warnlog.hpp"
 #include "commands/wcreate.hpp"
 #include "commands/whodid.hpp"
 #include "commands/wload.hpp"
@@ -129,6 +131,8 @@ namespace hCraft {
 	static command* create_c_mute () { return new commands::c_mute (); }
 	static command* create_c_unmute () { return new commands::c_unmute (); }
 	static command* create_c_say () { return new commands::c_say (); }
+	static command* create_c_warn () { return new commands::c_warn (); }
+	static command* create_c_warnlog () { return new commands::c_warnlog (); }
 	
 	/* 
 	 * Returns a new instance of the command named @{name}.
@@ -178,6 +182,8 @@ namespace hCraft {
 			{ "realm", create_c_realm },
 			{ "rules", create_c_rules },
 			{ "players", create_c_players },
+			{ "warn", create_c_warn },
+			{ "warnlog", create_c_warnlog },
 			};
 		
 		auto itr = creators.find (name);
@@ -842,6 +848,8 @@ namespace hCraft {
 				
 				pl->message (ss.str ());
 			}
+		
+		pl->message ("§7    Type §b/help " + std::string (this->get_name ()) + " §7for more info§f.");
 	}
 	
 	void

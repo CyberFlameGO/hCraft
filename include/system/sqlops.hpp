@@ -121,8 +121,10 @@ namespace hCraft {
 		static void modify_ban_status (soci::session& sql, const char *username, bool ban);
 		static bool is_banned (soci::session& sql, const char *username);
 		static bool is_ip_banned (soci::session& sql, const char *ip);
-		
 		static void unban_ip (soci::session& sql, const char *ip);
+		
+		static void record_warn (soci::session& sql, int target_pid,
+			int warner_pid, const char *reason);
 		
 		
 		/* 
@@ -140,6 +142,8 @@ namespace hCraft {
 		static std::string player_name (soci::session& sql, int pid);
 		
 		static std::string player_colored_name (soci::session& sql, const char *name, server &srv);
+		static std::string player_colored_name (soci::session& sql, int pid, server &srv);
+		
 		static std::string player_nick (soci::session& sql, const char *name);
 		static std::string player_colored_nick (soci::session& sql, const char *name, server &srv);
 		

@@ -34,25 +34,6 @@
 namespace hCraft {
 	namespace commands {
 		
-		static int
-		get_next_selection_number (player *pl)
-		{
-			int num = 1;
-			std::ostringstream ss;
-			
-			for (;;)
-				{
-					ss << num;
-					auto itr = pl->selections.find (ss.str ().c_str ());
-					if (itr == pl->selections.end ())
-						return num;
-					
-					ss.clear (); ss.str (std::string ());
-					++ num;
-				}
-		}
-		
-		
 		static void
 		handle_new (player *pl, command_reader& reader)
 		{
@@ -95,7 +76,7 @@ namespace hCraft {
 			else
 				{
 					std::ostringstream ss;
-					ss << get_next_selection_number (pl);
+					ss << pl->sb_next_unused ();
 					name = ss.str ();
 					
 					sel_type = narg;
@@ -532,7 +513,7 @@ namespace hCraft {
 				}
 			
 			std::ostringstream ss;
-			ss << get_next_selection_number (pl);
+			ss << pl->sb_next_unused ();
 			std::string bsel_name = ss.str ();
 			pl->selections[bsel_name.c_str ()] = bsel;
 			pl->curr_sel = bsel;

@@ -276,7 +276,7 @@ namespace hCraft {
 		
 		for (player *pl : players)
 			if (pl->get_world () == this->w && pl->can_see_chunk (cx, cz))
-				pl->send (packet::make_multi_block_change (cx, cz, records, pl));
+				pl->send (packets::play::make_multi_block_change (cx, cz, records, pl));
 	}
 	
 	
@@ -473,13 +473,13 @@ namespace hCraft {
 						for (player *pl : affected_players)
 							{
 								if ((pl->get_world () == this->w) &&pl->can_see_chunk (cx, cz))
-									pl->send (packet::make_chunk (cx, cz, wch));
+									pl->send (packets::play::make_chunk (cx, cz, wch));
 							}
 					}
 				else if (ch.mod_count > 200)
 					{
-						packet *mbcp = packet::make_multi_block_change (cx, cz, records);
-						packet *cp   = packet::make_chunk (cx, cz, wch);
+						packet *mbcp = packets::play::make_multi_block_change (cx, cz, records);
+						packet *cp   = packets::play::make_chunk (cx, cz, wch);
 		
 						// send the smaller between the two
 						if (mbcp->size < cp->size)
@@ -505,7 +505,7 @@ namespace hCraft {
 					}
 				else
 					{
-						packet *pack = packet::make_multi_block_change (cx, cz, records);
+						packet *pack = packets::play::make_multi_block_change (cx, cz, records);
 						for (player *pl : affected_players)
 							{
 								if (pl->get_world () == this->w)
@@ -774,11 +774,11 @@ namespace hCraft {
 			{
 				if (players[0]->get_world () == this->w)
 					players[0]->send
-						(packet::make_multi_block_change (cx, cz, records));
+						(packets::play::make_multi_block_change (cx, cz, records));
 			}
 		else
 			{
-				packet *pack = packet::make_multi_block_change (cx, cz, records);
+				packet *pack = packets::play::make_multi_block_change (cx, cz, records);
 				for (player *pl : players)
 					if (pl->get_world () == this->w)
 						pl->send (new packet (*pack));
@@ -940,7 +940,7 @@ namespace hCraft {
 						}
 				
 				// update players
-				packet *mbcp = packet::make_multi_block_change (cx, cz, records);
+				packet *mbcp = packets::play::make_multi_block_change (cx, cz, records);
 				for (player *pl : affected_players)
 					pl->send (new packet (*mbcp));
 				delete mbcp;

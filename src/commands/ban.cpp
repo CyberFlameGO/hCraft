@@ -108,7 +108,7 @@ namespace hCraft {
 								srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been banned by "
 									<< pl->get_username () << "! (reason: " << reason << ")" << std::endl;
 								if (srv.get_irc ())
-									srv.get_irc ()->chan_msg ("! " + target_name + " has been banned by " + pl->get_username () + "! (reason: " + reason + ")");
+									srv.get_irc ()->chan_msg ("§c! " + target_name + " has been banned by " + pl->get_username () + "! §7(reason: §8" + reason + "§7)");
 							}
 					}
 				catch (const std::exception& ex)

@@ -73,7 +73,7 @@ namespace hCraft {
 			
 			srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been unmuted by " << pl->get_username () << std::endl;
 			if (srv.get_irc ())
-				srv.get_irc ()->chan_msg ("! " + target_name + " has been unmuted by " + pl->get_username ());
+				srv.get_irc ()->chan_msg ("§c! " + target_name + " has been unmuted by " + pl->get_username ());
 		}
 	}
 }

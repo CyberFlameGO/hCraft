@@ -16,8 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__COMMANDS__TP_H_
-#define _hCraft__COMMANDS__TP_H_
+#ifndef _hCraft__COMMANDS__WARNLOG_H_
+#define _hCraft__COMMANDS__WARNLOG_H_
 
 #include "command.hpp"
 
@@ -25,35 +25,31 @@
 namespace hCraft {
 	namespace commands {
 		
-		/* 
-		 * /tp -
+		/*
+		 * /warnlog
 		 * 
-		 * Teleports the player to a requested location.
+		 * Displays all warnings issued on a selected player.
 		 * 
 		 * Permissions:
-		 *   - command.world.tp
+		 *   - command.admin.warnlog
 		 *       Needed to execute the command.
-		 *   - command.world.tp.coords
-		 *       Allows the user to teleport to specific xyz coordinates.
-		 *   - command.world.tp.others
-		 *       Allows the user to teleport players other than themselves.
+		 *   - command.admin.warnlog.others
+		 *       Required to check the warnings of other players.
 		 */
-		class c_tp: public command
+		class c_warnlog: public command
 		{
 		public:
-			const char* get_name () { return "tp"; }
+			const char* get_name () { return "warnlog"; }
 			
 			const char*
 			get_summary ()
-				{ return "Teleports the player to a requested location."; }
+				{ return "Displays all warnings issued on a selected player."; }
 			
 			const char*
 			get_help ()
-			{
-				return "";
-			}
+				{ return ""; }
 			
-			const char* get_exec_permission () { return "command.world.tp"; }
+			const char* get_exec_permission () { return "command.admin.warnlog"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

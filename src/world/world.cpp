@@ -652,7 +652,7 @@ namespace hCraft {
 									if (old_ph && (!old_ph->breakable () && (u.id == 0)))
 										{
 											old_ph->on_break_attempt (*this, u.x, u.y, u.z);
-											(u.pl)->send (packet::make_block_change (u.x, u.y, u.z, old_id, old_meta));
+											(u.pl)->send (packets::play::make_block_change (u.x, u.y, u.z, old_id, old_meta));
 											this->updates.pop_front ();
 											continue;
 										}
@@ -1510,7 +1510,7 @@ namespace hCraft {
 				this->get_players ().all (
 					[x, y, z, id, meta] (player *pl)
 						{
-							pl->send (packet::make_block_change (x, y, z, id, meta));
+							pl->send (packets::play::make_block_change (x, y, z, id, meta));
 						});
 				return;
 			}

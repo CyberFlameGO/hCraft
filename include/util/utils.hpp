@@ -106,6 +106,7 @@ namespace hCraft {
 		int day_diff (std::time_t a, std::time_t b);
 		
 		void relative_time (std::time_t a, std::time_t b, std::string& out);
+		void relative_time_short (std::time_t a, std::time_t b, std::string& out);
 		
 		/* 
 		 * Input examples:

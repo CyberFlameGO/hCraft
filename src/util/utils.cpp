@@ -90,11 +90,10 @@ namespace hCraft {
 						}
 					else if (c == 0)
 						{
-							out = "Just now";
+							out = "0 seconds";
 							return;
 						}
 					
-					ss << " ago";
 					out.assign (ss.str ());
 					return;
 				}
@@ -129,7 +128,74 @@ namespace hCraft {
 					++ c;
 				}
 			
-			ss << " ago";
+			out.assign (ss.str ());
+		}
+		
+		void
+		relative_time_short (std::time_t a, std::time_t b, std::string& out)
+		{
+			std::ostringstream ss;
+			
+			int d = day_diff (a, b);
+			if (d == 0)
+				{
+					double dd = std::difftime (a, b);
+					
+					if (dd >= 3600.0)
+						{
+							int h = dd / 3600.0;
+							dd -= h * 3600;
+							ss << h << 'h';
+						}
+					
+					if (dd >= 60.0)
+						{
+							int m = dd / 60.0;
+							dd -= m * 60;
+							ss << m << 'm';
+						}
+					
+					if (dd >= 1.0)
+						{
+							int s = dd;
+							ss << s << 's';
+						}
+					else if (ss.tellp () == 0)
+						{
+							out = "Just now";
+							return;
+						}
+					
+					out.assign (ss.str ());
+					return;
+				}
+			
+			if (d >= 365)
+				{
+					int y = d / 365;
+					d %= 365;
+					ss << y << 'y';
+				}
+			
+			if (d >= 30)
+				{
+					int m = d / 30;
+					d %= 30;
+					ss << m << 'M';
+				}
+			
+			if (d >= 7)
+				{
+					int w = d / 7;
+					d %= 7;
+					ss << w << 'w';
+				}
+			
+			if (d > 0)
+				{
+					ss << d << 'd';
+				}
+			
 			out.assign (ss.str ());
 		}
 		

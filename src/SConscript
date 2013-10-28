@@ -53,6 +53,8 @@ hCraft_sources = Split("""
 		util/manual.cpp
 		util/config.cpp
 		util/noise.cpp
+		util/json.cpp
+		util/uuid.cpp
 		
 		drawing/editstage.cpp
 		drawing/drawops.cpp
@@ -121,6 +123,8 @@ hCraft_sources = Split("""
 		commands/realm.cpp
 		commands/rules.cpp
 		commands/players.cpp
+		commands/warn.cpp
+		commands/warnlog.cpp
 		""")
 
 hCraft_libs = Split("""

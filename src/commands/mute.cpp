@@ -135,7 +135,7 @@ namespace hCraft {
 			
 			srv.get_logger () (LT_SYSTEM) << "Player " << target_name << " has been muted by " << pl->get_username () << "! (duration: " << dur_str << ")" << std::endl;
 			if (srv.get_irc ())
-				srv.get_irc ()->chan_msg ("! " + target_name + " has been muted by " + pl->get_username () + "! (duration: " + dur_str + ")");
+				srv.get_irc ()->chan_msg ("§c! " + target_name + " has been muted by " + pl->get_username () + "! §7(duration: §8" + dur_str + "§7)");
 		}
 	}
 }

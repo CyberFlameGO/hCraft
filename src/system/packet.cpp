@@ -32,6 +32,8 @@
 
 #include <cryptopp/queue.h>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -113,6 +115,30 @@ namespace hCraft {
 		this->data[this->pos + 7] = (val      ) & 0xFF;
 		
 		this->pos += 8; this->size += 8;
+	}
+	
+	void
+	packet::put_varint (uint32_t val)
+	{
+		if (val == 0)
+			{
+				this->put_byte (0);
+				return;
+			}
+			
+		int i;
+		for (i = 0; val; ++i)
+			{
+				unsigned char b = val & 0x7F;
+				val >>= 7;
+				if (val)
+					b |= 0x80;
+				
+				this->data[this->pos + i] = b;
+			}
+		
+		this->pos += i;
+		this->size += i;
 	}
 	
 	void
@@ -216,13 +242,19 @@ namespace hCraft {
 	static int
 	mc_str_len (const char *str)
 	{
-		return 2 + (std::strlen (str) * 2);
+		int len = std::strlen (str);
+		if (len > 0x7F)
+			return 2 + len;
+		return 1 + len;
 	}
 	
 	static int
 	mc_str_len (const std::string& str)
 	{
-		return 2 + (str.size () * 2);
+		int len = str.length ();
+		if (len > 0x7F)
+			return 2 + len;
+		return 1 + len;
 	}
 	
 	
@@ -236,62 +268,12 @@ namespace hCraft {
 		else
 			str.assign (in);
 		
-		// don't emit the length of the string, we will do that after we convert
-		// the string from UTF-8 to the format used by Minecraft.
-		int len_pos = this->pos;
 		if (encode_length)
-			{
-				this->pos += 2;
-			}
+			this->put_varint (str.size ());
+		for (char c : str)
+			this->put_byte (c);
 		
-		/* 
-		 * Convert UTF-8 to UCS-2:
-		 */
-		int str_len = str.size ();
-		int real_len = 0;
-		int i, c, o;
-		for (i = 0; i < str_len; ++i)
-			{
-				c = str[i] & 0xFF;
-				if ((c >> 7) == 0)
-					{
-						this->put_short (c);
-						++ real_len;
-					}
-				else if ((c >> 5) == 0x6)
-					{
-						o = (c & 0x1F);            // first byte
-						c = str[++i] & 0xFF;
-						o = (o << 6) | (c & 0x3F); // second byte
-						
-						this->put_short (o);
-						++ real_len;
-					}
-				else if ((c >> 4) == 0xE)
-					{
-						o = c & 0xF;               // first byte
-						c = str[++i] & 0xFF;
-						o = (o << 6) | (c & 0x3F); // second byte
-						c = str[++i] & 0xFF;
-						o = (o << 6) | (c & 0x3F); // third byte
-						
-						this->put_short (o);
-						++ real_len;
-					}
-				
-				// characters with more than 16 bits of data are not encoded.
-			}
-		
-		// now that we went over the string, we can safely emit its length.
-		if (encode_length)
-			{
-				int cur_pos = this->pos;
-				this->pos = len_pos;
-				this->put_short (real_len);
-				this->pos = cur_pos;
-			}
-		
-		return real_len;
+		return str.size ();
 	}
 	
 	void
@@ -432,13 +414,6 @@ namespace hCraft {
 	
 //----
 	
-	static uint16_t
-	_read_short (const unsigned char *ptr)
-	{
-		return ((uint16_t)ptr[0] << 8)
-				 | ((uint16_t)ptr[1]);
-	}
-	
 	/* 
 	 * Checks the specified byte array and determines how many more bytes should
 	 * be read in-order to complete reading the packet. Note that this function
@@ -451,165 +426,29 @@ namespace hCraft {
 	int
 	packet::remaining (const unsigned char *data, unsigned int have)
 	{
-		static const char* rem_table[] =
+		unsigned int need = 0, varint_size = 0;
+		for (;;)
 			{
-			/* 
-			 * o = opcode
-			 * ? = boolean
-			 * b = byte
-			 * s = short
-			 * i = int
-			 * l = long
-			 * f = float
-			 * d = double
-			 * z = string
-			 * q = slot
-			 * a = array
-			 */
-			
-				"oi"         , ""           , "obzzi"      , "oz"         , // 0x03
-				""           , ""           , ""           , "oii?"       , // 0x07
-				""           , ""           , "o?"         , "odddd?"     , // 0x0B
-				"off?"       , "oddddff?"   , "obibib"     , "oibibqbbb"  , // 0x0F
+				++ need;
+				if (have < need)
+					return need - have;
 				
-				"os"         , ""           , "oib"        , "oibi"       , // 0x13
-				""           , ""           , ""           , ""           , // 0x17
-				""           , ""           , ""           , ""           , // 0x1B
-				""           , ""           , ""           , ""           , // 0x1F
-				
-				""           , ""           , ""           , ""           , // 0x23
-				""           , ""           , ""           , ""           , // 0x27
-				""           , ""           , ""           , ""           , // 0x2B
-				""           , ""           , ""           , ""           , // 0x2F
-				
-				""           , ""           , ""           , ""           , // 0x33
-				""           , ""           , ""           , ""           , // 0x37
-				""           , ""           , ""           , ""           , // 0x3B
-				""           , ""           , ""           , ""           , // 0x3F
-				
-				""           , ""           , ""           , ""           , // 0x43
-				""           , ""           , ""           , ""           , // 0x47
-				""           , ""           , ""           , ""           , // 0x4B
-				""           , ""           , ""           , ""           , // 0x4F
-				
-				""           , ""           , ""           , ""           , // 0x53
-				""           , ""           , ""           , ""           , // 0x57
-				""           , ""           , ""           , ""           , // 0x5B
-				""           , ""           , ""           , ""           , // 0x5F
-				
-				""           , ""           , ""           , ""           , // 0x63
-				""           , "ob"         , "obsbsbq"    , ""           , // 0x67
-				""           , ""           , "obs?"       , "osq"        , // 0x6B
-				"obb"        , ""           , ""           , ""           , // 0x6F
-				
-				""           , ""           , ""           , ""           , // 0x73
-				""           , ""           , ""           , ""           , // 0x77
-				""           , ""           , ""           , ""           , // 0x7B
-				""           , ""           , ""           , ""           , // 0x7F
-				
-				""           , ""           , "oisizzzz"   , ""           , // 0x83
-				""           , ""           , ""           , ""           , // 0x87
-				""           , ""           , ""           , ""           , // 0x8B
-				""           , ""           , ""           , ""           , // 0x8F
-				
-				""           , ""           , ""           , ""           , // 0x93
-				""           , ""           , ""           , ""           , // 0x97
-				""           , ""           , ""           , ""           , // 0x9B
-				""           , ""           , ""           , ""           , // 0x9F
-				
-				""           , ""           , ""           , ""           , // 0xA3
-				""           , ""           , ""           , ""           , // 0xA7
-				""           , ""           , ""           , ""           , // 0xAB
-				""           , ""           , ""           , ""           , // 0xAF
-				
-				""           , ""           , ""           , ""           , // 0xB3
-				""           , ""           , ""           , ""           , // 0xB7
-				""           , ""           , ""           , ""           , // 0xBB
-				""           , ""           , ""           , ""           , // 0xBF
-				
-				""           , ""           , ""           , ""           , // 0xC3
-				""           , ""           , ""           , ""           , // 0xC7
-				""           , ""           , "obff"       , "oz"         , // 0xCB
-				"ozbbb?"     , "ob"         , ""           , ""           , // 0xCF
-				
-				""           , ""           , ""           , ""           , // 0xD3
-				""           , ""           , ""           , ""           , // 0xD7
-				""           , ""           , ""           , ""           , // 0xDB
-				""           , ""           , ""           , ""           , // 0xDF
-				
-				""           , ""           , ""           , ""           , // 0xE3
-				""           , ""           , ""           , ""           , // 0xE7
-				""           , ""           , ""           , ""           , // 0xEB
-				""           , ""           , ""           , ""           , // 0xEF
-				
-				""           , ""           , ""           , ""           , // 0xF3
-				""           , ""           , ""           , ""           , // 0xF7
-				""           , ""           , "oza"        , ""           , // 0xFB
-				"oaa"        , ""           , "ob"         , "oz"         , // 0xFF
-			};
-		
-		const char *str = rem_table[(*data) & 0xFF];
-		if (!str[0] || str[0] == ' ')
-			return -1;
-		
-		short tmp;
-		
-		int c;
-		unsigned int need = 0;
-		while ((c = (int)(*str++)))
-			{
-				switch (c)
-					{
-						case 'o': case 'b': case '?': ++ need; break;
-						case 's': need += 2; break;
-						case 'f': case 'i': need += 4; break;
-						case 'd': case 'l': need += 8; break;
-						
-						// string
-						case 'z':
-							need += 2;
-							if (have < need)
-								goto done;
-							need += _read_short (data + need - 2) * 2;
-							break;
-						
-						// array (prefixed with 16-bit integer describing length)
-						case 'a':
-							need += 2;
-							if (have < need)
-								goto done;
-							need += _read_short (data + need - 2);
-							break;
-						
-						// slot data
-						case 'q':
-							need += 2;
-							if (have < need)
-								goto done;
-							tmp = _read_short (data + need - 2); // id
-							
-							if (tmp == -1)
-								break; // done
-							else if (tmp == 0)
-								return -1; // shouldn't happen
-							
-							need += 5;
-							if (have < need)
-								goto done;
-							tmp = _read_short (data + need - 2); // metadata length
-							
-							if (tmp == -1)
-								break; // done
-							else if (tmp == 0)
-								return -1; // shouldn't happen
-							
-							need += tmp;
-							break;
-					}
+				++ varint_size;
+				if (!(data[need - 1] & 0x80))
+					break; // end of varint
+				else if (varint_size > 4)
+					return -1;
 			}
 		
-	done:
-		return need - have;
+		unsigned int packet_size = 0;
+		for (int i = varint_size - 1; i >= 0; --i)
+			{
+				packet_size <<= 7;
+				packet_size |= (data[i] & 0x7F);
+			}
+		
+		packet_size += varint_size;
+		return packet_size - have;
 	}
 	
 	
@@ -664,6 +503,26 @@ namespace hCraft {
 				 | (((uint64_t)read_byte ()));
 	}
 	
+	uint32_t
+	packet_reader::read_varint ()
+	{
+		unsigned char data[4];
+		
+		unsigned int size = 0;
+		do
+			data[size++] = this->read_byte ();
+		while (data[size - 1] & 0x80);
+		
+		unsigned int num = 0;
+		for (int i = size - 1; i >= 0; --i)
+			{
+				num <<= 7;
+				num |= (data[i] & 0x7F);
+			}
+		
+		return num;
+	}
+	
 	float
 	packet_reader::read_float ()
 	{
@@ -681,40 +540,13 @@ namespace hCraft {
 	int
 	packet_reader::read_string (char *out, int max_chars)
 	{
-		int len, i, c;
-		int out_pos = 0;
+		int len = this->read_varint ();
+		if (len >= max_chars)
+			return -1;
 		
-		/* 
-		 * Convert from UCS-2 back to UTF-8.
-		 */
-		len = this->read_short ();
-		for (i = 0; i < len; ++i)
-			{
-				if (i == max_chars)
-					{
-						out[out_pos] = '\0';
-						return -1;
-					}
-					
-				c = this->read_short ();
-				if (c < 0x80)
-					{
-						out[out_pos ++] = c & 0x7F;
-					}
-				else if (c < 0x800)
-					{
-						out[out_pos ++] = 0xC0 | (c >> 6);
-						out[out_pos ++] = 0x80 | (c & 0x3F);
-					}
-				else
-					{
-						out[out_pos ++] = 0xE0 | (c >> 12);
-						out[out_pos ++] = 0x80 | ((c >> 6) & 0x3F);
-						out[out_pos ++] = 0x80 | (c & 0x3F);
-					}
-			}
-		
-		out[out_pos ++] = '\0';
+		for (int i = 0; i < len; ++i)
+			out[i] = this->read_byte ();
+		out[len] = '\0';
 		return len;
 	}
 	
@@ -769,13 +601,18 @@ namespace hCraft {
 						case EMT_STRING:
 							size += mc_str_len (rec.data.str);
 							break;
-						case EMT_SLOT: size += 7; break;
+						case EMT_SLOT:
+							size += 2;
+							if (rec.data.slot.id != -1)
+								size += 5;
+							break;
+						
 						case EMT_BLOCK: size += 12; break;
 					}
 				
-				++ size; // for the trailing `127' byte.
 			}
 		
+		++ size; // for the trailing `127' byte.
 		return size;
 	}
 	
@@ -816,24 +653,23 @@ namespace hCraft {
 	slot_size (const slot_item& item)
 	{
 		int size = 2;
-		if (item.id () != -1)
+		if (item.is_valid () && item.amount () > 0)
 			{
-				size += 7;
-			}
-		
-		// very rough estimation
-		bool has_nbt = slot_has_metadata (item);
-		if (has_nbt)
-			{
-				size += 192;
-				if (!item.enchants.empty ())
-					size += (item.enchants.size () * 8);
-				if (!item.display_name.empty ())
-					size += item.display_name.size () * 2 + 3;
-				if (!item.lore.empty ())
+				size += 5;
+				
+				if (slot_has_metadata (item))
 					{
-						for (const std::string& str : item.lore)
-							size += mc_str_len (str) + 1;
+						// somewhat inefficient.. :X
+						nbt_tag_compound *t = build_slot_metadata (item);
+						unsigned char *data = new unsigned char [t->size ()];
+						int s = t->encode (data);
+						delete t;
+		
+						long comp_size = 0;
+						unsigned char *comp = utils::gz_compress (data, s, comp_size);
+						delete[] data;
+						if (comp)
+							size += comp_size;
 					}
 			}
 		
@@ -841,895 +677,929 @@ namespace hCraft {
 	}
 	
 	
-	
-	packet*
-	packet::make_ping (int id)
+	static inline int
+	varint_size (int num)
 	{
-		packet* pack = new packet (5);
-		
-		pack->put_byte (0x00);
-		pack->put_int (id);
-		
-		return pack;
+		if (num > 0x7F7F7F)
+			return 4;
+		else if (num > 0x7F7F)
+			return 3;
+		else if (num> 0x7F)
+			return 2;
+		return 1;
 	}
 	
-	packet*
-	packet::make_login (int eid, const char *level_type, char game_mode,
-		char dimension, char difficulty, unsigned char max_players)
-	{
-		packet *pack = new packet (12 + mc_str_len (level_type));
+	namespace packets {
 		
-		pack->put_byte (0x01);
-		pack->put_int (eid);
-		pack->put_string (level_type);
-		pack->put_byte (game_mode);
-		pack->put_byte (dimension);
-		pack->put_byte (difficulty);
-		pack->put_byte (0); // unused
-		pack->put_byte (max_players);
+		namespace play {
 		
-		return pack;
-	}
-	
-	
-	
-	static std::string
-	escape_string (const char *str)
-	{
-		std::string res;
-		res.reserve (std::strlen (str));
-		
-		const char *ptr = str;
-		while (*ptr)
+			packet*
+			make_keep_alive (int id)
 			{
-				char c = *ptr++;
-				if (c == '"' || c == '\\')
-					{
-						res.push_back ('\\');
-						res.push_back (c);
-					}
-				else
-					res.push_back (c);
-			}
-		
-		return res;
-	}
-	
-	packet*
-	packet::make_message (const char *msg)
-	{
-		// 1.6 messages...
-		std::string s = "{\"text\":\"";
-		s.append (escape_string (msg));
-		s.append ("\"}");
-		
-		packet *pack = new packet (3 + mc_str_len (s));
-		
-		pack->put_byte (0x03);
-		pack->put_string (s.c_str ());
-		
-		return pack;
-	}
-	
-	
-	
-	packet*
-	packet::make_time_update (long long world_age, long long day_time)
-	{
-		packet *pack = new packet (17);
-		
-		pack->put_byte (0x04);
-		pack->put_long (world_age);
-		pack->put_long (day_time);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_equipment (int eid, short slot, slot_item item)
-	{
-		packet *pack = new packet (7 + slot_size (item));
-		
-		pack->put_byte (0x05);
-		pack->put_int (eid);
-		pack->put_short (slot);
-		pack->put_slot (item);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_spawn_pos (int x, int y, int z)
-	{
-		packet *pack = new packet (13);
-		
-		pack->put_byte (0x06);
-		pack->put_int (x);
-		pack->put_int (y);
-		pack->put_int (z);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_update_health (float hearts, short hunger,
-		float hunger_saturation)
-	{
-		packet *pack = new packet (9);
-		
-		pack->put_byte (0x08);
-		pack->put_float (hearts);
-		pack->put_short (hunger);
-		pack->put_float (hunger_saturation);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_respawn (int dimension, char difficulty, char game_mode,
-		const char *level_type)
-	{
-		packet *pack = new packet (11 + mc_str_len (level_type));
-		
-		pack->put_byte (0x09);
-		pack->put_int (dimension);
-		pack->put_byte (difficulty);
-		pack->put_byte (game_mode);
-		pack->put_short (256);
-		pack->put_string (level_type);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_player_pos_and_look (double x, double y, double z,
-		double stance, float r, float l, bool on_ground)
-	{
-		packet *pack = new packet (42);
-		
-		pack->put_byte (0x0D);
-		pack->put_double (x);
-		pack->put_double (stance);
-		pack->put_double (y);
-		pack->put_double (z);
-		pack->put_float (r);
-		pack->put_float (l);
-		pack->put_bool (on_ground);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_animation (int eid, char animation)
-	{
-		packet *pack = new packet (6);
-		
-		pack->put_byte (0x12);
-		pack->put_int (eid);
-		pack->put_byte (animation);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_spawn_named_entity (int eid, const char *name, double x,
-		double y, double z, float r, float l, short current_item,
-		entity_metadata& meta)
-	{
-		packet* pack = new packet (22 + mc_str_len (name)
-			+ entity_metadata_size (meta));
-		
-		pack->put_byte (0x14);
-		pack->put_int (eid);
-		pack->put_string (name);
-		pack->put_int ((int)(x * 32.0));
-		pack->put_int ((int)(y * 32.0));
-		pack->put_int ((int)(z * 32.0));
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
-		pack->put_short (current_item);
-		encode_entity_metadata (pack, meta);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_collect_item (int collected_eid, int collector_eid)
-	{
-		packet* pack = new packet (9);
-		
-		pack->put_byte (0x16);
-		pack->put_int (collected_eid);
-		pack->put_int (collector_eid);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_spawn_object (int eid, char type, double x, double y, double z,
-		float r, float l, int data, short speed_x, short speed_y,
-		short speed_z)
-	{
-		packet* pack = new packet ((data == 0) ? 24 : 30);
-		
-		pack->put_byte (0x17);
-		pack->put_int (eid);
-		pack->put_byte (type);
-		pack->put_int ((int)(x * 32.0));
-		pack->put_int ((int)(y * 32.0));
-		pack->put_int ((int)(z * 32.0));
-		pack->put_byte (utils::int_rot (r));
-		pack->put_byte (utils::int_rot (l));
-		pack->put_int (data);
-		if (data != 0)
-			{
-				pack->put_short (speed_x);
-				pack->put_short (speed_y);
-				pack->put_short (speed_z);
-			}
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_spawn_mob (int eid, char type, double x, double y,
-		double z, float r, float l, float hl, short vx, short vy,
-		short vz, entity_metadata& meta)
-	{
-		packet *pack = new packet (27 + entity_metadata_size (meta));
-		
-		pack->put_byte (0x18);
-		pack->put_int (eid);
-		pack->put_byte (type);
-		pack->put_int ((int)(x * 32.0));
-		pack->put_int ((int)(y * 32.0));
-		pack->put_int ((int)(z * 32.0));
-		pack->put_byte (utils::int_rot (l));
-		pack->put_byte (utils::int_rot (hl));
-		pack->put_byte (utils::int_rot (r));
-		pack->put_short (vx);
-		pack->put_short (vy);
-		pack->put_short (vz);
-		encode_entity_metadata (pack, meta);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_velocity (int eid, short vx, short vy, short vz)
-	{
-		packet *pack = new packet (11);
-		
-		pack->put_byte (0x1C);
-		pack->put_int (eid);
-		pack->put_short (vx);
-		pack->put_short (vy);
-		pack->put_short (vz);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_destroy_entity (int eid)
-	{
-		packet* pack = new packet (6);
-		
-		pack->put_byte (0x1D);
-		pack->put_byte (1); // entity count
-		pack->put_int (eid);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_relative_move (int eid, char dx, char dy, char dz)
-	{
-		packet *pack = new packet (8);
-		
-		pack->put_byte (0x1F);
-		pack->put_int (eid);
-		pack->put_byte (dx);
-		pack->put_byte (dy);
-		pack->put_byte (dz);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_look (int eid, float r, float l)
-	{
-		packet *pack = new packet (7);
-		
-		pack->put_byte (0x20);
-		pack->put_int (eid);
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_look_and_move (int eid, char dx, char dy, char dz,
-		float r, float l)
-	{
-		packet* pack = new packet (10);
-		
-		pack->put_byte (0x21);
-		pack->put_int (eid);
-		pack->put_byte (dx);
-		pack->put_byte (dy);
-		pack->put_byte (dz);
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_head_look (int eid, float yaw)
-	{
-		packet* pack = new packet (6);
-		
-		pack->put_byte (0x23);
-		pack->put_int (eid);
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (yaw), 360.0f) / 360.0 * 256.0));
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_status (int eid, char status)
-	{
-		packet* pack = new packet (6);
-		
-		pack->put_byte (0x26);
-		pack->put_int (eid);
-		pack->put_byte (status);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_teleport (int eid, int x, int y, int z, float r, float l)
-	{
-		packet* pack = new packet (19);
-		
-		pack->put_byte (0x22);
-		pack->put_int (eid);
-		pack->put_int (x);
-		pack->put_int (y);
-		pack->put_int (z);
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
-		pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_metadata (int eid, entity_metadata& meta)
-	{
-		packet *pack = new packet (5 + entity_metadata_size (meta));
-		
-		pack->put_byte (0x28);
-		pack->put_int (eid);
-		encode_entity_metadata (pack, meta);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_entity_properties (int eid,
-		const std::vector<entity_property>& props)
-	{
-		int pack_size = 9;
-		for (entity_property prop : props)
-			pack_size += 12 + mc_str_len (prop.key);
-		
-		packet *pack = new packet (pack_size);
-		
-		pack->put_byte (0x2C);
-		pack->put_int (eid);
-		pack->put_int (props.size ());
-		for (entity_property prop : props)
-			{
-				pack->put_string (prop.key);
-				pack->put_double (prop.value);
+				packet *pack = new packet (6);
 				
-				// list of weird things
-				pack->put_short (0);
+				pack->put_varint (5);
+				pack->put_byte (0x00);
+				pack->put_int (id);
+				
+				return pack;
 			}
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_chunk (int x, int z, chunk *ch)
-	{
-		std::vector<edit_stage *> vec;
-		return packet::make_chunk (x, z, ch, vec);
-	}
-	
-	packet*
-	packet::make_chunk (int x, int z, chunk *och, const std::vector<edit_stage *> es_vec)
-	{
-		chunk *ch = och;
-		for (edit_stage *es : es_vec)
-			if (es->mod_count_at (x, z) > 0)
-				{
-					ch = och->duplicate ();
-					for (edit_stage *es : es_vec)
-						es->commit_chunk (ch, x, z);
-					break;
-				}
-		
-		int data_size = 0, n = 0, i;
-		unsigned short primary_bitmap = 0, add_bitmap = 0;
-		int primary_count = 0;
-		
-		// create bitmaps and calculate the size of the uncompressed data array.
-		data_size += 256; // biome array
-		for (i = 0; i < 16; ++i)
+			
+			packet*
+			make_join_game (int eid, int gm, int dim, int diff, int max_players,
+				const char *level_type)
 			{
-				subchunk *sub = ch->get_sub (i);
-				if (sub && !sub->all_air ())
-					{
-						primary_bitmap |= (1 << i);
-						++ primary_count;
-						data_size += 10240;
-						
-						//// NOTE: Do not send add values for now... or else it will cause custom
-						//// blocks to screw up.
-						//if (sub->has_add ())
-						//	{ add_bitmap |= (1 << i); data_size += 2048; }
-					}
+				int level_type_len = mc_str_len (level_type);
+				packet *pack = new packet (11 + level_type_len);
+				
+				pack->put_varint (9 + level_type_len);
+				pack->put_varint (0x01);
+				pack->put_int (eid);
+				pack->put_byte (gm);
+				pack->put_byte (dim);
+				pack->put_byte (diff);
+				pack->put_byte (max_players);
+				pack->put_string (level_type);
+				
+				return pack;
 			}
+			
+			packet*
+			make_chat_message (const char *js)
+			{
+				int js_len = mc_str_len (js);
+				packet *pack = new packet (3 + js_len);
+				
+				pack->put_varint (1 + js_len);
+				pack->put_varint (0x02);
+				pack->put_string (js);
+				
+				return pack;
+			}
+			
+			packet*
+			make_time_update (long long world_age, long long time)
+			{
+				packet *pack = new packet (18);
+				
+				pack->put_varint (17);
+				pack->put_varint (0x03);
+				pack->put_long (world_age);
+				pack->put_long (time);
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_equipment (int eid, short slot, const slot_item& item)
+			{
+				int item_size = slot_size (item);
+				packet *pack = new packet (9 + item_size);
+				
+				pack->put_varint (7 + item_size);
+				pack->put_varint (0x04);
+				pack->put_int (eid);
+				pack->put_short (slot);
+				pack->put_slot (item);
+				
+				return pack;
+			}
+			
+			packet*
+			make_spawn_position (int x, int y, int z)
+			{
+				packet *pack = new packet (14);
+				
+				pack->put_varint (13);
+				pack->put_varint (0x05);
+				pack->put_int (x);
+				pack->put_int (y);
+				pack->put_int (z);
+				
+				return pack;
+			}
+			
+			packet*
+			make_update_health (float health, short food, float sat)
+			{
+				packet *pack = new packet (12);
+				
+				pack->put_varint (11);
+				pack->put_varint (0x06);
+				pack->put_float (health);
+				pack->put_short (food);
+				pack->put_float (sat);
+				
+				return pack;
+			}
+			
+			packet*
+			make_respawn (int dim, int diff, int gm, const char *level_type)
+			{
+				int level_type_len = mc_str_len (level_type);
+				packet *pack = new packet (9 + level_type_len);
+				
+				pack->put_varint (7 + level_type_len);
+				pack->put_varint (0x07);
+				pack->put_int (dim);
+				pack->put_byte (diff);
+				pack->put_byte (gm);
+				pack->put_string (level_type);
+				
+				return pack;
+			}
+			
+			packet*
+			make_player_pos_and_look (double x, double y, double z, float r, float l,
+				bool on_ground)
+			{
+				packet *pack = new packet (35);
+				
+				pack->put_varint (34);
+				pack->put_varint (0x08);
+				pack->put_double (x);
+				pack->put_double (y);
+				pack->put_double (z);
+				pack->put_float (r);
+				pack->put_float (l);
+				pack->put_bool (on_ground);
+				
+				return pack;
+			}
+			
+			packet*
+			make_held_item_change (int slot)
+			{
+				packet *pack = new packet (4);
+				
+				pack->put_varint (3);
+				pack->put_varint (0x09);
+				pack->put_short (slot);
+				
+				return pack;
+			}
+			
+			packet*
+			make_animation (int eid, int anim)
+			{
+				int eid_size = varint_size (eid);
+				packet *pack = new packet (3 + eid_size);
+				
+				pack->put_varint (2 + eid_size);
+				pack->put_varint (0x0B);
+				pack->put_byte (anim);
+				
+				return pack;
+			}
+			
+			packet*
+			make_spawn_player (int eid, const char *uuid, const char *username,
+				double x, double y, double z, float r, float l, short item,
+				entity_metadata& meta)
+			{
+				int name_len = mc_str_len (username);
+				int uuid_len = mc_str_len (uuid);
+				int meta_size = entity_metadata_size (meta);
+				int eid_size = varint_size (eid);
+				packet* pack = new packet (19 + name_len + meta_size + eid_size + uuid_len);
+				
+				pack->put_varint (17 + eid_size + name_len + uuid_len + meta_size);
+				pack->put_varint (0x0C);
+				pack->put_varint (eid);
+				pack->put_string (uuid);
+				pack->put_string (username);
+				pack->put_int ((int)(x * 32.0));
+				pack->put_int ((int)(y * 32.0));
+				pack->put_int ((int)(z * 32.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+				pack->put_short (item);
+				encode_entity_metadata (pack, meta);
 		
-		unsigned char *data = new unsigned char[data_size];
+				return pack;
+			}
+			
+			packet*
+			make_collect_item (int collected_eid, int collector_eid)
+			{
+				packet *pack = new packet (10);
+				
+				pack->put_varint (9);
+				pack->put_varint (0x0D);
+				pack->put_int (collected_eid);
+				pack->put_int (collector_eid);
+				
+				return pack;
+			}
+			
+			packet*
+			make_spawn_object (int eid, int type, double x, double y, double z,
+				float r, float l, int data, short speed_x, short speed_y, short speed_z)
+			{
+				int eid_size = varint_size (eid);
+				int data_size = (data == 0) ? 4 : 10;
+				packet *pack = new packet (18 + eid_size + data_size);
+				
+				pack->put_varint (16 + eid_size + data_size);
+				pack->put_varint (0x0E);
+				pack->put_varint (eid);
+				pack->put_byte (type);
+				pack->put_int ((int)(x * 32.0));
+				pack->put_int ((int)(y * 32.0));
+				pack->put_int ((int)(z * 32.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+				pack->put_int (data);
+				if (data != 0)
+					{
+						pack->put_short (speed_x);
+						pack->put_short (speed_y);
+						pack->put_short (speed_z);
+					}
+				
+				return pack;
+			}
+			
+			packet* 
+			make_entity_velocity (int eid, short vx, short vy, short vz)
+			{
+				packet *pack = new packet (12);
+				
+				pack->put_varint (11);
+				pack->put_varint (0x12);
+				pack->put_int (eid);
+				pack->put_short (vx);
+				pack->put_short (vy);
+				pack->put_short (vz);
+				
+				return pack;
+			}
+			
+			packet*
+			make_destroy_entities (const std::vector<int>& eids)
+			{
+				packet *pack = new packet (4 + 4 * eids.size ());
+				
+				pack->put_varint (2 + eids.size () * 4);
+				pack->put_varint (0x13);
+				pack->put_byte (eids.size ());
+				for (int eid : eids)
+					pack->put_int (eid);
+				
+				return pack;
+			}
+			
+			packet*
+			make_destroy_entity (int eid)
+			{
+				std::vector<int> eids {1, eid};
+				return packets::play::make_destroy_entities (eids);
+			}
+			
+			packet*
+			make_entity (int eid)
+			{
+				packet *pack = new packet (6);
+				
+				pack->put_varint (1);
+				pack->put_varint (0x14);
+				pack->put_int (eid);
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_rel_move (int eid, double dx, double dy, double dz)
+			{
+				packet *pack = new packet (9);
+				
+				pack->put_varint (8);
+				pack->put_varint (0x15);
+				pack->put_int (eid);
+				pack->put_byte ((int)(dx * 32.0));
+				pack->put_byte ((int)(dy * 32.0));
+				pack->put_byte ((int)(dz * 32.0));
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_look (int eid, float r, float l)
+			{
+				packet *pack = new packet (8);
+				
+				pack->put_varint (7);
+				pack->put_varint (0x16);
+				pack->put_int (eid);
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_look_and_rel_move (int eid, double dx, double dy, double dz,
+				float r, float l)
+			{
+				packet *pack = new packet (11);
+				
+				pack->put_varint (10);
+				pack->put_varint (0x17);
+				pack->put_int (eid);
+				pack->put_byte ((int)(dx * 32.0));
+				pack->put_byte ((int)(dy * 32.0));
+				pack->put_byte ((int)(dz * 32.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_move (int eid, double x, double y, double z, float r, float l)
+			{
+				packet *pack = new packet (28);
+				
+				pack->put_varint (27);
+				pack->put_varint (0x18);
+				pack->put_int (eid);
+				pack->put_int ((int)(x * 32.0));
+				pack->put_int ((int)(y * 32.0));
+				pack->put_int ((int)(z * 32.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_head_look (int eid, float r)
+			{
+				packet *pack = new packet (7);
+				
+				pack->put_varint (6);
+				pack->put_varint (0x19);
+				pack->put_int (eid);
+				pack->put_byte ((unsigned char)(std::fmod (std::floor (r), 360.0f) / 360.0 * 256.0));
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_status (int eid, int status)
+			{
+				packet *pack = new packet (7);
+				
+				pack->put_varint (6);
+				pack->put_varint (0x1A);
+				pack->put_int (eid);
+				pack->put_byte (status);
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_metadata (int eid, entity_metadata& meta)
+			{
+				int meta_size = entity_metadata_size (meta);
+				packet *pack = new packet (7 + meta_size);
+				
+				pack->put_varint (5 + meta_size);
+				pack->put_varint (0x1C);
+				pack->put_int (eid);
+				encode_entity_metadata (pack, meta);
+				
+				return pack;
+			}
+			
+			packet*
+			make_entity_properties (int eid,
+				const std::vector<entity_property>& props)
+			{
+				int pack_size = 9;
+				for (entity_property prop : props)
+					pack_size += 10 + mc_str_len (prop.key);
 		
-		// fill the array.
+				packet *pack = new packet (2 + pack_size);
+				
+				pack->put_varint (pack_size);
+				pack->put_varint (0x20);
+				pack->put_int (eid);
+				pack->put_int (props.size ());
+				for (entity_property prop : props)
+					{
+						pack->put_string (prop.key);
+						pack->put_double (prop.value);
+				
+						// list of modifier data structures
+						pack->put_short (0);
+					}
 		
-		/* 
-		 * We do IDs and metadata values at the same time.
-		 */
-		int ind, hlf;
-		for (i = 0; i < 16; ++i)
-			if (primary_bitmap & (1 << i))
-				{
-					// we take into account that the ID array might contain custom IDs -
-					// ID values that the vanilla client does NOT recognize. So we replace
-					// them with the their suitable equivalents.
-					
-					subchunk *sub = ch->get_sub (i);
-					unsigned char *ids = sub->ids;
-					unsigned char *metas = sub->meta;
-					unsigned int *customs = sub->custom;
-					for (int i = 0; i < 128; ++i)
+				return pack;
+			}
+			
+			
+			
+			packet*
+			make_chunk (int x, int z, chunk *och, const std::vector<edit_stage *> es_vec)
+			{
+				chunk *ch = och;
+				for (edit_stage *es : es_vec)
+					if (es->mod_count_at (x, z) > 0)
 						{
-							if (customs[i] == 0)
+							ch = och->duplicate ();
+							for (edit_stage *es : es_vec)
+								es->commit_chunk (ch, x, z);
+							break;
+						}
+				
+				int data_size = 0, n = 0, i;
+				unsigned short primary_bitmap = 0, add_bitmap = 0;
+				int primary_count = 0;
+				
+				// create bitmaps and calculate the size of the uncompressed data array.
+				data_size += 256; // biome array
+				for (i = 0; i < 16; ++i)
+					{
+						subchunk *sub = ch->get_sub (i);
+						if (sub && !sub->all_air ())
+							{
+								primary_bitmap |= (1 << i);
+								++ primary_count;
+								data_size += 10240;
+						
+								//// NOTE: Do not send add values for now... or else it will cause custom
+								//// blocks to screw up.
+								//if (sub->has_add ())
+								//	{ add_bitmap |= (1 << i); data_size += 2048; }
+							}
+					}
+				
+				unsigned char *data = new unsigned char[data_size];
+				
+				// fill the array.
+				
+				/* 
+				 * We do IDs and metadata values at the same time.
+				 */
+				int ind, hlf;
+				for (i = 0; i < 16; ++i)
+					if (primary_bitmap & (1 << i))
+						{
+							// we take into account that the ID array might contain custom IDs -
+							// ID values that the vanilla client does NOT recognize. So we replace
+							// them with the their suitable equivalents.
+							
+							subchunk *sub = ch->get_sub (i);
+							unsigned char *ids = sub->ids;
+							unsigned char *metas = sub->meta;
+							unsigned int *customs = sub->custom;
+							for (int i = 0; i < 128; ++i)
 								{
-									std::memcpy (data + n, ids + (i << 5), 32);
-									std::memcpy (data + (primary_count << 12) + (n >> 1), metas + (i << 4), 16);
-									n += 32;
-								}
-							else
-								{
-									int e = (i << 5) + 32; int id;
-									for (int j = (i << 5); j < e; ++j)
+									if (customs[i] == 0)
 										{
-											// extract full id
-											id = sub->ids[j];
-											if (sub->add)
+											std::memcpy (data + n, ids + (i << 5), 32);
+											std::memcpy (data + (primary_count << 12) + (n >> 1), metas + (i << 4), 16);
+											n += 32;
+										}
+									else
+										{
+											int e = (i << 5) + 32; int id;
+											for (int j = (i << 5); j < e; ++j)
 												{
-													if (j & 1)
-														id |= (sub->add[j >> 1] >> 4) << 8;
-													else
-														id |= (sub->add[j >> 1] & 0xF) << 8;
-												}
-											
-											ind = n;
-											hlf = ind >> 1;
-											
-											if (block_info::is_vanilla_id (id))
-												{
-													data[n] = id & 0xFF;
-													if (ind & 1)
-														{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0xF0); }
-													else
-														{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0x0F); }
-													++ n;
-												}
-											else
-												{
-													physics_block *ph = physics_block::from_id (id);
-													if (ph)
+													// extract full id
+													id = sub->ids[j];
+													if (sub->add)
 														{
-															blocki vn = ph->vanilla_block ();
-															data[n] = vn.id & 0xFF;
-															if (ind & 1)
-																{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (vn.meta << 4); }
+															if (j & 1)
+																id |= (sub->add[j >> 1] >> 4) << 8;
 															else
-																{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= vn.meta; }
+																id |= (sub->add[j >> 1] & 0xF) << 8;
+														}
+													
+													ind = n;
+													hlf = ind >> 1;
+													
+													if (block_info::is_vanilla_id (id))
+														{
+															data[n] = id & 0xFF;
+															if (ind & 1)
+																{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0xF0); }
+															else
+																{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= (metas[j >> 1] & 0x0F); }
 															++ n;
 														}
 													else
 														{
-															data[n] = 0;
-															if (ind & 1)
-																data[(primary_count << 12) + hlf] &= 0x0F;
+															physics_block *ph = physics_block::from_id (id);
+															if (ph)
+																{
+																	blocki vn = ph->vanilla_block ();
+																	data[n] = vn.id & 0xFF;
+																	if (ind & 1)
+																		{ data[(primary_count << 12) + hlf] &= 0x0F; data[(primary_count << 12) + hlf] |= (vn.meta << 4); }
+																	else
+																		{ data[(primary_count << 12) + hlf] &= 0xF0; data[(primary_count << 12) + hlf] |= vn.meta; }
+																	++ n;
+																}
 															else
-																data[(primary_count << 12) + hlf] &= 0xF0;
-															++ n;
+																{
+																	data[n] = 0;
+																	if (ind & 1)
+																		data[(primary_count << 12) + hlf] &= 0x0F;
+																	else
+																		data[(primary_count << 12) + hlf] &= 0xF0;
+																	++ n;
+																}
 														}
 												}
 										}
 								}
 						}
-				}
-		n += primary_count * 2048; // account for metadata
-		
-		for (i = 0; i < 16; ++i)
-			if (primary_bitmap & (1 << i))
-				{ std::memcpy (data + n, ch->get_sub (i)->blight, 2048);
-					n += 2048; }
-		
-		for (i = 0; i < 16; ++i)
-			if (primary_bitmap & (1 << i))
-				{ std::memcpy (data + n, ch->get_sub (i)->slight, 2048);
-					n += 2048; }
-		
-		for (i = 0; i < 16; ++i)
-			if (add_bitmap & (1 << i))
-				{ std::memcpy (data + n, ch->get_sub (i)->add, 2048);
-					n += 2048; }
-		
-		std::memcpy (data + n, ch->get_biome_array (), 256);
-		n += 256;
-		
-		// compress.
-		unsigned long compressed_size = compressBound (data_size);
-		unsigned char *compressed = new unsigned char[compressed_size];
-		if (compress2 (compressed, &compressed_size, data, data_size,
-			Z_BEST_COMPRESSION) != Z_OK)
-			{
-				delete[] compressed;
-				delete[] data;
-				return nullptr;
-			}
-		
-		delete[] data;
-		if (ch != och)
-			delete ch;
-		
-		// and finally, create the packet.
-		packet* pack = new packet (18 + compressed_size);
-		
-		pack->put_byte (0x33);
-		pack->put_int (x);
-		pack->put_int (z);
-		pack->put_bool (true); // ground-up continuous
-		pack->put_short (primary_bitmap);
-		pack->put_short (add_bitmap);
-		pack->put_int (compressed_size);
-		pack->put_bytes (compressed, compressed_size);
-		delete[] compressed;
-		
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_empty_chunk (int x, int z)
-	{
-		static const unsigned char unload_sequence[] =
-			{ 0x78, 0x9C, 0x63, 0x64, 0x1C, 0xD9, 0x00, 0x00, 0x81, 0x80, 0x01, 0x01 };
-		
-		packet *pack = new packet (18 + (sizeof unload_sequence));
-		
-		pack->put_byte (0x33);
-		pack->put_int (x);
-		pack->put_int (z);
-		pack->put_bool (true); // ground-up continuous
-		pack->put_short (0); // primary bitmap
-		pack->put_short (0); // add bitmap
-		pack->put_int (sizeof unload_sequence);
-		pack->put_bytes (unload_sequence, sizeof unload_sequence);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_multi_block_change (int cx, int cz,
-		const std::vector<block_change_record>& records, player *sb)
-	{
-		packet* pack = new packet (15 + (records.size () * 4));
-		int srec = utils::min (records.size (), 65535);
-		
-		pack->put_byte (0x34);
-		pack->put_int (cx);
-		pack->put_int (cz);
-		pack->put_short (srec);
-		
-		int spos = pack->pos;
-		pack->pos += 4;
-		
-		if (sb)
-			sb->sb_lock.lock ();
-		
-		int elems = srec;
-		for (int i = 0; i < srec; ++i)
-			{
-				block_change_record rec = records[i];
-				if (sb && (sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z)))
-					{ -- elems; continue; }
+				n += primary_count * 2048; // account for metadata
 				
-				int id = rec.id;
-				int meta = rec.meta;
-				if (!block_info::is_vanilla_id (id))
+				for (i = 0; i < 16; ++i)
+					if (primary_bitmap & (1 << i))
+						{ std::memcpy (data + n, ch->get_sub (i)->blight, 2048);
+							n += 2048; }
+				
+				for (i = 0; i < 16; ++i)
+					if (primary_bitmap & (1 << i))
+						{ std::memcpy (data + n, ch->get_sub (i)->slight, 2048);
+							n += 2048; }
+				
+				for (i = 0; i < 16; ++i)
+					if (add_bitmap & (1 << i))
+						{ std::memcpy (data + n, ch->get_sub (i)->add, 2048);
+							n += 2048; }
+				
+				std::memcpy (data + n, ch->get_biome_array (), 256);
+				n += 256;
+				
+				// compress.
+				unsigned long compressed_size = compressBound (data_size);
+				unsigned char *compressed = new unsigned char[compressed_size];
+				if (compress2 (compressed, &compressed_size, data, data_size,
+					Z_BEST_COMPRESSION) != Z_OK)
 					{
-						physics_block *ph = physics_block::from_id (id);
+						delete[] compressed;
+						delete[] data;
+						return nullptr;
+					}
+				
+				delete[] data;
+				if (ch != och)
+					delete ch;
+				
+				// and finally, create the packet.
+				packet* pack = new packet (20 + compressed_size);
+				
+				pack->put_varint (18 + compressed_size);
+				pack->put_varint (0x21);
+				pack->put_int (x);
+				pack->put_int (z);
+				pack->put_bool (true); // ground-up continuous
+				pack->put_short (primary_bitmap);
+				pack->put_short (add_bitmap);
+				pack->put_int (compressed_size);
+				pack->put_bytes (compressed, compressed_size);
+				delete[] compressed;
+				
+				return pack;
+			}
+			
+			packet*
+			make_chunk (int x, int z, chunk *ch)
+			{
+				std::vector<edit_stage *> vec;
+				return packets::play::make_chunk (x, z, ch, vec);
+			}
+			
+			packet*
+			make_empty_chunk (int x, int z)
+			{
+				static const unsigned char unload_sequence[] =
+					{ 0x78, 0x9C, 0x63, 0x64, 0x1C, 0xD9, 0x00, 0x00, 0x81, 0x80, 0x01, 0x01 };
+		
+				packet *pack = new packet (20 + (sizeof unload_sequence));
+				
+				pack->put_varint (18 + (sizeof unload_sequence));
+				pack->put_byte (0x21);
+				pack->put_int (x);
+				pack->put_int (z);
+				pack->put_bool (true); // ground-up continuous
+				pack->put_short (0); // primary bitmap
+				pack->put_short (0); // add bitmap
+				pack->put_int (sizeof unload_sequence);
+				pack->put_bytes (unload_sequence, sizeof unload_sequence);
+		
+				return pack;
+			}
+			
+			
+			packet*
+			make_multi_block_change (int cx, int cz,
+				const std::vector<block_change_record>& records, player *sb)
+			{
+				packet* pack = new packet (17 + (records.size () * 4));
+				
+				if (sb)
+					sb->sb_lock.lock ();
+				
+				int srec = utils::min (records.size (), 65535);
+				std::vector<block_change_record> good_records;
+				for (int i = 0; i < srec; ++i)
+					{
+						block_change_record rec = records[i];
+						if (!(sb && (sb->sb_exists_nolock ((cx << 4) | rec.x, rec.y, (cz << 4) | rec.z))))
+							good_records.push_back (rec);
+					}
+				
+				pack->put_varint (15 + (good_records.size () * 4));
+				pack->put_varint (0x22);
+				pack->put_int (cx);
+				pack->put_int (cz);
+				pack->put_short (good_records.size ());
+				pack->put_int (4 * good_records.size ());
+				
+				for (block_change_record rec : good_records)
+					{
+						int id = rec.id;
+						int meta = rec.meta;
+						if (!block_info::is_vanilla_id (id))
+							{
+								physics_block *ph = physics_block::from_id (id);
+								if (ph)
+									{
+										id = ph->vanilla_block ().id;
+										meta = ph->vanilla_block ().meta;
+									}
+								else
+									id = meta = 0;
+							}
+				
+						pack->put_byte ((rec.x << 4) | rec.z);
+						pack->put_byte (rec.y);
+						pack->put_byte (id >> 4);
+						pack->put_byte (((id & 0xF) << 4) | meta);
+					}
+		
+				if (sb)
+					sb->sb_lock.unlock ();
+		
+				return pack;
+			}
+			
+			packet*
+			make_block_change (int x, int y, int z, unsigned short id,
+				unsigned char meta)
+			{
+				int id_size = varint_size (id);
+				packet* pack = new packet (13 + id_size);
+		
+				int new_id = id;
+				int new_meta = meta;
+				if (!block_info::is_vanilla_id (new_id))
+					{
+						physics_block *ph = physics_block::from_id (new_id);
 						if (ph)
 							{
-								id = ph->vanilla_block ().id;
-								meta = ph->vanilla_block ().meta;
+								new_id = ph->vanilla_block ().id;
+								new_meta = ph->vanilla_block ().meta;
 							}
 						else
-							id = meta = 0;
+							new_id = new_meta = 0;
 					}
-				
-				pack->put_byte ((rec.x << 4) | rec.z);
-				pack->put_byte (rec.y);
-				pack->put_byte (id >> 4);
-				pack->put_byte (((id & 0xF) << 4) | meta);
+		
+				pack->put_varint (11 + id_size);
+				pack->put_varint (0x23);
+				pack->put_int (x);
+				pack->put_byte (y);
+				pack->put_int (z);
+				pack->put_varint (new_id);
+				pack->put_byte (meta);
+		
+				return pack;
 			}
-		
-		if (sb)
-			sb->sb_lock.unlock ();
-		
-		int npos = pack->pos;
-		pack->pos = spos;
-		pack->put_int (elems * 4);
-		pack->pos = npos;
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_block_change (int x, unsigned char y, int z,
-		unsigned short id, unsigned char meta)
-	{
-		packet* pack = new packet (13);
-		
-		int new_id = id;
-		int new_meta = meta;
-		if (!block_info::is_vanilla_id (new_id))
+			
+			packet*
+			make_sound_effect (const char *sound, double x, double y, double z,
+				float vol, char pitch)
 			{
-				physics_block *ph = physics_block::from_id (new_id);
-				if (ph)
-					{
-						new_id = ph->vanilla_block ().id;
-						new_meta = ph->vanilla_block ().meta;
-					}
-				else
-					new_id = new_meta = 0;
+				int sound_len = mc_str_len (sound);
+				packet *pack = new packet (20 + sound_len);
+				
+				pack->put_varint (18 + sound_len);
+				pack->put_varint (0x29);
+				pack->put_string (sound);
+				pack->put_int (x * 8.0);
+				pack->put_int (y * 8.0);
+				pack->put_int (z * 8.0);
+				pack->put_float (vol);
+				pack->put_byte (pitch);
+				
+				return pack;
 			}
+			
+			packet*
+			make_change_game_state (int reason, float value)
+			{
+				packet *pack = new packet (7);
+				
+				pack->put_varint (6);
+				pack->put_varint (0x2B);
+				pack->put_byte (reason);
+				pack->put_float (value);
+				
+				return pack;
+			}
+			
+			packet*
+			make_set_slot (int wid, int slot, const slot_item& item)
+			{
+				int item_size = slot_size (item);
+				packet *pack = new packet (6 + item_size);
+				
+				/* 
+				 * TODO: Item metadata.
+				 */
+				
+				pack->put_varint (4 + item_size);
+				pack->put_varint (0x2F);
+				pack->put_byte (wid);
+				pack->put_short (slot);
+				pack->put_slot (item);
+				
+				return pack;
+			}
+			
+			packet*
+			make_window_items (int wid, const std::vector<slot_item>& items)
+			{
+				/* 
+				 * TODO: Item metadata.
+				 */
+				
+				int items_size = 0;
+				for (const slot_item s : items)
+					items_size += slot_size (s);
+				
+				packet *pack = new packet (6 + items_size);
+				
+				pack->put_varint (4 + items_size);
+				pack->put_varint (0x30);
+				pack->put_byte (wid);
+				pack->put_short (items.size ());
+				for (const slot_item item : items)
+					pack->put_slot (item);
+				
+				return pack;
+			}
+			
+			packet*
+			make_update_sign (int x, int y, int z, const char *first,
+				const char *second, const char *third, const char *fourth)
+			{
+				int strs_len = mc_str_len (first) + mc_str_len (second)
+					+ mc_str_len (third) + mc_str_len (fourth);
+				packet *pack = new packet (13 + strs_len);
+				
+				pack->put_varint (11 + strs_len);
+				pack->put_varint (0x33);
+				pack->put_int (x);
+				pack->put_short (y);
+				pack->put_int (z);
+				pack->put_string (first);
+				pack->put_string (second);
+				pack->put_string (third);
+				pack->put_string (fourth);
+				
+				return pack;
+			}
+			
+			packet*
+			make_open_sign_editor (int x, int y, int z)
+			{
+				packet *pack = new packet (14);
+				
+				pack->put_varint (13);
+				pack->put_varint (0x36);
+				pack->put_int (x);
+				pack->put_int (y);
+				pack->put_int (z);
+				
+				return pack;
+			}
+			
+			packet*
+			make_player_list_item (const char *name, bool online, short ping)
+			{
+				int name_len = mc_str_len (name);
+				packet *pack = new packet (6 + name_len);
+				
+				pack->put_varint (4 + name_len);
+				pack->put_varint (0x38);
+				pack->put_string (name);
+				pack->put_bool (online);
+				pack->put_short (ping);
+				
+				return pack;
+			}
+			
+			packet*
+			make_disconnect (const char *msg)
+			{
+				int msg_len = mc_str_len (msg);
+				packet *pack = new packet (3 + msg_len);
+				
+				pack->put_varint (1 + msg_len);
+				pack->put_varint (0x40);
+				pack->put_string (msg);
+				
+				return pack;
+			}
+		}
 		
-		pack->put_byte (0x35);
-		pack->put_int (x);
-		pack->put_byte (y);
-		pack->put_int (z);
-		pack->put_short (new_id);
-		pack->put_byte (meta);
 		
-		return pack;
-	}
-	
-	packet*
-	packet::make_named_sound_effect (const char *sound, double x, double y, double z,
-		float volume, unsigned char pitch)
-	{
-		packet* pack = new packet (20 + mc_str_len (sound));
+		namespace status {
+			
+			packet*
+			make_response (const char *response)
+			{
+				int response_len = mc_str_len (response);
+				packet *pack = new packet (5 + response_len);
+				
+				int len = 1 + response_len;
+				
+				pack->put_varint (len);
+				pack->put_varint (0x00); // opcode
+				pack->put_string (response);
+				
+				return pack;
+			}
+			
+			packet*
+			make_ping (long long time)
+			{
+				packet *pack = new packet (10);
+				
+				pack->put_varint (9);	// length
+				pack->put_varint (0x01); // opcode
+				pack->put_long (time);
+				
+				return pack;
+			}
+		}
 		
-		pack->put_byte (0x3E);
-		pack->put_string (sound);
-		pack->put_int (x * 8.0);
-		pack->put_int (y * 8.0);
-		pack->put_int (z * 8.0);
-		pack->put_float (volume);
-		pack->put_byte (pitch);
 		
-		return pack;
-	}
-	
-	packet*
-	packet::make_change_game_state (char reason, char gm)
-	{
-		packet *pack = new packet (3);
+		namespace login {
+			
+			packet*
+			make_disconnect (const char *js)
+			{
+				return nullptr;
+			}
+			
+			packet*
+			make_encryption_request (const std::string& sid,
+				CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4])
+			{
+				CryptoPP::ByteQueue q;
+				pkey.Save (q);
 		
-		pack->put_byte (0x46);
-		pack->put_byte (reason);
-		pack->put_byte (gm);
+				unsigned char buf[384];
+				size_t keylen = q.Get (buf, sizeof buf);
 		
-		return pack;
-	}
-	
-	packet*
-	packet::make_set_slot (char wid, short slot, const slot_item& item)
-	{
-		packet *pack = new packet (4 + slot_size (item));
+				int sid_len = mc_str_len (sid);
+				packet *pack = new packet (7 + sid_len + keylen + 4);
+				
+				pack->put_varint (9 + sid_len + keylen);
+				pack->put_varint (0x01);
+				pack->put_string (sid.c_str ());
+				pack->put_short (keylen);
+				pack->put_bytes (buf, keylen);
+				pack->put_short (4);
+				pack->put_bytes (vtoken, 4);
 		
-		/* 
-		 * TODO: Item metadata.
-		 */
-		
-		pack->put_byte (0x67);
-		pack->put_byte (wid);
-		pack->put_short (slot);
-		pack->put_slot (item);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_set_window_items (char wid, const std::vector<slot_item>& slots)
-	{
-		/* 
-		 * TODO: Item metadata.
-		 */
-		
-		packet *pack = new packet (4 + (slots.size () * 7));
-		
-		pack->put_byte (0x68);
-		pack->put_byte (wid);
-		pack->put_short (slots.size ());
-		for (const slot_item& item : slots)
-			pack->put_slot (item);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_update_sign (int x, int y, int z, const char *first,
-		const char *second, const char *third, const char *fourth)
-	{
-		packet *pack = new packet (11 + mc_str_len (first) + mc_str_len (second)
-			+ mc_str_len (third) + mc_str_len (fourth));
-		
-		pack->put_byte (0x82);
-		pack->put_int (x);
-		pack->put_short (y);
-		pack->put_int (z);
-		pack->put_string (first);
-		pack->put_string (second);
-		pack->put_string (third);
-		pack->put_string (fourth);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_open_sign_window (int x, int y, int z)
-	{
-		packet *pack = new packet (14);
-		
-		pack->put_byte (0x85);
-		pack->put_byte (0);
-		pack->put_int (x);
-		pack->put_int (y);
-		pack->put_int (z);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_player_list_item (const char *name, bool online,
-		short ping_ms)
-	{
-		packet *pack = new packet (6 + mc_str_len (name));
-		
-		pack->put_byte (0xC9);
-		pack->put_string (name);
-		pack->put_bool (online);
-		pack->put_short (ping_ms);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_empty_encryption_key_response ()
-	{
-		packet *pack = new packet (5);
-		
-		pack->put_byte (0xFC);
-		pack->put_short (0);
-		pack->put_short (0);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_encryption_key_request (const std::string& sid,
-		CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4])
-	{
-		CryptoPP::ByteQueue q;
-		pkey.Save (q);
-		
-		unsigned char buf[384];
-		size_t keylen = q.Get (buf, sizeof buf);
-		
-		packet *pack = new packet (7 + mc_str_len (sid) + keylen + 4);
-		
-		pack->put_byte (0xFD);
-		pack->put_string (sid.c_str ());
-		pack->put_short (keylen);
-		pack->put_bytes (buf, keylen);
-		pack->put_short (4);
-		pack->put_bytes (vtoken, 4);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_kick (const char *str)
-	{
-		packet *pack = new packet (3 + mc_str_len (str));
-		
-		pack->put_byte (0xFF);
-		pack->put_string (str);
-		
-		return pack;
-	}
-	
-	packet*
-	packet::make_ping_kick (const char *motd, int player_count, int max_players)
-	{
-		packet *pack = new packet (mc_str_len (motd)
-			+ ((std::log10 (player_count + 1) + 1) * 2)
-			+ ((std::log10 (max_players + 1) + 1) * 2)
-			+ 64);
-		
-		std::ostringstream ss;
-		
-		ss << player_count;
-		std::string player_count_str {ss.str ()};
-		
-		ss.clear (); ss.str (std::string ());
-		ss << max_players;
-		std::string max_players_str {ss.str ()};
-		
-		pack->put_byte (0xFF);
-		
-		// we encode length later
-		int str_len_pos = pack->pos;
-		pack->pos += 2;
-		
-		pack->put_string ("§1", false, false);
-		
-		pack->put_short (0); // delimiter
-		
-		ss.clear (); ss.str (std::string ());
-		ss << packet::protocol_version;
-		pack->put_string (ss.str ().c_str (), false, false);
-		
-		pack->put_short (0); // delimiter
-		pack->put_string (packet::game_version, false, false);
-		
-		pack->put_short (0); // delimiter
-		pack->put_string (motd, true, false);
-		
-		pack->put_short (0); // delimiter
-		pack->put_string (player_count_str.c_str (), false, false);
-		
-		pack->put_short (0); // delimiter
-		pack->put_string (max_players_str.c_str (), false, false);
-		
-		// encode length
-		int curr_pos = pack->pos;
-		int str_len  = (curr_pos - (str_len_pos + 2)) / 2;
-		pack->pos = str_len_pos;
-		pack->put_short (str_len);
-		pack->pos = curr_pos;
-		
-		return pack;
+				return pack;
+			}
+			
+			packet*
+			make_login_success (const char *uuid, const char *username)
+			{
+				int uuid_len = mc_str_len (uuid);
+				int username_len = mc_str_len (username);
+				packet *pack = new packet (3 + uuid_len + username_len);
+				
+				int len = 1 + uuid_len + username_len;
+				pack->put_varint (len);
+				pack->put_varint (0x02);
+				pack->put_string (uuid);
+				pack->put_string (username);
+				
+				return pack;
+			}
+		}
 	}
 }
 

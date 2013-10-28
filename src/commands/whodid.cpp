@@ -109,7 +109,7 @@ namespace hCraft {
 					// time
 					std::string first_relative;
 					utils::relative_time (std::time (nullptr), rec.tm, first_relative);
-					ss << "§f   - §b" << first_relative;
+					ss << "§f   - §b" << first_relative << " ago";
 					pl->message (ss.str ());
 				}
 			

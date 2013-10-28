@@ -32,6 +32,7 @@
 #include "system/sqlops.hpp"
 #include "world/generation/generator.hpp"
 #include "world/block_undo.hpp"
+#include "util/uuid.hpp"
 
 #include <atomic>
 #include <queue>
@@ -145,11 +146,12 @@ namespace hCraft {
 		rank rnk;
 		char ip[16];
 		bool logged_in;
-		bool handshake;
 		bool authenticated;
 		bool encrypted;
 		bool fail; // true if the player is no longer valid, and must be disposed of.
 		std::chrono::time_point<std::chrono::system_clock> fail_time;
+		protocol_state pstate;
+		uuid_t uuid;
 		
 		bool eating;
 		std::chrono::steady_clock::time_point eat_time;
@@ -279,6 +281,39 @@ namespace hCraft {
 		 * NOTE: These return 0 on success (any other value will disconnect the
 		 *       player).
 		 */
+		
+		// state: handshake
+		static int handle_hs_packet_00 (player *pl, packet_reader reader);
+		
+		// state: status
+		static int handle_st_packet_00 (player *pl, packet_reader reader);
+		static int handle_st_packet_01 (player *pl, packet_reader reader);
+		
+		// state: login
+		static int handle_lg_packet_00 (player *pl, packet_reader reader);
+		static int handle_lg_packet_01 (player *pl, packet_reader reader);
+		
+		// state: play
+		static int handle_pl_packet_00 (player *pl, packet_reader reader);
+		static int handle_pl_packet_01 (player *pl, packet_reader reader);
+		static int handle_pl_packet_03 (player *pl, packet_reader reader);
+		static int handle_pl_packet_04 (player *pl, packet_reader reader);
+		static int handle_pl_packet_05 (player *pl, packet_reader reader);
+		static int handle_pl_packet_06 (player *pl, packet_reader reader);
+		static int handle_pl_packet_07 (player *pl, packet_reader reader);
+		static int handle_pl_packet_08 (player *pl, packet_reader reader);
+		static int handle_pl_packet_09 (player *pl, packet_reader reader);
+		static int handle_pl_packet_0a (player *pl, packet_reader reader);
+		static int handle_pl_packet_0b (player *pl, packet_reader reader);
+		static int handle_pl_packet_0d (player *pl, packet_reader reader);
+		static int handle_pl_packet_0e (player *pl, packet_reader reader);
+		static int handle_pl_packet_10 (player *pl, packet_reader reader);
+		static int handle_pl_packet_12 (player *pl, packet_reader reader);
+		static int handle_pl_packet_16 (player *pl, packet_reader reader);
+		
+		
+		// TODO: remove these
+		// obsolete.
 		static int handle_packet_00 (player *pl, packet_reader reader);
 		static int handle_packet_02 (player *pl, packet_reader reader);
 		static int handle_packet_03 (player *pl, packet_reader reader);
@@ -334,22 +369,6 @@ namespace hCraft {
 	//----
 		
 		/* 
-		 * Sends a ping packet to the player and waits for a response.
-		 */
-		void ping ();
-		
-		/* 
-		 * Sends a ping packet to the player only if the specified amount of
-		 * milliseconds have passed since the last ping packet has been sent.
-		 * 
-		 * If the player is still waiting for a ping response, the function
-		 * will kick the player.
-		 */
-		void try_ping (int ms);
-		
-	//----
-		
-		/* 
 		 * Moves the player to the specified position.
 		 */
 		void move_to (entity_pos dest);
@@ -388,6 +407,7 @@ namespace hCraft {
 		inline const char* get_nickname () { return this->nick; }
 		inline const char* get_colored_nickname () { return this->colored_nick; }
 		
+		inline uuid_t get_uuid () const { return this->uuid; }
 		inline int pid () { return this->dbid; }
 		inline const rank& get_rank () { return this->rnk; }
 		inline bool is_op () { return this->op; }
@@ -496,6 +516,22 @@ namespace hCraft {
 		 * Modifies the player's gamemode.
 		 */
 		void change_gamemode (gamemode_type gm);
+		
+		
+		
+		/* 
+		 * Sends a ping packet to the player and waits for a response.
+		 */
+		void ping ();
+		
+		/* 
+		 * Sends a ping packet to the player only if the specified amount of
+		 * milliseconds have passed since the last ping packet has been sent.
+		 * 
+		 * If the player is still waiting for a ping response, the function
+		 * will kick the player.
+		 */
+		void try_ping (int ms);
 		
 		
 		
@@ -612,6 +648,11 @@ namespace hCraft {
 		bool sb_exists_nolock (int x, int y, int z);
 		void sb_commit_nolock ();
 		void sb_send (int x, int y, int z);
+		
+		/* 
+		 * Returns the next unused selection number (@1, @2, ...).
+		 */
+		int sb_next_unused ();
 		
 		
 		/* 

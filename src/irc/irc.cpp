@@ -20,6 +20,7 @@
 #include "system/server.hpp"
 #include "system/logger.hpp"
 #include "util/stringutils.hpp"
+#include "util/wordwrap.hpp"
 #include <event2/buffer.h>
 #include <cstdlib>
 
@@ -329,13 +330,66 @@ namespace hCraft {
 		this->send ("JOIN " + chan);
 	}
 	
+	
+	
+	static inline int
+	_hex_to_int (char c)
+	{
+		if (c >= '0' && c <= '9')
+			return c - '0';
+		else if (c >= 'a' && c <= 'f')
+			return c - 'a' + 10;
+		else if (c >= 'A' && c <= 'F')
+			return c - 'F' + 10;
+		return 0; 
+	}
+	
+	// MC colors -> IRC colors
+	static std::string
+	_translate_colors (const std::string& in)
+	{
+		std::string out;
+		
+		for (size_t i = 0; i < in.length (); ++i)
+			{
+				if ((in[i] & 0xFF) == 0xC2 && ((i + 2) < in.length ()) && (in[i + 1] & 0xFF) == 0xA7)
+					{
+						if (is_style_code (in[i + 2]))
+							i += 2;
+						else
+							{
+								int c = _hex_to_int (in[i + 2]);
+								const static int color_table[] = {
+									1, 2, 3, 10, 4, 6, 7, 15, 14, 12, 9, 11, 4, 13, 8, 1
+								};
+						
+								if (c >= 0 && c <= 15)
+									{
+										int irc_col = color_table[c];
+										out.push_back (0x03); // ^C
+										if (irc_col >= 10)
+											out.push_back ('1');
+										out.push_back ((irc_col % 10) + '0');
+										i += 2;
+									}
+								else
+									out.push_back (in[i]);
+							}
+					}
+				else
+					out.push_back (in[i]);
+			}
+		
+		return out;
+	}
+	
 	/* 
 	 * Sends a message to the channel the bot's in.
 	 */
 	void
 	irc_client::chan_msg (const std::string& msg)
 	{
-		this->send ("PRIVMSG " + this->chan + " :" + msg);
+		this->send ("PRIVMSG " + this->chan + " :" + _translate_colors (msg));
 	}
 }
 

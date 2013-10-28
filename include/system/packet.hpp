@@ -50,12 +50,24 @@ namespace hCraft {
 	
 	
 	/* 
+	 * The three protocol states that exist in 1.7.
+	 */
+	enum protocol_state
+	{
+		PS_HANDSHAKE	= 0,
+		PS_STATUS			= 1,
+		PS_LOGIN			= 2,
+		PS_PLAY				= 3,
+	};
+	
+	
+	/* 
 	 * A byte array wrapper that provides methods to encode binary data into it.
 	 */
 	struct packet
 	{
-		static const int protocol_version = 78;
-		static constexpr const char* game_version = "1.6.4";
+		static const int protocol_version = 4;
+		static constexpr const char* game_version = "1.7.2";
 	//----
 		
 		unsigned char *data;
@@ -88,6 +100,7 @@ namespace hCraft {
 		void put_short (uint16_t val);
 		void put_int (uint32_t val);
 		void put_long (uint64_t val);
+		void put_varint (uint32_t val);
 		void put_float (float val);
 		void put_double (double val);
 		int put_string (const char *str, bool sanitize = true,
@@ -117,112 +130,6 @@ namespace hCraft {
 		 * with any valid packet (it returns -1 to indicate that it is not).
 		 */
 		static int remaining (const unsigned char *data, unsigned int have);
-		
-		
-		
-	//---
-		/* 
-		 * Packet creation:
-		 */
-		
-		static packet* make_ping (int id);
-		
-		static packet* make_login (int eid, const char *level_type, char game_mode,
-			char dimension, char difficulty, unsigned char max_players);
-		
-		static packet* make_message (const char *msg);
-		
-		static packet* make_time_update (long long world_age, long long day_time);
-		
-		static packet* make_entity_equipment (int eid, short slot, slot_item item);
-		
-		static packet* make_spawn_pos (int x, int y, int z);
-		
-		static packet* make_update_health (float hearts, short hunger,
-			float hunger_saturation);
-		
-		static packet* make_respawn (int dimension, char difficulty, char game_mode,
-			const char *level_type);
-		
-		static packet* make_player_pos_and_look (double x, double y, double z,
-			double stance, float r, float l, bool on_ground);
-		
-		static packet* make_animation (int eid, char animation);
-		
-		static packet* make_spawn_named_entity (int eid, const char *name, double x,
-			double y, double z, float r, float l, short current_item,
-			entity_metadata& meta);
-		
-		static packet* make_collect_item (int collected_eid, int collector_eid);
-		
-		static packet* make_spawn_object (int eid, char type, double x, double y, double z,
-			float r, float l, int data, short speed_x, short speed_y,
-			short speed_z);
-		
-		static packet* make_spawn_mob (int eid, char type, double x, double y,
-			double z, float r, float l, float hl, short vx, short vy,
-			short vz, entity_metadata& meta);
-		
-		static packet* make_entity_velocity (int eid, short vx, short vy, short vz);
-		
-		static packet* make_destroy_entity (int eid);
-		
-		static packet* make_entity_relative_move (int eid, char dx, char dy, char dz);
-		
-		static packet* make_entity_look (int eid, float r, float l);
-		
-		static packet* make_entity_look_and_move (int eid, char dx, char dy, char dz,
-			float r, float l);
-		
-		static packet* make_entity_teleport (int eid, int x, int y, int z, 
-			float r, float l);
-		
-		static packet* make_entity_head_look (int eid, float yaw);
-		
-		static packet* make_entity_status (int eid, char status);
-		
-		static packet* make_entity_metadata (int eid, entity_metadata& meta);
-		
-		static packet* make_entity_properties (int eid,
-			const std::vector<entity_property>& props);
-		
-		static packet* make_chunk (int x, int z, chunk *ch, const std::vector<edit_stage *> es_vec);
-		static packet* make_chunk (int x, int z, chunk *ch);
-		
-		static packet* make_empty_chunk (int x, int z);
-		
-		static packet* make_multi_block_change (int cx, int cz,
-			const std::vector<block_change_record>& records, player *sb = nullptr);
-		
-		static packet* make_block_change (int x, unsigned char y, int z,
-			unsigned short id, unsigned char meta);
-		
-		static packet* make_named_sound_effect (const char *sound, double x, double y,
-			double z, float volume, unsigned char pitch);
-		
-		static packet* make_change_game_state (char reason, char gm);
-		
-		static packet* make_set_slot (char wid, short slot, const slot_item& item);
-		
-		static packet* make_set_window_items (char wid,
-			const std::vector<slot_item>& slots);
-		
-		static packet* make_update_sign (int x, int y, int z, const char *first,
-			const char *second, const char *third, const char *fourth);
-		
-		static packet* make_open_sign_window (int x, int y, int z);
-		
-		static packet* make_player_list_item (const char *name, bool online,
-			short ping_ms);
-		
-		static packet* make_empty_encryption_key_response ();
-		
-		static packet* make_encryption_key_request (const std::string& sid,
-			CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4]);
-		
-		static packet* make_kick (const char *str);
-		static packet* make_ping_kick (const char *motd, int player_count,
-			int max_players);
 	};
 	
 	
@@ -258,12 +165,91 @@ namespace hCraft {
 		uint16_t read_short ();
 		uint32_t read_int ();
 		uint64_t read_long ();
+		uint32_t read_varint ();
 		float read_float ();
 		double read_double ();
 		int read_string (char *out, int max_chars = 65535);
 		slot_item read_slot ();
 		void read_bytes (unsigned char *out, int len);
 	};
+	
+	
+	
+	namespace packets {
+		/* 
+		 * Packet creation.
+		 */
+		
+		namespace play {
+			
+			packet* make_keep_alive (int id);
+			packet* make_join_game (int eid, int gm, int dim, int diff,
+				int max_players, const char *level_type);
+			packet* make_chat_message (const char *js);
+			packet* make_time_update (long long world_age, long long time);
+			packet* make_entity_equipment (int eid, short slot, const slot_item& item);
+			packet* make_spawn_position (int x, int y, int z);
+			packet* make_update_health (float health, short food, float sat);
+			packet* make_respawn (int dim, int diff, int gm, const char *level_type);
+			packet* make_player_pos_and_look (double x, double y, double z, float r,
+				float l, bool on_ground);
+			packet* make_held_item_change (int slot);
+			packet* make_animation (int eid, int anim);
+			packet* make_spawn_player (int eid, const char *uuid, const char *username,
+				double x, double y, double z, float r, float l, short item,
+				entity_metadata& meta);
+			packet* make_collect_item (int collected_eid, int collector_eid);
+			packet* make_spawn_object (int eid, int type, double x, double y, double z,
+				float r, float l, int data, short speed_x, short speed_y, short speed_z);
+			packet* make_entity_velocity (int eid, short vx, short vy, short vz);
+			packet* make_destroy_entities (const std::vector<int>& eids);
+			packet* make_destroy_entity (int eid);
+			packet* make_entity (int eid);
+			packet* make_entity_rel_move (int eid, double dx, double dy, double dz);
+			packet* make_entity_look (int eid, float r, float l);
+			packet* make_entity_look_and_rel_move (int eid, double dx, double dy, char dz,
+				float r, float l);
+			packet* make_entity_move (int eid, double x, double y, double z, float r, float l);
+			packet* make_entity_head_look (int eid, float r);
+			packet* make_entity_status (int eid, int status);
+			packet* make_entity_metadata (int eid, entity_metadata& meta);
+			packet* make_entity_properties (int eid,
+				const std::vector<entity_property>& props);
+			packet* make_chunk (int x, int z, chunk *ch, const std::vector<edit_stage *> es_vec);
+			packet* make_chunk (int x, int z, chunk *ch);
+			packet* make_empty_chunk (int x, int z);
+			packet* make_multi_block_change (int cx, int cz,
+				const std::vector<block_change_record>& records, player *sb = nullptr);
+			packet* make_block_change (int x, int y, int z, unsigned short id,
+				unsigned char meta);
+			packet* make_sound_effect (const char *sound, double x, double y, double z,
+				float vol, char pitch);
+			packet* make_change_game_state (int reason, float value);
+			packet* make_set_slot (int wid, int slot, const slot_item& item);
+			packet* make_window_items (int wid, const std::vector<slot_item>& items);
+			packet* make_update_sign (int x, int y, int z, const char *first,
+				const char *second, const char *third, const char *fourth);
+			packet* make_open_sign_editor (int x, int y, int z);
+			packet* make_player_list_item (const char *name, bool online, short ping);
+			packet* make_player_abilities (int flags, float flying_speed,
+				float walking_speed);
+			packet* make_disconnect (const char *msg);
+		}
+		
+		namespace status {
+			
+			packet* make_response (const char *response);
+			packet* make_ping (long long time);
+		}
+		
+		namespace login {
+			
+			packet* make_disconnect (const char *js);
+			packet* make_encryption_request (const std::string& sid,
+				CryptoPP::RSA::PublicKey& pkey, unsigned char vtoken[4]);
+			packet* make_login_success (const char *uuid, const char *username);
+		}
+	}
 }
 
 #endif

@@ -35,7 +35,7 @@ namespace hCraft {
 					return;
 				}
 			
-			pl->get_server ().get_players ().message (msg);
+			pl->get_server ().get_players ().message ("§d" + msg);
 		}
 		
 		static void
