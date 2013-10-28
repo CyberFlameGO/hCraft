@@ -4327,9 +4327,8 @@ namespace hCraft {
 		return !equeue.empty ();
 	}
 	
-	/*
 	static bool
-	test_packet_66 (packet_reader reader, int length,
+	test_packet_0e (packet_reader reader, int length,
 		std::deque<unsigned char *>& equeue)
 	{
 		reader.read_byte (); // wid
@@ -4347,7 +4346,7 @@ namespace hCraft {
 			}			
 		
 		return true;
-	}*/
+	}
 	
 	/* 
 	 * Examines the queue that holds packets pending to be handled by
@@ -4387,9 +4386,8 @@ namespace hCraft {
 		bool ret = true;
 		switch (reader.read_varint ())
 			{
-				// TODO: 1.7 window click
-				//case 0x66: return test_packet_66 (reader);
-				//case 0x6B: return false;
+				case 0x0E: ret = test_packet_0e (reader, length, this->exec_queue); break;
+				case 0x10: ret = false; break;
 				
 				case 0x00: ret = test_packet_00 (reader, length, this->exec_queue); break;
 			}

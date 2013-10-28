@@ -312,32 +312,6 @@ namespace hCraft {
 		static int handle_pl_packet_16 (player *pl, packet_reader reader);
 		
 		
-		// TODO: remove these
-		// obsolete.
-		static int handle_packet_00 (player *pl, packet_reader reader);
-		static int handle_packet_02 (player *pl, packet_reader reader);
-		static int handle_packet_03 (player *pl, packet_reader reader);
-		static int handle_packet_07 (player *pl, packet_reader reader);
-		static int handle_packet_0a (player *pl, packet_reader reader);
-		static int handle_packet_0b (player *pl, packet_reader reader);
-		static int handle_packet_0c (player *pl, packet_reader reader);
-		static int handle_packet_0d (player *pl, packet_reader reader);
-		static int handle_packet_0e (player *pl, packet_reader reader);
-		static int handle_packet_0f (player *pl, packet_reader reader);
-		static int handle_packet_10 (player *pl, packet_reader reader);
-		static int handle_packet_12 (player *pl, packet_reader reader);
-		static int handle_packet_13 (player *pl, packet_reader reader);
-		static int handle_packet_cd (player *pl, packet_reader reader);
-		static int handle_packet_65 (player *pl, packet_reader reader);
-		static int handle_packet_66 (player *pl, packet_reader reader);
-		static int handle_packet_6a (player *pl, packet_reader reader);
-		static int handle_packet_6b (player *pl, packet_reader reader);
-		static int handle_packet_82 (player *pl, packet_reader reader);
-		static int handle_packet_fa (player *pl, packet_reader reader);
-		static int handle_packet_fc (player *pl, packet_reader reader);
-		static int handle_packet_fe (player *pl, packet_reader reader);
-		static int handle_packet_ff (player *pl, packet_reader reader);
-		
 		/* 
 		 * Examines the queue that holds packets pending to be handled by
 		 * appropriate callback methods in-order to conclude whether it is safe
