@@ -1,10 +1,10 @@
 
 # MUST BE CHANGED TO SUIT THE COMPUTER THE PROGRAM IS BEING COMPILED ON
-soci_include_path = '/usr/local/include/soci'
-soci_lib_path     = '/usr/local/lib64'
+soci_include_path = '/usr/include/soci'
+soci_lib_path     = '/usr/lib64'
 
-mysql_include_path = '/usr/local/mysql/include'
-mysql_lib_path     = '/usr/local/mysql/lib'
+mysql_include_path = '/usr/include/mysql'
+mysql_lib_path     = '/usr/mysql/lib'
 
 #------------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ AddOption( "--release", dest="release", action="store_true" )
 # Build compilation strings:
 cc_flags = "-Wall "
 if GetOption("release"):
-	cc_flags += " -O3"
+	cc_flags += " -O2"
 else:
 	cc_flags += " -g -O0"
 
