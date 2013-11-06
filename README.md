@@ -39,19 +39,11 @@ The _currently_ implemented features are:
 Building
 --------
 
-To build hCraft, you will need a C++11-compatible compiler and a copy of
-[SCons](http://www.scons.org/). Just change to the directory that contains
-hCraft, and type `scons`. That will compile and link the source code into
-an executable (can be found in the created "build" directory).
+To build hCraft, you will need a C++11-compatible compiler and a working copy
+of [CMake](http://www.cmake.org/). Change to the directory that contains
+hCraft, and invoke (on Linux) `cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release`
+to generate a makefile, and then proceed by typing `make`.
 
-### NEW BUILDING NOTE
-hCraft currently uses a *very* simplistic SCons build files (>.>), so if you
-wish to build hCraft, you *will* have to modify the build files to match
-your computer! (SConstruct and src/SConscript).
-
-Or more specifically, hCraft currently uses pre-set include\lib paths for
-various libraries - such as MySQL and SOCI, so you will have to change those,
-so the compiler would know where to find the libraries on your computer.
 
 ### Dependencies
 *  [libevent](http://libevent.org/)

@@ -17,3 +17,10 @@ worldbackups/
 .kdev4
 hCraft.kdev4
 
+backups/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake/
+data/
+cmake_install.cmake

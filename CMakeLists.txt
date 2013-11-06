@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(hcraft)
 file(GLOB_RECURSE SRC ${CMAKE_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE  HEADERS ${CMAKE_SOURCE_DIR}/include/*.hpp)
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-g -O0 -std=c++11")
 add_subdirectory(cmake)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
@@ -42,6 +42,6 @@ install(TARGETS hCraft RUNTIME DESTINATION bin)
 
 
 if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE MATCHES Release)
-    set(CMAKE_CXX_FLAGS "-O2 -std=c++11")        ## Optimize
+    set(CMAKE_CXX_FLAGS "-O3 -std=c++11")        ## Optimize
     set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
 endif(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE MATCHES Release)

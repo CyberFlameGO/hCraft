@@ -3645,7 +3645,7 @@ namespace hCraft {
 			pl->send (packets::play::make_multi_block_change (500, 200, records));
 		}
 		
-		//pl->inv.update ();
+		//pl->inv.update (); 
 		
 		if (animation == 1)
 			{
