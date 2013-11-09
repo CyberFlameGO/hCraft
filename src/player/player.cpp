@@ -351,12 +351,6 @@ namespace hCraft {
 				// dispose of the packet that we just completed sending.
 				packet *pack = pl->out_queue.front ();
 				pl->out_queue.pop ();
-				
-				{
-					packet_reader reader {pack->data};
-					reader.read_varint (); // skip length
-					opcode = reader.read_varint ();
-				}
 				delete pack;
 				
 				if (pl->kicked && ((pl->pstate == PS_PLAY && opcode == 0x40)

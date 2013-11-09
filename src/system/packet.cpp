@@ -33,6 +33,7 @@
 #include <cryptopp/queue.h>
 
 #include <iostream> // DEBUG
+#include <iomanip> // DEBUG
 
 
 namespace hCraft {
@@ -240,21 +241,27 @@ namespace hCraft {
 	// returns the amount of space the specified string will take once it is put
 	// in a packet.
 	static int
-	mc_str_len (const char *str)
+	mc_str_len (const char *str, bool sanitized = true)
 	{
-		int len = std::strlen (str);
+		int len = 0;
+		if (sanitized)
+			{
+				std::string out;
+				sanitize_string (str, out);
+				len = out.length ();
+			}
+		else
+			len = std::strlen (str);
+		
 		if (len > 0x7F)
 			return 2 + len;
 		return 1 + len;
 	}
 	
 	static int
-	mc_str_len (const std::string& str)
+	mc_str_len (const std::string& str, bool sanitized = true)
 	{
-		int len = str.length ();
-		if (len > 0x7F)
-			return 2 + len;
-		return 1 + len;
+		return mc_str_len (str.c_str (), sanitized);
 	}
 	
 	
@@ -510,7 +517,11 @@ namespace hCraft {
 		
 		unsigned int size = 0;
 		do
-			data[size++] = this->read_byte ();
+			{
+				if (size == 4)
+					return -1;
+				data[size++] = this->read_byte ();
+			}
 		while (data[size - 1] & 0x80);
 		
 		unsigned int num = 0;
@@ -818,7 +829,7 @@ namespace hCraft {
 				pack->put_varint (34);
 				pack->put_varint (0x08);
 				pack->put_double (x);
-				pack->put_double (y);
+				pack->put_double (y + 2.0);
 				pack->put_double (z);
 				pack->put_float (r);
 				pack->put_float (l);

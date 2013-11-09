@@ -42,7 +42,9 @@ Building
 To build hCraft, you will need a C++11-compatible compiler and a working copy
 of [CMake](http://www.cmake.org/). Change to the directory that contains
 hCraft, and invoke (on Linux) `cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release`
-to generate a makefile, and then proceed by typing `make`.
+to generate a makefile, and then proceed by typing `make`. After compilation has
+ended, the executable could then be found inside the newly created `build`
+directory.
 
 
 ### Dependencies
