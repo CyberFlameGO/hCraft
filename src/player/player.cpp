@@ -557,7 +557,7 @@ namespace hCraft {
 			packet_reader reader {pack->data};
 			int length = reader.read_varint ();
 			int op = reader.read_varint ();
-			if (std::abs (length - (int)pack->size) > 1)
+			if (std::abs (length - (int)pack->size) > 10)
 				log (LT_DEBUG) << "Bad packet [op: 0x" << std::hex << op << std::dec << "] of length " << pack->size << " [varint: " << length << "]" <<std::endl;
 		}
 		
