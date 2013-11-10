@@ -1249,8 +1249,7 @@ namespace hCraft {
 				for (player *pl : this->visible_players)
 					{
 						pl->send (packets::play::make_entity_move (this->get_eid (),
-							std::round (dest.x * 32.0), std::round (dest.y * 32.0),
-							std::round (dest.z * 32.0), dest.r, dest.l));
+							dest.x, dest.y, dest.z, dest.r, dest.l));
 						pl->send (packets::play::make_entity_head_look (this->get_eid (), dest.r));
 					}
 			}
@@ -2820,9 +2819,7 @@ namespace hCraft {
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
 			}
-		std::strcpy (pl->username, username);
 		
-		//*/
 		/*
 		// Used when testing
 		{
@@ -2835,6 +2832,8 @@ namespace hCraft {
 			std::strcpy (username, cur);
 		}
 		//*/
+		
+		std::strcpy (pl->username, username);
 		
 		// encryption\authentication
 		if (pl->srv.get_config ().online_mode)

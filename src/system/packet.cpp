@@ -886,7 +886,7 @@ namespace hCraft {
 				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
 				pack->put_short (item);
 				encode_entity_metadata (pack, meta);
-		
+				
 				return pack;
 			}
 			
@@ -1029,9 +1029,9 @@ namespace hCraft {
 			packet*
 			make_entity_move (int eid, double x, double y, double z, float r, float l)
 			{
-				packet *pack = new packet (28);
+				packet *pack = new packet (20);
 				
-				pack->put_varint (27);
+				pack->put_varint (19);
 				pack->put_varint (0x18);
 				pack->put_int (eid);
 				pack->put_int ((int)(x * 32.0));

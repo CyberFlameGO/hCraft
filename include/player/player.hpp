@@ -109,24 +109,8 @@ namespace hCraft {
 			return ((this->w == other.w) && (this->cx == other.cx) && (this->cz == other.cz));
 		}
 	};
-	
-	/*
-	// TODO: remove?
 
-	class known_chunk_hash
-	{
-		std::hash<int> int_hash;
-		
-	public:
-		std::size_t
-		operator() (const known_chunk& kc) const
-		{
-			return int_hash (((long long)kc.w & 0xFFFFFFFF) + ((int_hash (kc.cx) ^ (int_hash (kc.cz) << 5)) << 7));
-		}
-	};
-	*/
-	
-//--------
+//------------
 	
 	/* 
 	 * Represents a player.
