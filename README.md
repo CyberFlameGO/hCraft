@@ -3,6 +3,11 @@ hCraft
 
 ![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
 
+Public Test Server
+------------------
+
+A public test server is now live (devbox.hCraft.org:25565)!
+
 What is hCraft?
 ---------------
 
@@ -67,4 +72,6 @@ Copyright
 
 hCraft is released under GNU's general public license (GPLv3), more information
 can be found [here](http://www.gnu.org/licenses/gpl.html).
+
+![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/45-small.png)
 
