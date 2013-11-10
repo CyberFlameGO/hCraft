@@ -3642,13 +3642,16 @@ namespace hCraft {
 			pl->send (packets::play::make_multi_block_change (500, 200, records));
 		}
 		
-		//pl->inv.update (); 
-		
-		if (animation == 1) // swing arm
+		int anim_code = -1;
+		switch (animation)
 			{
-				pl->get_world ()->get_players ().send_to_all_visible (
-					packets::play::make_animation (pl->eid, 0), pl);
+				// swing arm
+				case 1: anim_code = 0; break;
 			}
+		
+		if (anim_code != -1)
+			pl->get_world ()->get_players ().send_to_all_visible (
+				packets::play::make_animation (pl->eid, anim_code), pl);
 		
 		if (pl->curr_gamemode == GT_CREATIVE && pl->inv.get (pl->held_slot).id () == IT_FEATHER)
 			{
@@ -3680,8 +3683,18 @@ namespace hCraft {
 		
 		switch (action)
 			{
-				case 1: pl->crouched = true; break;
-				case 2: pl->crouched = false; break;
+				case 1:
+					pl->get_world ()->get_players ().send_to_all_visible (
+						packets::play::make_animation (pl->eid, 104), pl);
+					pl->crouched = true;
+					break;
+					
+				case 2:
+					pl->get_world ()->get_players ().send_to_all_visible (
+						packets::play::make_animation (pl->eid, 105), pl);
+					pl->crouched = false;
+					break;
+				
 				case 3: /* leave bed */ break;
 				case 4: pl->sprinting = true; break;
 				case 5: pl->sprinting = false; break;
