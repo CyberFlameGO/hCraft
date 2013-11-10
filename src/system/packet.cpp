@@ -853,11 +853,12 @@ namespace hCraft {
 			packet*
 			make_animation (int eid, int anim)
 			{
-				packet *pack = new packet (7);
+				int eid_size = varint_size (eid);
+				packet *pack = new packet (3 + eid_size);
 				
-				pack->put_varint (6);
-				pack->put_varint (0x0A);
-				pack->put_int (eid);
+				pack->put_varint (2 + eid_size);
+				pack->put_varint (0x0B);
+				pack->put_varint (eid);
 				pack->put_byte (anim);
 				
 				return pack;

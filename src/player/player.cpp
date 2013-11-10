@@ -553,14 +553,6 @@ namespace hCraft {
 		
 		std::lock_guard<std::mutex> guard {this->out_lock};
 		
-		{
-			packet_reader reader {pack->data};
-			int length = reader.read_varint ();
-			int op = reader.read_varint ();
-			if (std::abs (length - (int)pack->size) > 10)
-				log (LT_DEBUG) << "Bad packet [op: 0x" << std::hex << op << std::dec << "] of length " << pack->size << " [varint: " << length << "]" <<std::endl;
-		}
-		
 		// encrypt contents
 		if (this->encrypted)
 			{
@@ -1346,7 +1338,6 @@ namespace hCraft {
 			return;
 		
 		std::string col_name;
-		col_name.append ("§");
 		col_name.append (this->get_colored_username ());
 		
 		entity_pos me_pos = this->pos;
@@ -3517,7 +3508,7 @@ namespace hCraft {
 								
 								// eating animation
 								pl->get_world ()->get_players ().send_to_all_visible (
-									packets::play::make_animation (pl->eid, 5), pl);
+									packets::play::make_animation (pl->eid, 3), pl);
 							}
 					}
 				else
@@ -3653,10 +3644,10 @@ namespace hCraft {
 		
 		//pl->inv.update (); 
 		
-		if (animation == 1)
+		if (animation == 1) // swing arm
 			{
 				pl->get_world ()->get_players ().send_to_all_visible (
-					packets::play::make_animation (pl->eid, animation), pl);
+					packets::play::make_animation (pl->eid, 0), pl);
 			}
 		
 		if (pl->curr_gamemode == GT_CREATIVE && pl->inv.get (pl->held_slot).id () == IT_FEATHER)
