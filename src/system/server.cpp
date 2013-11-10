@@ -1502,7 +1502,7 @@ namespace hCraft {
 			.run_forever (1 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::save_worlds, this)
-			.run_forever (5 * 60 * 1000, 50 * 60 * 1000);
+			.run_forever (5 * 60 * 1000, 5 * 60 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::ping_players, this)
 			.run_forever (8 * 1000);

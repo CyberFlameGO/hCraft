@@ -435,7 +435,7 @@ namespace hCraft {
 						this->curr_world->get_players ().remove (this);
 						this->remove_from_tab_list (false);
 					
-						if (this->pstate == PS_LOGIN && !silent)
+						if (this->pstate == PS_PLAY && !silent)
 							{
 								// leave message
 								this->get_server ().get_players ().message (
