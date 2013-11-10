@@ -49,6 +49,13 @@ namespace hCraft {
 			ff_data *data = static_cast<ff_data *> (pl->get_data ("flood-fill"));
 			if (!data) return true; // shouldn't happen
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("flood-fill");
+					return true;
+				}
+			
 			world *w = pl->get_world ();
 			dense_edit_stage es (w);
 			chunk_link_map cmap {*w, w->get_chunk_at (marked[0].x, marked[0].z),
@@ -209,6 +216,12 @@ namespace hCraft {
 						}
 					
 					flood_fill (pl, reader, bd_out, max);
+					return;
+				}
+			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
 					return;
 				}
 			

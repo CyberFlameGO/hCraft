@@ -78,6 +78,12 @@ namespace hCraft {
 						}
 				}
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					return;
+				}
+			
 			pl->get_world ()->queue_update ((int)pl->pos.x, (int)pl->pos.y, (int)pl->pos.z,
 				bl.id, bl.meta);
 			{

@@ -150,6 +150,12 @@ namespace hCraft {
 						}
 				}
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					return;
+				}
+			
 			int blocks = 0;
 			sparse_edit_stage *es = new sparse_edit_stage (pl->get_world ());
 			portal *ptl = new portal ();

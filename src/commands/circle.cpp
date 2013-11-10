@@ -46,6 +46,13 @@ namespace hCraft {
 			circle_data *data = static_cast<circle_data *> (pl->get_data ("circle"));
 			if (!data) return true; // shouldn't happen
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("circle");
+					return true;
+				}
+			
 			int radius = data->radius;
 			if (radius == -1)
 				{

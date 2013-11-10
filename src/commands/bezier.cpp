@@ -60,6 +60,13 @@ namespace hCraft {
 					return true;
 				}
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("bezier");
+					return true;
+				}
+			
 			std::vector<vector3>& points = data->points;
 			points.push_back (marked[0]);
 			if (points.size () == 1)
