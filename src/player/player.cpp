@@ -1831,6 +1831,9 @@ namespace hCraft {
 	void
 	player::save_data ()
 	{
+		if (this->pstate != PS_PLAY)
+			return;
+		
 		{
 			soci::session sql (this->get_server ().sql_pool ());
 			
@@ -2613,9 +2616,28 @@ namespace hCraft {
 		if (this->logged_in)
 			return;
 		
+		log () << "Player " << this->username << " has logged in from @" << this->get_ip () << std::endl;
+		
 		this->send (packets::login::make_login_success (
 			this->uuid.to_str ().c_str (), this->username));
 		this->pstate = PS_PLAY;
+		
+		if (!this->load_data ())
+			{
+				this->disconnect ();
+				return;
+			}
+		else if (this->kicked) // kicked by load_data()
+			return;
+		
+		{
+			// build colored username
+			std::string str;
+			str.append ("§");
+			str.push_back (this->rnk.main ()->color);
+			str.append (this->username);
+			std::strcpy (this->colored_username, str.c_str ());
+		}
 		
 		this->send (packets::play::make_join_game (this->get_eid (),
 			this->curr_gamemode, 0, 0, (this->get_server ().get_config ().max_players > 64)
@@ -2798,6 +2820,7 @@ namespace hCraft {
 				pl->log (LT_WARNING) << "@" << pl->get_ip () << " connected with an invalid username." << std::endl;
 				return -1;
 			}
+		std::strcpy (pl->username, username);
 		
 		//*/
 		/*
@@ -2812,24 +2835,6 @@ namespace hCraft {
 			std::strcpy (username, cur);
 		}
 		//*/
-		
-		pl->log () << "Player " << username << " has logged in from @" << pl->get_ip () << std::endl;
-		std::strcpy (pl->username, username);
-		
-		if (!pl->load_data ())
-			return -1;
-		if (pl->kicked)
-			// player got kicked by load_data ()
-			return 0;
-			
-		{
-			std::string str;
-			str.append ("§");
-			str.push_back (pl->rnk.main ()->color);
-			str.append (pl->username);
-			std::strcpy (pl->colored_username, str.c_str ());
-		}
-		
 		
 		// encryption\authentication
 		if (pl->srv.get_config ().online_mode)
