@@ -55,6 +55,7 @@
 #include "commands/sphere.hpp"
 #include "commands/status.hpp"
 #include "commands/tp.hpp"
+#include "commands/top.hpp"
 #include "commands/unban.hpp"
 #include "commands/undo.hpp"
 #include "commands/unmute.hpp"
@@ -101,6 +102,7 @@ namespace hCraft {
 	static command* create_c_wunload () { return new commands::c_wunload (); }
 	static command* create_c_goto () { return new commands::c_goto (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
+	static command* create_c_top () { return new commands::c_top (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
 	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	static command* create_c_block_physics () { return new commands::c_block_physics (); }
@@ -150,6 +152,7 @@ namespace hCraft {
 			{ "wload", create_c_wload },
 			{ "goto", create_c_goto },
 			{ "tp", create_c_tp },
+			{ "top", create_c_top },
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
