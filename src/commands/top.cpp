@@ -77,7 +77,7 @@ namespace hCraft {
 					for (ny = 256 ; ny>0 ;)
 						if (c->get_block (cx, --ny, cz).id != 0)
 							break;
-					ny += 1;
+					ny += 2;
 					
 					std::ostringstream ss;
 					ss << "§eTeleporting §9"
