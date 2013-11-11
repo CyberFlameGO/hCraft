@@ -55,6 +55,7 @@
 #include "commands/sphere.hpp"
 #include "commands/status.hpp"
 #include "commands/tp.hpp"
+#include "commands/top.hpp"
 #include "commands/unban.hpp"
 #include "commands/undo.hpp"
 #include "commands/unmute.hpp"
@@ -64,7 +65,6 @@
 #include "commands/whodid.hpp"
 #include "commands/wload.hpp"
 #include "commands/world.hpp"
-#include "commands/worlds.hpp"
 #include "commands/wsetspawn.hpp"
 #include "commands/wunload.hpp"
 
@@ -101,13 +101,13 @@ namespace hCraft {
 	static command* create_c_wunload () { return new commands::c_wunload (); }
 	static command* create_c_goto () { return new commands::c_goto (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
+	static command* create_c_top () { return new commands::c_top (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
 	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	static command* create_c_block_physics () { return new commands::c_block_physics (); }
 	static command* create_c_block_type () { return new commands::c_block_type (); }
 	static command* create_c_portal () { return new commands::c_portal (); }
 	static command* create_c_world () { return new commands::c_world (); }
-	static command* create_c_worlds () { return new commands::c_worlds (); }
 	static command* create_c_realm () { return new commands::c_realm (); }
 	
 	// draw commands:
@@ -150,6 +150,7 @@ namespace hCraft {
 			{ "wload", create_c_wload },
 			{ "goto", create_c_goto },
 			{ "tp", create_c_tp },
+			{ "top", create_c_top },
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
@@ -186,7 +187,6 @@ namespace hCraft {
 			{ "players", create_c_players },
 			{ "warn", create_c_warn },
 			{ "warnlog", create_c_warnlog },
-			{ "worlds", create_c_worlds },
 			};
 		
 		auto itr = creators.find (name);
