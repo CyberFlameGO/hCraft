@@ -65,6 +65,7 @@
 #include "commands/whodid.hpp"
 #include "commands/wload.hpp"
 #include "commands/world.hpp"
+#include "commands/worlds.hpp"
 #include "commands/wsetspawn.hpp"
 #include "commands/wunload.hpp"
 
@@ -108,6 +109,7 @@ namespace hCraft {
 	static command* create_c_block_type () { return new commands::c_block_type (); }
 	static command* create_c_portal () { return new commands::c_portal (); }
 	static command* create_c_world () { return new commands::c_world (); }
+	static command* create_c_worlds () { return new commands::c_worlds (); }
 	static command* create_c_realm () { return new commands::c_realm (); }
 	
 	// draw commands:
@@ -187,6 +189,7 @@ namespace hCraft {
 			{ "players", create_c_players },
 			{ "warn", create_c_warn },
 			{ "warnlog", create_c_warnlog },
+			{ "worlds", create_c_worlds },
 			};
 		
 		auto itr = creators.find (name);
