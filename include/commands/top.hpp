@@ -31,7 +31,7 @@ namespace hCraft {
 		 * Teleports the player to the topmost non-air block in their current position.
 		 * 
 		 * Permissions:
-		 *   - command.world.top
+		 *   - command.misc.top
 		 *       Needed to execute the command.
 		 */
 		class c_top: public command
@@ -49,7 +49,7 @@ namespace hCraft {
 				return "";
 			}
 			
-			const char* get_exec_permission () { return "command.world.top"; }
+			const char* get_exec_permission () { return "command.misc.top"; }
 			
 		//----
 			void execute (player *pl, command_reader& reader);

@@ -561,6 +561,7 @@ namespace hCraft {
 						if (pl)
 							pl->message ("§9You are no longer muted§3.");
 						itr = srv.muted.erase (itr);
+						
 					}
 				else
 					{
@@ -1593,6 +1594,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warn");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warnlog");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "worlds");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "top");
 	}
 	
 	void
@@ -1708,6 +1710,7 @@ namespace hCraft {
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
+		grp_admin->add ("command.misc.top");
 		grp_admin->add ("command.world.tp.*");
 		grp_admin->add ("command.chat.say.*");
 		grp_admin->add ("command.world.portal.*");

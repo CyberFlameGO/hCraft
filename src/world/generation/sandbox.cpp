@@ -37,6 +37,7 @@ namespace hCraft {
 	void
 	sandbox_world_generator::generate (world& wr, chunk *out, int cx, int cz)
 	{
+		// contributed by Juholeil1
 		int x, y, z;
 		int realX ,realZ;
 		
@@ -51,8 +52,8 @@ namespace hCraft {
 					realZ = cz * 16 + z;
 					out->set_id (x, 0, z, BT_BEDROCK);
 					
-					int w = wr.get_width();
-					int d = wr.get_depth();
+					int w = wr.get_width ();
+					int d = wr.get_depth ();
 					if((w != 0 && d != 0) && ((realX < 0 + edge_size)
 						|| (realZ < 0 + edge_size)
 						|| (realX >= w - edge_size)
@@ -66,6 +67,5 @@ namespace hCraft {
 					out->set_biome (x, z, BI_PLAINS);
 				}
 	}
-	
 }
 

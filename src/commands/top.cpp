@@ -30,19 +30,20 @@
 namespace hCraft {
 	namespace commands {
 		
+		// contributed by Juholeil1
 		/* 
 		 * /top -
 		 * 
 		 * Teleports the player to the topmost non-air block in their current position.
 		 * 
 		 * Permissions:
-		 *   - command.world.top
+		 *   - command.misc.top
 		 *       Needed to execute the command.
 		 */
 		void
 		c_top::execute (player *pl, command_reader& reader)
 		{
-			if (!pl->perm ("command.world.top"))
+			if (!pl->perm ("command.misc.top"))
 				return;
 			
 			if (!reader.parse (this, pl))
@@ -57,28 +58,24 @@ namespace hCraft {
 					 *   /top
 					 */
 					entity_pos curr_pos = pl->pos;
-					world* wr = pl->get_world();
+					world* wr = pl->get_world ();
 					int x, y, z;
 					
 					x = curr_pos.x - (curr_pos.x < 0 ? 1 : 0);
 					y = curr_pos.y;
 					z = curr_pos.z - (curr_pos.z < 0 ? 1 : 0);
 					
-					chunk* c = wr->get_chunk_at(x, z);
-					if(!c)
+					chunk* c = wr->get_chunk_at (x, z);
+					if (!c)
 						return; // Might happen, not sure \o/
 					
 					int cx, cz;
-					cx = x % 16;
-					cz = z % 16;
-					if(cx < 0)
-						cx += 16;
-					if(cz < 0)
-						cz += 16;
+					cx = x >> 4;
+					cz = z >> 4;
 					
 					int ny;
-					for(ny = 256 ; ny>0 ;)
-						if(c->get_block(cx, --ny, cz).id != 0)
+					for (ny = 256 ; ny>0 ;)
+						if (c->get_block (cx, --ny, cz).id != 0)
 							break;
 					ny += 1;
 					
@@ -90,6 +87,7 @@ namespace hCraft {
 					entity_pos target = entity_pos (block_pos (x, ny, z))
 						.set_rot (curr_pos.r, curr_pos.l);
 					target.x += .5;
+					target.y += .5;
 					target.z += .5;
 					pl->teleport_to (target);
 				}
