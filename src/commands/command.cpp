@@ -37,6 +37,7 @@
 #include "commands/goto.hpp"
 #include "commands/help.hpp"
 #include "commands/kick.hpp"
+#include "commands/kill.hpp"
 #include "commands/line.hpp"
 #include "commands/me.hpp"
 #include "commands/money.hpp"
@@ -95,6 +96,8 @@ namespace hCraft {
 	
 	// misc commands:
 	static command* create_c_ping () { return new commands::c_ping (); }
+	static command* create_c_kill () { return new commands::c_kill (); }
+	static command* create_c_top () { return new commands::c_top (); }
 	
 	// world commands:
 	static command* create_c_wcreate () { return new commands::c_wcreate (); }
@@ -102,7 +105,6 @@ namespace hCraft {
 	static command* create_c_wunload () { return new commands::c_wunload (); }
 	static command* create_c_goto () { return new commands::c_goto (); }
 	static command* create_c_tp () { return new commands::c_tp (); }
-	static command* create_c_top () { return new commands::c_top (); }
 	static command* create_c_physics () { return new commands::c_physics (); }
 	static command* create_c_wsetspawn () { return new commands::c_wsetspawn (); }
 	static command* create_c_block_physics () { return new commands::c_block_physics (); }
@@ -168,6 +170,7 @@ namespace hCraft {
 			{ "sphere", create_c_sphere },
 			{ "polygon", create_c_polygon },
 			{ "curve", create_c_curve },
+			{ "kill", create_c_kill },
 			{ "rank", create_c_rank },
 			{ "status", create_c_status },
 			{ "money", create_c_money },

@@ -1570,6 +1570,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "circle");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "ellipse");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "sphere");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "kill");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "polygon");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "curve");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "rank");
