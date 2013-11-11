@@ -591,7 +591,7 @@ namespace hCraft {
 		std::strcpy (out.srv_name, "hCraft server");
 		std::strcpy (out.srv_motd, "§6A new §ehCraft §6server is born§f!");
 		out.max_players = 12;
-		std::strcpy (out.main_world, "main");
+		std::strcpy (out.main_world, "Main");
 		out.online_mode = true;
 		out.load_prev_pos = false;
 		
