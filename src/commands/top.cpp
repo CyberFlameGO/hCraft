@@ -70,14 +70,15 @@ namespace hCraft {
 						return; // Might happen, not sure \o/
 					
 					int cx, cz;
-					cx = x >> 4;
-					cz = z >> 4;
+					
+					cx = x & 0xF;
+					cz = z & 0xF;
 					
 					int ny;
 					for (ny = 256 ; ny>0 ;)
 						if (c->get_block (cx, --ny, cz).id != 0)
 							break;
-					ny += 2;
+					ny += 1;
 					
 					std::ostringstream ss;
 					ss << "§eTeleporting §9"
@@ -87,7 +88,7 @@ namespace hCraft {
 					entity_pos target = entity_pos (block_pos (x, ny, z))
 						.set_rot (curr_pos.r, curr_pos.l);
 					target.x += .5;
-					target.y += .5;
+					target.y -= .375; // It's magic, okay
 					target.z += .5;
 					pl->teleport_to (target);
 				}
