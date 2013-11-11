@@ -89,6 +89,14 @@ namespace hCraft {
 		return queues[max];
 	}
 	
+	static void
+	_increment_counters (std::vector<generator_queue *>& queues)
+	{
+		for (generator_queue *q : queues)
+			if (!q->requests.empty ())
+				++ q->counter;
+	}
+	
 	/* 
 	 * Where everything happens.
 	 */
@@ -111,8 +119,18 @@ namespace hCraft {
 				if (!this->queues.empty ())
 					{
 						std::lock_guard<std::mutex> guard {this->request_mutex};
+						_increment_counters (this->queues);
 						
 						generator_queue *q = _pick_queue (this->queues);
+						{
+							// DEBUG
+							if (!q->requests.empty ())
+								{
+									gen_request req = q->requests.front ();
+									player *pl = (req.w)->get_server ().player_by_id (q->pid);
+									if (!pl) continue;
+								}
+						}
 						q->counter = 0;
 						if (!q->requests.empty ())
 							{
@@ -139,17 +157,12 @@ namespace hCraft {
 						
 								// generate chunk
 								chunk *ch = w->load_chunk (req.cx, req.cz);
-								if (!ch) continue; // shouldn't happen :X
+								if (!ch) // shouldn't happen :X
+									continue;
 						
 								// deliver
 								if (!(flags & GFL_NODELIVER))
 									pl->deliver_chunk (w, req.cx, req.cz, ch, GFL_NONE, req.extra);
-								
-							//--
-								// increment counters
-								for (generator_queue *q : this->queues)
-									if (!q->requests.empty ())
-										++ q->counter;
 							}
 					}
 				
