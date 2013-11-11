@@ -2354,7 +2354,7 @@ namespace hCraft {
 						this->last_heart_regen = now;
 					}
 			}
-		else if (this->hunger <= 0)
+		else if ((this->hunger <= 0) && (this->curr_gamemode != GT_CREATIVE))
 			{
 				if ((now - this->last_heart_regen) >= this->heal_delay)
 					{
