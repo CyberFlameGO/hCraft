@@ -611,7 +611,7 @@ namespace hCraft {
 					return;
 				}
 			
-			const std::string& gen_name = reader.next ().as_str ();
+			const std::string gen_name = reader.next ().as_str ();
 			long long gen_seed = w->get_generator ()->seed ();
 			if (reader.has_next ())
 				{
@@ -788,11 +788,8 @@ namespace hCraft {
     		}
     	std::fclose (f);
     	
-    	std::cout << "W 1" << std::endl;
     	_copy_file (w->get_path (), ss.str ().c_str ());
-    	std::cout << "W 2" << std::endl;
     	w->reload_world (w->get_name ());
-    	std::cout << "W 3" << std::endl;
     	w->get_players ().all (
 				[] (player *pl)
 					{
@@ -801,11 +798,27 @@ namespace hCraft {
 						std::cout << "W b" << std::endl;
 						pl->message ("§bWorld reloaded");
 					});
-			std::cout << "W 4" << std::endl;
+			
 			ss.str (std::string ());
 			ss << "§eRestored backup #§b" << backup_num;
 			pl->message (ss.str ());
 		}
+		
+		
+		
+		static void
+		_handle_save (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.save"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+    	pl->message ("§eSaving world§f...");
+    	w->save_all ();
+    	pl->message ("§7 | World " + w->get_colored_name () + " §7has been saved.");
+    }
 		
 		
 		
@@ -835,6 +848,8 @@ namespace hCraft {
 		 *       Required to resize the world.
 		 *   - commands.world.world.regenerate
 		 *       Required to regenerate the world.
+		 *   - commands.world.world.save
+		 *       Required to save the world.
 		 */
 		void
 		c_world::execute (player *pl, command_reader& reader)
@@ -863,7 +878,7 @@ namespace hCraft {
 				_handle_no_args (pl, w);
 			else
 				{
-					const std::string& arg1 = reader.next ().as_str ();
+					std::string arg1 = reader.next ().as_str ();
 					
 					static const std::unordered_map<cistring,
 						void (*)(player *, world *, command_reader &)> _map {
@@ -876,6 +891,7 @@ namespace hCraft {
 						{ "regenerate", _handle_regenerate },
 						{ "backup", _handle_backup },
 						{ "restore", _handle_restore },
+						{ "save", _handle_save },
 					};
 					
 					auto itr = _map.find (arg1.c_str ());

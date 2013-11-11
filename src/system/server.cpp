@@ -1626,6 +1626,10 @@ namespace hCraft {
 		grp_guest->add ("command.world.world.owner.change-members");
 		grp_guest->add ("command.world.realm");
 		grp_guest->add ("command.world.goto");
+		grp_guest->add ("command.info.help");
+		grp_guest->add ("command.info.rules");
+		grp_guest->add ("command.info.players");
+		grp_guest->add ("command.info.warnlog");
 		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "Member");

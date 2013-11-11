@@ -45,10 +45,14 @@ namespace hCraft {
 		 *       Required to set build-perms or join-perms
 		 *   - command.world.world.get-perms
 		 *       Required to view build-perms or join-perms
+		 *   - commands.world.world.def-gm
+		 *       Needed to change the world's default gamemode.
 		 *   - commands.world.world.resize
 		 *       Required to resize the world.
 		 *   - commands.world.world.regenerate
 		 *       Required to regenerate the world.
+		 *   - commands.world.world.save
+		 *       Required to save the world.
 		 */
 		class c_world : public command
 		{
