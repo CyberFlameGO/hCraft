@@ -1592,6 +1592,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "players");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warn");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warnlog");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "worlds");
 	}
 	
 	void
@@ -1626,6 +1627,7 @@ namespace hCraft {
 		grp_guest->add ("command.world.world.owner.change-members");
 		grp_guest->add ("command.world.realm");
 		grp_guest->add ("command.world.goto");
+		grp_guest->add ("command.world.worlds");
 		grp_guest->add ("command.info.help");
 		grp_guest->add ("command.info.rules");
 		grp_guest->add ("command.info.players");
