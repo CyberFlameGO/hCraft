@@ -18,7 +18,7 @@
 
 #include "commands/kill.hpp"
 #include "player/player.hpp"
-#include "util/stringutils.hpp"
+#include "entities/entity.hpp"
 #include "system/server.hpp"
 #include <sstream>
 
@@ -30,7 +30,7 @@ namespace hCraft {
 		/* 
 		 * /kill 
 		 * 
-		 * Changes the gamemode of the executor or of a specified player.
+		 * Kills the executor or a specified player.
 		 * 
 		 * Permissions:
 		 *   - command.misc.kill
@@ -70,9 +70,13 @@ namespace hCraft {
 			else
 				{
 					std::ostringstream ss;
-					pl->message ("You suicided");
+					pl->message ("§eYou suicided");
 				}
-			target->kill ();
+			// NOTE to BizarreCake: This method seems mostly broken :P
+			// target->kill ();
+			
+			// Using set_hearts (-2) until it gets fixed
+			target->set_hearts(-2);
 		}
 	}
 }

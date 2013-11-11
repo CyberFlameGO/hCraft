@@ -29,7 +29,7 @@ namespace hCraft {
 		/* 
 		 * /kill 
 		 * 
-		 * Changes the gamemode of the executor or of a specified player.
+		 * Kills the executor or a specified player.
 		 * 
 		 * Permissions:
 		 *   - command.misc.kill
@@ -45,6 +45,12 @@ namespace hCraft {
 			const char*
 			get_summary ()
 				{ return "Kills the the executor or a specified player."; }
+			
+			const char*
+			get_help ()
+			{
+				return "";
+			}
 			
 			const char* get_exec_permission () { return "command.misc.kill"; }
 			
