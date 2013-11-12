@@ -122,15 +122,6 @@ namespace hCraft {
 						_increment_counters (this->queues);
 						
 						generator_queue *q = _pick_queue (this->queues);
-						{
-							// DEBUG
-							if (!q->requests.empty ())
-								{
-									gen_request req = q->requests.front ();
-									player *pl = (req.w)->get_server ().player_by_id (q->pid);
-									if (!pl) continue;
-								}
-						}
 						q->counter = 0;
 						if (!q->requests.empty ())
 							{

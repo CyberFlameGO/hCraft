@@ -107,6 +107,7 @@ namespace hCraft {
 	world::~world ()
 	{
 		this->srv.deregister_world (this);
+		this->srv.cgen.cancel_requests (this);
 		
 		this->stop ();
 		delete this->players;

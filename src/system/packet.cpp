@@ -1366,9 +1366,8 @@ namespace hCraft {
 			make_block_change (int x, int y, int z, unsigned short id,
 				unsigned char meta)
 			{
-				int id_size = varint_size (id);
-				packet* pack = new packet (13 + id_size);
-		
+				packet* pack = new packet (15);
+				
 				int new_id = id;
 				int new_meta = meta;
 				if (!block_info::is_vanilla_id (new_id))
@@ -1382,7 +1381,8 @@ namespace hCraft {
 						else
 							new_id = new_meta = 0;
 					}
-		
+				
+				int id_size = varint_size (new_id);
 				pack->put_varint (11 + id_size);
 				pack->put_varint (0x23);
 				pack->put_int (x);
@@ -1390,7 +1390,7 @@ namespace hCraft {
 				pack->put_int (z);
 				pack->put_varint (new_id);
 				pack->put_byte (meta);
-		
+				
 				return pack;
 			}
 			

@@ -630,6 +630,9 @@ namespace hCraft {
 		void delete_data (const char *name, bool destruct = true);
 		void* get_data (const char *name);
 		
+		
+		bool got_known_chunks_for (world *w);
+		
 	//----
 		
 		/* 

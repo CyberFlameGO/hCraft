@@ -405,6 +405,7 @@ namespace hCraft {
 	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
+		std::lock_guard<std::mutex> guard {this->world_lock};
 		this->srv.deregister_entity (this);
 		
 		this->fail_time = std::chrono::system_clock::now ();
@@ -476,7 +477,6 @@ namespace hCraft {
 		this->curr_sel = nullptr;
 		
 		// and finally
-		//if (this->logged_in)
 		this->get_server ().schedule_destruction (this);
 		this->disconnecting = false;
 	}
@@ -2329,6 +2329,19 @@ namespace hCraft {
 			}
 		this->inv.clear ();
 		
+	}
+	
+	
+	
+	bool
+	player::got_known_chunks_for (world *w)
+	{
+		std::lock_guard<std::mutex> wguard {this->world_lock};
+		for (known_chunk kc : this->known_chunks)
+			if (kc.w == w)
+				return true;
+		
+		return false;
 	}
 	
 	
