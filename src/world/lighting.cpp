@@ -110,6 +110,29 @@ namespace hCraft {
 	using fn_enqueue = void (*)(void *, int, int, int);
 	
 	
+	// takes transparent blocks into account
+	static int
+	_compute_height (chunk *ch, int bx, int bz, int base_height)
+	{
+		int y = base_height;
+		for (; y >= 0; --y)
+			{
+				int id = ch->get_id (bx, y, bz);
+				block_info *binf = block_info::from_id (id);
+				if (binf->state == BS_SOLID)
+					{
+						if ((binf->opacity != 0) && (id != 0))
+							{
+								if (y != 255)
+									++ y;
+								break;
+							}
+					}
+			}
+		
+		return y;
+	}
+	
 	static char
 	calc_chunk_sky_light (chunk *ch, int x, int y, int z, fn_enqueue enq, void *p)
 	{
@@ -117,13 +140,17 @@ namespace hCraft {
 		block_info *this_info = block_info::from_id (this_block.id);
 		char nl;
 		
+		int h = ch->get_height (x, z);
+		int hh = _compute_height (ch, x, z, h);
 		if (this_info->opacity == 15)
 			{
 				nl = 0;
 			}
-		else if ((y + 1) >= ch->get_height (x, z))
+		else if (y >= hh)
 			{
-				nl = 15 - this_info->opacity;
+				nl = ((y < 255) ? ch->get_sky_light (x, y + 1, z) : 15) - this_info->opacity;
+				if (nl < 0)
+					nl = 0;
 			}
 		else
 			{
@@ -174,13 +201,17 @@ namespace hCraft {
 		block_info *this_info = block_info::from_id (this_block.id);
 		char nl;
 		
+		int h = ch->get_height (bx, bz);
+		int hh = _compute_height (ch, bx, bz, h);
 		if (this_info->opacity == 15)
 			{
 				nl = 0;
 			}
-		else if ((y + 1) >= ch->get_height (bx, bz))
+		else if (y >= hh)
 			{
-				nl = 15 - this_info->opacity;
+				nl = ((y < 255) ? ch->get_sky_light (bx, y + 1, bz) : 15) - this_info->opacity;
+				if (nl < 0)
+					nl = 0;
 			}
 		else
 			{
