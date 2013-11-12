@@ -1635,7 +1635,7 @@ namespace hCraft {
 		grp_guest->add ("command.info.rules");
 		grp_guest->add ("command.info.players");
 		grp_guest->add ("command.info.warnlog");
-		grp_guest->add ("command.admin.kill");
+		grp_guest->add ("command.misc.kill");
 		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "Member");
@@ -1712,7 +1712,7 @@ namespace hCraft {
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
-		grp_admin->add ("command.admin.kill.others");
+		grp_admin->add ("command.misc.kill.others");
 		grp_admin->add ("command.misc.top");
 		grp_admin->add ("command.world.tp.*");
 		grp_admin->add ("command.chat.say.*");
