@@ -2247,6 +2247,9 @@ namespace hCraft {
 			{
 				this->send (packets::play::make_entity_status (this->eid, 2));
 				
+				// keep player from regenerating hearts immediately.
+				this->last_heart_regen = std::chrono::steady_clock::now ();
+				
 				// notify others too
 				this->get_world ()->get_players ().send_to_all_visible (
 					packets::play::make_entity_status (this->eid, 2), this);

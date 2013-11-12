@@ -18,8 +18,8 @@
 
 #include "commands/kill.hpp"
 #include "player/player.hpp"
-#include "entities/entity.hpp"
 #include "system/server.hpp"
+#include "system/messages.hpp"
 #include <sstream>
 
 
@@ -52,7 +52,7 @@ namespace hCraft {
 			player *target = pl;
 			if (reader.arg_count () == 1)
 				{
-					std::string& plname = reader.next ().as_str ();
+					std::string plname = reader.next ().as_str ();
 					target = pl->get_server ().get_players ().find (plname.c_str ());
 					if (!target)
 						{
@@ -63,20 +63,21 @@ namespace hCraft {
 			
 			if (pl != target)
 				{
+					if (!pl->has ("command.misc.kill.others"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
+					
 					std::ostringstream ss;
-					ss << target->get_colored_username () << "§e was killed by you";
+					ss << target->get_colored_username () << " §chas been killed by you§f.";
 					pl->message (ss.str ());
 				}
 			else
-				{
-					std::ostringstream ss;
-					pl->message ("§eYou suicided");
-				}
-			// NOTE to BizarreCake: This method seems mostly broken :P
-			// target->kill ();
+				pl->message ("§cCommitted suicide");
 			
-			// Using set_hearts (-2) until it gets fixed
-			target->set_hearts(-2);
+			// fixed
+			target->kill ();
 		}
 	}
 }
