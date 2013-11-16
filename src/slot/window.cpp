@@ -29,10 +29,12 @@ namespace hCraft {
 	/* 
 	 * Constructs a new window with the given ID and title.
 	 */
-	window::window (unsigned char id, const char *title, int slot_count)
+	window::window (window_type type, unsigned char id, const char *title,
+		int slot_count)
 		: w_title (title), w_slots (slot_count)
 	{
 		this->w_id = id;
+		this->w_type = type;
 	}
 	
 	// destructor
@@ -48,7 +50,7 @@ namespace hCraft {
 	unsigned char
 	window::next_id ()
 	{
-		static unsigned char curr_id = 0;
+		static unsigned char curr_id = 1;
 		static std::mutex    id_lock;
 		
 		unsigned char id;
@@ -56,7 +58,7 @@ namespace hCraft {
 			std::lock_guard<std::mutex> guard {id_lock};
 			id = curr_id ++;
 			if (curr_id > 127)
-				curr_id = 0;
+				curr_id = 1;
 		}
 		
 		return id;
@@ -182,6 +184,17 @@ namespace hCraft {
 			}
 	}
 	
+	/* 
+	 * Shows this window to the specified player.
+	 */
+	void
+	window::show (player *pl)
+	{
+		pl->send (packets::play::make_open_window (
+			this->w_id, this->w_type, this->w_title.c_str (),
+			this->w_slots.size (), true));
+	}
+	
 	
 	
 	/* 
@@ -248,7 +261,7 @@ namespace hCraft {
 	 * Constructs a new empty player inventory.
 	 */
 	inventory::inventory ()
-		: window (0, "Inventory", 45)
+		: window (WT_INVENTORY, 0, "Inventory", 45)
 		{ }
 	
 	
@@ -402,6 +415,101 @@ namespace hCraft {
 			}
 		
 		return true;
+	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	/* 
+	 * Constructs a new workbench ontop of the specifeid inventory window.
+	 */
+	workbench::workbench (inventory& inv, unsigned char id)
+		: window (WT_WORKBENCH, id, "Workbench", 10),
+			inv (inv)
+	{
+	}
+	
+	
+	
+	/* 
+	 * Sets the slot located at @{index} to @{item}.
+	 */
+	void
+	workbench::set (int index, const slot_item& item, bool update)
+	{
+		if (index >= 10 && index <= 45)
+			this->inv.set (index - 1, item, update);
+		window::set (index, item, update);
+	}
+	
+	/* 
+	 * Returns the item located at the specified slot index.
+	 */
+	slot_item&
+	workbench::get (int index)
+	{
+		if (index >= 10 && index <= 45)
+			return this->inv.get (index - 1);
+		return window::get (index);
+	}
+	
+	
+	
+	/* 
+	 * Attempts to add @{item} at empty or compatible locations.
+	 * Returns the number of items NOT added due to insufficient room.
+	 */
+	int
+	workbench::add (const slot_item& item, bool update)
+	{
+		return this->inv.add (item, update);
+	}
+	
+	/* 
+	 * Attempts to remove items matching item @{item}.
+	 * Returns the number of items removed.
+	 */
+	int
+	workbench::remove (const slot_item& item, bool update)
+	{
+		return this->inv.remove (item, update);
+	}
+	
+	
+	
+	/* 
+	 * Returns a pair of two integers that describe the range of slots where
+	 * the item at the specified slot should be moved to when shift clicked.
+	 */
+	std::pair<int, int>
+	workbench::shift_range (int slot)
+	{
+		if (slot >= 37 && slot <= 45)
+			return std::make_pair (10, 36);
+		else if (slot >= 10 && slot <= 36)
+			return std::make_pair (37, 45);
+		else if (slot >= 0 && slot <= 9)
+			return std::make_pair (10, 45);
+		return std::make_pair (-1, -1);
+	}
+	
+	/* 
+	 * Hotbar slot range.
+	 */
+	std::pair<int, int>
+	workbench::hotbar_range ()
+	{
+		return std::make_pair (37, 45);
+	}
+	
+	/* 
+	 * Returns true if players can place the given item at the specified slot.
+	 */
+	bool
+	workbench::can_place_at (int slot, slot_item& item)
+	{
+		return (slot >= 1 && slot <= 45);
 	}
 }
 

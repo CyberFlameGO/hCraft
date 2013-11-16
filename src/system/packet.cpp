@@ -1427,6 +1427,36 @@ namespace hCraft {
 			}
 			
 			packet*
+			make_open_window (unsigned char wid, unsigned char wtype,
+				const char *title, unsigned char slot_count, bool use_title)
+			{
+				int title_len = mc_str_len (title);
+				packet *pack = new packet (7 + title_len);
+				
+				pack->put_varint (5 + title_len);
+				pack->put_varint (0x2D);
+				pack->put_byte (wid);
+				pack->put_byte (wtype);
+				pack->put_string (title);
+				pack->put_byte (slot_count);
+				pack->put_bool (use_title);
+				
+				return pack;
+			}
+			
+			packet*
+			make_close_window (unsigned char wid)
+			{
+				packet *pack = new packet (3);
+				
+				pack->put_varint (2);
+				pack->put_varint (0x2E);
+				pack->put_byte (wid);
+				
+				return pack;
+			}
+			
+			packet*
 			make_set_slot (int wid, int slot, const slot_item& item)
 			{
 				int item_size = slot_size (item);

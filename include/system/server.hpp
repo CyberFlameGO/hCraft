@@ -34,6 +34,7 @@
 #include "world/world_list.hpp"
 #include "system/messages.hpp"
 #include "irc/irc.hpp"
+#include "slot/crafting.hpp"
 
 #include <soci/soci.h>
 #include <unordered_map>
@@ -185,6 +186,7 @@ namespace hCraft {
 		std::unordered_set<player *> connecting;
 		std::unordered_set<player *> to_destroy;
 		std::mutex player_lock;
+		crafting_manager craftman;
 		
 		std::mutex id_lock;
 		int entity_id_counter;
@@ -354,6 +356,7 @@ namespace hCraft {
 		inline permission_manager& get_perms () { return this->perms; }
 		inline group_manager& get_groups () { return this->groups; }
 		inline world_list& get_worlds () { return this->worlds; }
+		inline crafting_manager& get_crafting_manager () { return this->craftman; }
 		
 		inline std::mutex& get_player_lock () { return this->player_lock; }
 		

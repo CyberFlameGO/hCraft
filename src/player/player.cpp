@@ -68,6 +68,7 @@ namespace hCraft {
 		
 		this->held_slot = 36;
 		this->inv_painting = false;
+		this->open_win = nullptr;
 		
 		this->uuid = generate_uuid ();
 		this->pstate = PS_HANDSHAKE;
@@ -2346,6 +2347,29 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Sets the specified window as the active one, and closes any already open
+	 * windows. 
+	 */
+	void
+	player::open_window (window *win)
+	{
+		std::lock_guard<std::mutex> wguard {this->data_lock};
+		if (this->open_win == win)
+			return;
+		
+		if (this->open_win)
+			{
+				// close it
+				this->send (packets::play::make_close_window (this->open_win->wid ()));
+			}
+		
+		this->open_win = win;
+		win->show (this);
+	}
+	
+	
+	
 //----
 	
 	/* 
@@ -2415,12 +2439,138 @@ namespace hCraft {
 	bool
 	player::handle_crafting (unsigned char wid)
 	{
-		if (wid == 0)
+		window *win = this->open_win;
+		if (!win)
 			{
-				
+				if (wid != 0)
+					return false;
+				win = &this->inv;
+			}
+		else if (win->type () != WT_WORKBENCH)
+			return false;
+		
+		log (LT_DEBUG) << "handle_crafting ():" << std::endl;
+		
+		slot_item **grid = new slot_item* [3];
+		for (int i = 0; i < 3; ++i)
+			grid[i] = new slot_item [3];
+			
+		// lay down crafting grid
+		if (win->type () == WT_INVENTORY)
+			{
+				grid[0][0] = win->get (1);
+				grid[0][1] = win->get (2);
+				grid[1][0] = win->get (3);
+				grid[1][1] = win->get (4);
+			}
+		else
+			{
+				grid[0][0] = win->get (1);
+				grid[0][1] = win->get (2);
+				grid[0][2] = win->get (3);
+				grid[1][0] = win->get (4);
+				grid[1][1] = win->get (5);
+				grid[1][2] = win->get (6);
+				grid[2][0] = win->get (7);
+				grid[2][1] = win->get (8);
+				grid[2][2] = win->get (9);
 			}
 		
+		// try to find a match
+		crafting_manager& cman = this->srv.get_crafting_manager ();
+		const crafting_recipe *recipe = cman.match (grid);
+		if (recipe)
+			{
+				log (LT_DEBUG) << "  Matched a recipe!" << std::endl;
+				win->set (0, recipe->result);
+			}
+		else
+			{
+				win->set (0, slot_item ());
+			}
+		
+		for (int i = 0; i < 3; ++i)
+			delete[] grid[i];
+		delete[] grid;
+		
 		return false;
+	}
+	
+	void
+	player::handle_crafting_take (unsigned char wid)
+	{
+		window *win = this->open_win;
+		if (!win)
+			{
+				if (wid != 0)
+					return;
+				win = &this->inv;
+			}
+		else if (win->type () != WT_WORKBENCH)
+			return;
+			
+		// claim items
+		if (win->type () == WT_INVENTORY)
+			{
+				for (int i = 1; i <= 4; ++i)
+					win->get (i).take (1);
+			}
+		else
+			{
+				for (int i = 1; i <= 9; ++i)
+					win->get (i).take (1);
+			}
+		
+		this->handle_crafting (wid);
+	}
+	
+	static slot_item*
+	_craft_all_inv (inventory& inv, crafting_manager& cman)
+	{
+		slot_item **grid = new slot_item* [3];
+		for (int i = 0; i < 3; ++i)
+			grid[i] = new slot_item [3];
+		
+		const crafting_recipe *recipe = nullptr;
+		slot_item *result = new slot_item ();
+		
+		// lay down crafting grid
+		grid[0][0] = inv.get (1);
+		grid[0][1] = inv.get (2);
+		grid[1][0] = inv.get (3);
+		grid[1][1] = inv.get (4);
+		
+		for (;;)
+			{
+				recipe = cman.match (grid);
+				if (recipe)
+					{
+						if (result->empty ())
+							result->set (recipe->result);
+						else if (result->compatible_with (recipe->result))
+							result->give (1);
+						else
+							break;
+					}
+				else
+					break;
+				
+				// claim items
+				for (int i = 0; i < 2; ++i)
+					for (int j = 0; j < 2; ++j)
+					grid[i][j].take (1);
+			}
+		
+		for (int i = 0; i < 3; ++i)
+			delete[] grid[i];
+		delete[] grid;
+		
+		if (result->empty ())
+			{
+				delete result;
+				return nullptr;
+			}
+		return result;
 	}
 	
 	
@@ -3495,6 +3645,14 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	
+	static void
+	_open_workbench (player *pl)
+	{
+		pl->open_window (new workbench (pl->inv, window::next_id ()));
+	}
+	
 	int
 	player::handle_pl_packet_08 (player *pl, packet_reader reader)
 	{
@@ -3510,6 +3668,8 @@ namespace hCraft {
 		int cy = reader.read_byte (); // cursor Y
 		/*int cz =*/ reader.read_byte (); // cursor Z
 		
+		world *w = pl->get_world ();
+		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
 				slot_item s = pl->inv.get (pl->held_slot);
@@ -3523,7 +3683,7 @@ namespace hCraft {
 								pl->eating = true;
 								
 								// eating animation
-								pl->get_world ()->get_players ().send_to_all_visible (
+								w->get_players ().send_to_all_visible (
 									packets::play::make_animation (pl->eid, 3), pl);
 							}
 					}
@@ -3534,6 +3694,19 @@ namespace hCraft {
 				return 0;
 			}
 		
+		/* 
+		 * Handle special blocks (workbenches, chests, etc...)
+		 */
+		if (!pl->is_crouched ())
+			{
+				int prev_id = w->get_id (x, y, z);
+				if (prev_id == BT_WORKBENCH)
+					{
+						_open_workbench (pl);
+						return 0;
+					}
+			}
+		
 		item = pl->held_item ();
 		if (!item.is_valid () || item.empty ())
 			return 0;
@@ -3542,7 +3715,7 @@ namespace hCraft {
 		
 		int nx = x, ny = y, nz = z;
 		
-		block_data bd = pl->get_world ()->get_block (x, y, z);
+		block_data bd = w->get_block (x, y, z);
 		if (bd.id != BT_TALL_GRASS && !(bd.id == BT_SNOW_COVER && bd.meta == 0))
 			{
 				switch (direction)
@@ -3562,8 +3735,8 @@ namespace hCraft {
 				return 0;
 			}
 		
-		int w_width = pl->get_world ()->get_width ();
-		int w_depth = pl->get_world ()->get_depth ();
+		int w_width = w->get_width ();
+		int w_depth = w->get_depth ();
 		if (((w_width > 0) && ((nx >= w_width) || (nx < 0))) ||
 				((w_depth > 0) && ((nz >= w_depth) || (nz < 0))))
 			{
@@ -3591,7 +3764,7 @@ namespace hCraft {
 				pl->send_orig_block (nx, ny, nz);
 				return 0;
 			}
-		else if (!pl->get_world ()->security ().can_build (pl))
+		else if (!w->security ().can_build (pl))
 			{
 				pl->message ("§4 * §cYou are not allowed to build here§4.");
 				pl->send_orig_block (nx, ny, nz);
@@ -3609,7 +3782,7 @@ namespace hCraft {
 			_place_trunk (pl, nx, ny, nz, direction, item);
 		else
 			{
-				pl->get_world ()->queue_update (nx, ny, nz,
+				w->queue_update (nx, ny, nz,
 					item.id (), item.damage (), 0, 0, nullptr, pl);
 				++ pl->bl_created;
 			}
@@ -3724,7 +3897,25 @@ namespace hCraft {
 	int
 	player::handle_pl_packet_0d (player *pl, packet_reader reader)
 	{
-		// close window
+		unsigned char wid = reader.read_byte ();
+		
+		if (!pl->open_win && wid != 0)
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" sent "
+					"an invalid \"Close Window\" packet (no window open)." << std::endl;
+				return -1;
+			}
+			
+		if (pl->open_win && pl->open_win->wid () != wid)
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" sent "
+					"an invalid \"Close Window\" packet (mismatching windows)." << std::endl;
+				return -1;
+			}
+		
+		delete pl->open_win;
+		pl->open_win = nullptr;
+		
 		return 0;
 	}
 	
@@ -3740,13 +3931,14 @@ namespace hCraft {
 		short action = reader.read_short ();
 		char mode = reader.read_byte ();
 		
-		//slot_item item = reader.read_slot ();
-		
-		if (wid != 0)
-			return 0; // TODO: we currently only handle player inventory
-		
-		window *win = &pl->inv;
+		window *win = pl->open_win ? pl->open_win : &pl->inv;
 		pl->log (LT_DEBUG) << "| Mode [" << (int)mode << "] Button [" << (int)button << "] Slot [" << slot << "]" << std::endl;
+		
+		bool craft_changed = false;
+		if (win->type () == WT_INVENTORY)
+			craft_changed = (slot >= 1 && slot <= 4);
+		else if (win->type () == WT_WORKBENCH)
+			craft_changed = (slot >= 1 && slot <= 9);
 		
 		switch (mode)
 			{
@@ -3757,8 +3949,7 @@ namespace hCraft {
 				 */
 				case 0:
 					if (slot < 0 || slot >= win->slot_count ())
-						pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-							<< "\" tried to use a slot outside of window." << std::endl;
+						return 0;
 					{
 						slot_item& item = win->get (slot);
 							
@@ -3773,26 +3964,48 @@ namespace hCraft {
 												pl->log (LT_DEBUG) << "Picking up " << item.amount () << " of " << item.id () << " up from [" << slot << "]" << std::endl;
 												pl->cursor_slot.set (item);
 												item.clear ();
+												
+												if (slot == 0)
+													pl->handle_crafting_take (wid);
 											}
 									}
 								else
 									{
-										if (!win->can_place_at (slot, item))
-											return 0;
+										//if (!win->can_place_at (slot, item))
+										//	return 0;
 										
-										if (pl->cursor_slot.compatible_with (item))
+										if (slot == 0)
+											{
+												if (pl->cursor_slot.compatible_with (item))
+													{
+														int take = pl->cursor_slot.max_stack () - pl->cursor_slot.amount ();
+														if (take > item.amount ())
+															take = item.amount ();
+														
+														if (take > 0)
+															{
+																pl->cursor_slot.give (take);
+																item.take (take);
+																pl->handle_crafting_take (wid);
+															}
+														pl->log (LT_DEBUG) << "Taking " << take << " from crafting result slot" << std::endl;
+													}
+											}
+										else if (pl->cursor_slot.compatible_with (item))
 											{
 												// put stack down
 												int take = pl->cursor_slot.amount ();
 												if (item.amount () + take > item.max_stack ())
 													take = item.max_stack () - item.amount ();
 												
+												pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+												pl->log (LT_DEBUG) << "   Empty? " << (item.empty ()) << std::endl;
 												if (item.empty ())
 													item.set (pl->cursor_slot);		
 												else
 													item.give (take);
 												pl->cursor_slot.take (take);
-												pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+												
 											}
 										else
 											{
@@ -3807,7 +4020,24 @@ namespace hCraft {
 						else if (button == 1)
 							{
 								// right mouse click
-								if (pl->cursor_slot.empty ())
+								if (slot == 0)
+									{
+										if (!item.empty ())
+											{
+												int take = pl->cursor_slot.max_stack () - pl->cursor_slot.amount ();
+												if (take > item.amount ())
+													take = item.amount ();
+										
+												if (take > 0)
+													{
+														pl->cursor_slot.give (take);
+														item.take (take);
+														pl->handle_crafting_take (wid);
+													}
+												pl->log (LT_DEBUG) << "Taking " << take << " from crafting result slot" << std::endl;
+											}
+									}
+								else if (pl->cursor_slot.empty ())
 									{
 										if (!item.empty ())
 											{
@@ -3829,6 +4059,9 @@ namespace hCraft {
 												// put one down
 												if (item.amount () < item.max_stack ())
 													{
+														pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+														pl->log (LT_DEBUG) << "   Empty? " << (item.empty ()) << std::endl;
+														
 														if (item.empty ())
 															{
 																item.set (pl->cursor_slot);
@@ -3837,7 +4070,6 @@ namespace hCraft {
 														else
 															item.give (1);
 														pl->cursor_slot.take (1);
-														pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
 													}
 											}
 									}
@@ -3854,21 +4086,28 @@ namespace hCraft {
 				 */
 				case 1:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
 					{
-						slot_item& item = win->get (slot);
-						if (item.empty ())
+						slot_item *item = &win->get (slot);
+						if (slot == 0)
+							{
+								item = _craft_all_inv (pl->inv, pl->srv.get_crafting_manager ());
+								if (!item)
+									break;
+							}
+						else if (item->empty ())
 							break;
+						int item_amount = item->amount ();
 						
 						auto range = win->shift_range (slot);
 						if (range.first == -1 || range.second == -1)
-							break;
+							{
+								if (slot == 0)
+									delete item;
+								break;
+							}
 							
-						pl->log (LT_DEBUG) << "Shifting [" << slot << " of type " << item.id () << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
+						pl->log (LT_DEBUG) << "Shifting [" << slot << " of type " << item->id () << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
 						
 						// we perform two passes - try items with matching IDs first, and
 						// then finally try empty slots too.
@@ -3876,25 +4115,25 @@ namespace hCraft {
 						for (int j = 0; j < 2; ++j)
 							{
 								int i, a = (range.first < range.second) ? 1 : -1;
-								for (i = range.first; i != (range.second + a) && !item.empty (); i += a)
+								for (i = range.first; i != (range.second + a) && !item->empty (); i += a)
 									{
 										slot_item& sl = win->get (i);
-										if (first_pass ? (item.id () == sl.id ()) : sl.compatible_with (item))
+										if (first_pass ? (item->id () == sl.id ()) : sl.compatible_with (*item))
 											{
 												//pl->log (LT_DEBUG) << "Trying [" << i << "]: yes" << std::endl;
-												int take = item.amount ();
+												int take = item->amount ();
 												if (sl.amount () + take > sl.max_stack ())
 													take = sl.max_stack () - sl.amount ();
 												
 												int dbg_then = sl.amount ();
 												if (sl.empty ())
 													{
-														sl.set (item);
+														sl.set (*item);
 														sl.set_amount (take);
 													}	
 												else
 													sl.give (take);
-												item.take (take);
+												item->take (take);
 												
 												pl->log (LT_DEBUG) << "  Adding " << take << " to [" << i << "] [of type: " << sl.id () << "] [then: " << dbg_then << "] [now: " << sl.amount () << "]" << std::endl;
 											}
@@ -3905,7 +4144,15 @@ namespace hCraft {
 								first_pass = false;
 							}
 						
-						pl->log (LT_DEBUG) << "  Done, " << item.amount () << " left" << std::endl;
+						pl->log (LT_DEBUG) << "  Done, " << item->amount () << " left" << std::endl;
+						if (slot == 0)
+							{
+								for (int j = 1; j <= 4; ++j)
+									pl->inv.get (j).take (item_amount);
+								delete item;
+								
+								pl->handle_crafting (wid);
+							}
 						break;
 					}
 				
@@ -3917,11 +4164,7 @@ namespace hCraft {
 				 */
 				case 2:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
 					{
 						if (button < 0 || button > 8)
 							{
@@ -3980,6 +4223,7 @@ namespace hCraft {
 				 *   button 6, slot -999 = ending right mouse paint
 				 */
 				case 5:
+					craft_changed = false;
 					switch (button)
 						{
 							// start left/middle mouse paint
@@ -4037,6 +4281,14 @@ namespace hCraft {
 									return -1;
 								pl->inv_painting = false;
 								
+								for (short s : pl->inv_paint_slots)
+									if ((!pl->open_win && (s >= 1 && s <= 4)) || 
+											(pl->open_win && pl->open_win->type () == WT_WORKBENCH && (s >= 1 && s <= 9)))
+										{
+											craft_changed = true;
+											break;
+										}
+								
 								pl->log (LT_DEBUG) << "End inventory paint [mouse: " << ((pl->inv_mb == 0) ? "left" : "right") << "]" << std::endl;
 								if (!pl->inv_paint_slots.empty ())
 									{
@@ -4078,11 +4330,8 @@ namespace hCraft {
 				 */
 				case 6:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
+					
 					if (button == 0)
 						{
 							if (pl->cursor_slot.empty ())
@@ -4107,6 +4356,9 @@ namespace hCraft {
 						}
 					break;
 			}
+		
+		if (craft_changed)
+			pl->handle_crafting (wid);
 		
 		return 0;
 	}

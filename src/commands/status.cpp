@@ -196,7 +196,7 @@ namespace hCraft {
 										else
 											cd_ratio = cd_c / cd_d;
 									}
-								ss << "§6 | §eCreate\\Destroy ratio§6: §c" << cd_ratio << std::endl;
+								ss << "§6 | §eCreate\\Destroy ratio§6: §c" << cd_ratio;
 								pl->message (ss.str ());
 								ss.clear (); ss.str (std::string ());
 							}

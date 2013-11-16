@@ -34,6 +34,22 @@ namespace hCraft {
 	class packet;
 	
 	
+	enum window_type
+	{
+		WT_CHEST							= 0,
+		WT_WORKBENCH					= 1,
+		WT_FURNACE						= 2,
+		WT_DISPENSER					= 3,
+		WT_ENCHANTMENT_TABLE	= 4,
+		WT_BREWING_STAND			= 5,
+		WT_NPC_TRADE					= 6,
+		WT_BEACON							= 7,
+		WT_ANVIL							= 8,
+		WT_HOPPER							= 9,
+		
+		WT_INVENTORY					= 10, // not an actual type
+	};
+	
 	/* 
 	 * Base class for all window implementation (inventory, chest, workbench,
 	 * etc...)
@@ -42,6 +58,7 @@ namespace hCraft {
 	{
 	protected:
 		unsigned char 				w_id;
+		window_type						w_type;
 		std::string   				w_title;
 		
 		std::vector<player *>	w_subscribers;
@@ -65,14 +82,16 @@ namespace hCraft {
 		
 	public:
 		inline unsigned char wid () { return w_id; }
+		inline window_type type () { return this->w_type; }
 		inline const std::string& title () { return w_title; }
-		inline int slot_count () { return w_slots.size (); }
+		inline int slot_count () { return w_slots.size () + ((this->w_type == WT_INVENTORY) ? 0 : 36); }
 		
 	public:
 		/* 
 		 * Constructs a new window with the given ID and title.
 		 */
-		window (unsigned char id, const char *title, int slot_count);
+		window (window_type type, unsigned char id, const char *title,
+			int slot_count);
 		virtual ~window ();
 		
 		/* 
@@ -98,6 +117,11 @@ namespace hCraft {
 		void unsubscribe_all ();
 		
 		
+		
+		/* 
+		 * Shows this window to the specified player.
+		 */
+		void show (player *pl);
 		
 		/* 
 		 * Sends queued slot updates to all subscribers.
@@ -178,6 +202,66 @@ namespace hCraft {
 		 * Constructs a new empty player inventory.
 		 */
 		inventory ();
+		
+		
+		
+		/* 
+		 * Attempts to add @{item} at empty or compatible locations.
+		 * Returns the number of items NOT added due to insufficient room.
+		 */
+		virtual int add (const slot_item& item, bool update = true) override;
+		
+		/* 
+		 * Attempts to remove items matching item @{item}.
+		 * Returns the number of items removed.
+		 */
+		virtual int remove (const slot_item& item, bool update = true) override;
+		
+		
+		
+		/* 
+		 * Returns a pair of two integers that describe the range of slots where
+		 * the item at the specified slot should be moved to when shift clicked.
+		 */
+		virtual std::pair<int, int> shift_range (int slot) override;
+		
+		/* 
+		 * Hotbar slot range.
+		 */
+		virtual std::pair<int, int> hotbar_range () override;
+		
+		/* 
+		 * Returns true if players can place the given item at the specified slot.
+		 */
+		virtual bool can_place_at (int slot, slot_item& item) override;
+	};
+	
+	
+	
+	/* 
+	 * Crafting table window.
+	 */
+	class workbench: public window
+	{
+		inventory& inv;
+		
+	public:
+		/* 
+		 * Constructs a new workbench ontop of the specifeid inventory window.
+		 */
+		workbench (inventory& inv, unsigned char id);
+		
+		
+		
+		/* 
+		 * Sets the slot located at @{index} to @{item}.
+		 */
+		virtual void set (int index, const slot_item& item, bool update = true) override;
+		
+		/* 
+		 * Returns the item located at the specified slot index.
+		 */
+		virtual slot_item& get (int index) override;
 		
 		
 		

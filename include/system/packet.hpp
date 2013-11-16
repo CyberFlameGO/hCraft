@@ -225,6 +225,9 @@ namespace hCraft {
 			packet* make_sound_effect (const char *sound, double x, double y, double z,
 				float vol, char pitch);
 			packet* make_change_game_state (int reason, float value);
+			packet* make_open_window (unsigned char wid, unsigned char wtype,
+				const char *title, unsigned char slot_count, bool use_title);
+			packet* make_close_window (unsigned char wid);
 			packet* make_set_slot (int wid, int slot, const slot_item& item);
 			packet* make_window_items (int wid, const std::vector<slot_item>& items);
 			packet* make_update_sign (int x, int y, int z, const char *first,

@@ -158,6 +158,7 @@ namespace hCraft {
 		bool inv_painting; // inventory paining mode, added in 1.5
 		char inv_mb; // mouse button ^
 		std::vector<short> inv_paint_slots;
+		window *open_win;
 		
 		char kick_msg[384];
 		bool kicked;
@@ -319,6 +320,7 @@ namespace hCraft {
 		void handle_falls_and_jumps (bool prev, bool curr, entity_pos old_pos);
 		
 		bool handle_crafting (unsigned char wid);
+		void handle_crafting_take (unsigned char wid);
 		
 		void handle_death ();
 		
@@ -381,6 +383,7 @@ namespace hCraft {
 		inline std::mutex& get_world_lock () { return this->world_lock; }
 		static constexpr int chunk_radius () { return 5; }
 		
+		inline window* get_open_window () { return this->open_win; }
 		inline slot_item& held_item () { return this->inv.get (this->held_slot); }
 		inline slot_item cursor_item () { return this->cursor_slot; }
 		inline gamemode_type gamemode () { return this->curr_gamemode; }
@@ -632,6 +635,13 @@ namespace hCraft {
 		
 		
 		bool got_known_chunks_for (world *w);
+		
+		
+		/* 
+		 * Sets the specified window as the active one, and closes any already open
+		 * windows. 
+		 */
+		void open_window (window *win);
 		
 	//----
 		
