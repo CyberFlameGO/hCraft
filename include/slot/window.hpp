@@ -194,7 +194,7 @@ namespace hCraft {
 		 * Used by add () and remove ().
 		 */
 		
-		int try_add (int index, const slot_item& item, int left, bool update = true);
+		int try_add (int index, const slot_item& item, int left, bool matching_only, bool update = true);
 		int try_remove (int index, const slot_item& item, int left, bool update = true);
 		
 	public:

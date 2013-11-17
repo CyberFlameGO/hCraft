@@ -1720,6 +1720,7 @@ namespace hCraft {
 		grp_admin->add ("command.world.world.get-perms");
 		grp_admin->add ("command.world.world.change-members");
 		grp_admin->add ("command.world.world.change-owners");
+		grp_admin->add ("command.world.world.time");
 		grp_admin->add ("place.sign.colors");
 		
 		grp_admin->text_color = 'c';
@@ -1736,9 +1737,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.world.wsetspawn");
-		grp_executive->add ("command.world.world.set-perms");
-		grp_executive->add ("command.world.world.resize");
-		grp_executive->add ("command.world.world.regenerate");
+		grp_executive->add ("command.world.world.*");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->add ("command.admin.ban.*");

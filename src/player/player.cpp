@@ -466,6 +466,11 @@ namespace hCraft {
 			bufferevent_free (this->bufev);
 		}
 		
+		{	
+			std::lock_guard<std::mutex> guard {this->data_lock};
+			delete this->open_win;
+		}
+		
 		if (this->bundo)
 			this->bundo->close ();
 		
@@ -656,6 +661,89 @@ namespace hCraft {
 			}
 	}
 	
+	static void
+	_inv_from_str (inventory& inv, const std::string& inv_str)
+	{
+		const char *ptr = inv_str.c_str ();
+		const char *scol;
+		std::string str;
+		do
+			{
+				str.clear ();
+				
+				scol = std::strchr (ptr, ';');
+				if (scol)
+					{
+						while (ptr != scol)
+							str.push_back (*ptr++);
+						++ ptr;
+					}
+				else
+					{
+						while (*ptr)
+							str.push_back (*ptr++);
+					}
+				
+				// id:meta{amount}
+				std::string sid, smeta, samount;
+				bool got_col = false, got_lbrace = false, good = true;
+				const char *ptr2 = str.c_str ();
+				while (*ptr2)
+					{
+						char c = *ptr2++;
+						if (std::isdigit (c))
+							{
+								if (got_lbrace)
+									samount.push_back (c);
+								else if (got_col)
+									smeta.push_back (c);
+								else
+									sid.push_back (c);
+							}
+						else if (c == '{')
+							{
+								if (got_lbrace)
+									{ good = false; break; }
+								got_lbrace = true;
+							}
+						else if (c == '}')
+							break;
+						else if (c == ':')
+							{
+								if (got_col)
+									{ good = false; break; }
+								got_col = true;
+							}
+					}
+				
+				if (good && !sid.empty ())
+					{
+						unsigned short id;
+						{
+							std::istringstream ss {sid};
+							ss >> id;
+						}
+						
+						short meta = 0;
+						if (!smeta.empty ())
+							{
+								std::istringstream ss {smeta};
+								ss >> meta;
+							}
+						
+						unsigned short amount = 1;
+						if (!samount.empty ())
+							{
+								std::istringstream ss {samount};
+								ss >> amount;
+							}
+						
+						inv.add (slot_item (id, meta, amount));
+					}
+			}
+		while (scol);
+	}
+	
 	/* 
 	 * Sends the player to the given world at the specified location.
 	 */
@@ -731,6 +819,7 @@ namespace hCraft {
 				this->change_gamemode ((gamemode_type)w->def_gm);
 			}
 		
+		this->send (packets::play::make_time_update (w->get_time (), w->get_time ()));
 		this->need_new_chunks = true;
 		
 		// start physics
@@ -739,6 +828,17 @@ namespace hCraft {
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 		if (had_prev_world)
 			_broadcast_join_message (this, w, prev_world);
+		
+		// load inventory
+		if (w->use_def_inv)
+			{
+				this->inv.clear ();
+				_inv_from_str (this->inv, w->def_inv);
+			}
+		else
+			{
+				// TODO
+			}
 	}
 	
 	/* 
@@ -2429,6 +2529,10 @@ namespace hCraft {
 			this->srv.get_thread_pool ().enqueue (
 				[] (void *ptr) { (static_cast<player *> (ptr))->stream_chunks (); }, this);
 		
+		// send time
+		if (this->tick_counter % 40 == 0)
+			this->send (packets::play::make_time_update (w.get_time (), w.get_time ()));
+		
 		this->last_tick = now;
 		++ tick_counter;
 		return false;
@@ -2822,23 +2926,6 @@ namespace hCraft {
 			this->get_server ().get_irc ()->chan_msg (std::string ("+ ") + this->get_colored_username () + " §0has joined the server");
 		
 		this->inv.subscribe (this);
-		
-		{
-			slot_item feather (IT_FEATHER, 0, 1);
-			feather.lore.emplace_back ("§aClick with this feather to fly faster!");
-			feather.lore.emplace_back ("§aHold §2SHIFT §afor an additional §22.5x §aboost");
-			this->inv.add (feather);
-		}
-		
-		this->inv.add (slot_item (BT_STONE, 0, 1));
-		this->inv.add (slot_item (BT_COBBLE, 0, 1));
-		this->inv.add (slot_item (BT_BRICKS, 0, 1));
-		this->inv.add (slot_item (BT_DIRT, 0, 1));
-		this->inv.add (slot_item (BT_WOOD, 0, 1));
-		this->inv.add (slot_item (BT_TRUNK, 0, 1));
-		//this->inv.add (slot_item (BT_LEAVES, 0, 1));
-		this->inv.add (slot_item (BT_GLASS, 0, 1));
-		this->inv.add (slot_item (BT_SLAB, 0, 1));
 		
 		// make the player move at normal speed
 		{

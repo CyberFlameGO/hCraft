@@ -23,6 +23,8 @@
 #include <mutex>
 #include <algorithm>
 
+#include <iostream> // DEBUG
+
 
 namespace hCraft {
 	
@@ -267,11 +269,15 @@ namespace hCraft {
 	
 	
 	int
-	inventory::try_add (int index, const slot_item& item, int left, bool update)
+	inventory::try_add (int index, const slot_item& item, int left,
+		bool matching_only, bool update)
 	{
 		slot_item &curr_item = this->w_slots[index];
 		if (curr_item.empty ())
 			{
+				if (matching_only)
+					return 0;
+				
 				int take = (left > 64) ? 64 : left;
 				curr_item = item;
 				curr_item.set_amount (take);
@@ -305,18 +311,24 @@ namespace hCraft {
 		int i, added;
 		int left = item.amount ();
 		
-		// hotbar first
-		for (i = 36; i <= 44 && left > 0; ++i)
+		bool matching_only = true;
+		for (int j = 0; (j < 2) && (left > 0); ++j)
 			{
-				added = this->try_add (i, item, left, update);
-				left -= added;
-			}
+				// hotbar first
+				for (i = 36; i <= 44 && left > 0; ++i)
+					{
+						added = this->try_add (i, item, left, matching_only, update);
+						left -= added;
+					}
 		
-		// and the rest of the inventory
-		for (i = 9; i <= 35 && left > 0; ++i)
-			{
-				added = this->try_add (i, item, left, update);
-				left -= added;
+				// and the rest of the inventory
+				for (i = 9; i <= 35 && left > 0; ++i)
+					{
+						added = this->try_add (i, item, left, matching_only, update);
+						left -= added;
+					}
+				
+				matching_only = false;
 			}
 		
 		return left;

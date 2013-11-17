@@ -92,7 +92,9 @@ namespace hCraft {
 		this->players = new player_list ();
 		this->th_running = false;
 		this->auto_lighting = true;
-		this->ticks = 0;
+		this->ticks = this->wtime = 0;
+		this->wtime_frozen = false;
+		this->use_def_inv = false;
 		this->def_gm = GT_SURVIVAL;
 		
 		this->ph_state = PHY_OFF;
@@ -164,6 +166,7 @@ namespace hCraft {
 			}
 		
 		const world_information& winf = prov->info ();
+		std::cout << "SEED: " << winf.seed << std::endl;
 		world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
 		if (!gen)
 			{
@@ -189,6 +192,10 @@ namespace hCraft {
 		wr->set_size (winf.width, winf.depth);
 		wr->set_spawn (winf.spawn_pos);
 		wr->def_gm = (winf.def_gm == "CREATIVE") ? GT_CREATIVE : GT_SURVIVAL;
+		wr->def_inv = winf.def_inv;
+		wr->use_def_inv = winf.use_def_inv;
+		wr->wtime = winf.time;
+		wr->wtime_frozen = winf.time_frozen;
 		
 		wr->prov->open (*wr);
 		wr->prov->load_portals (*wr, wr->portals);
@@ -285,6 +292,10 @@ namespace hCraft {
 			this->set_size (winf.width, winf.depth);
 			this->set_spawn (winf.spawn_pos);
 			this->def_gm = (winf.def_gm == "CREATIVE") ? GT_CREATIVE : GT_SURVIVAL;
+			this->def_inv = winf.def_inv;
+			this->use_def_inv = winf.use_def_inv;
+			this->wtime = winf.time;
+			this->wtime_frozen = winf.time_frozen;
 			
 			this->prov->open (*this);
 			this->prov->load_portals (*this, this->portals);
@@ -743,6 +754,8 @@ namespace hCraft {
 				this->lm.update (light_update_cap);
 				
 				std::this_thread::sleep_for (std::chrono::milliseconds (5));
+				if (!this->wtime_frozen && ((this->ticks % 10) == 0))
+					++ this->wtime;
 			}
 	}
 	
@@ -795,6 +808,10 @@ namespace hCraft {
 		inf.chunk_count = 0;
 		inf.world_type = (this->typ == WT_LIGHT) ? "LIGHT" : "NORMAL";
 		inf.def_gm = (this->def_gm == GT_SURVIVAL) ? "SURVIVAL" : "CREATIVE";
+		inf.def_inv = this->def_inv;
+		inf.use_def_inv = this->use_def_inv;
+		inf.time = this->wtime;
+		inf.time_frozen = this->wtime_frozen;
 	}
 	
 	
