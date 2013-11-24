@@ -32,6 +32,7 @@
 #include "world/generation/experiment.hpp"
 #include "world/generation/islands.hpp"
 #include "world/generation/empty.hpp"
+#include "world/generation/sandbox.hpp"
 
 
 namespace hCraft {
@@ -84,6 +85,10 @@ namespace hCraft {
 	static world_generator*
 	create_empty (long seed)
 		{ return new empty_world_generator (seed); }
+		
+	static world_generator*
+	create_sandbox (long seed)
+		{ return new sandbox_world_generator (seed); }
 	
 	
 	/* 
@@ -100,6 +105,7 @@ namespace hCraft {
 				{ "experiment", create_experiment },
 				{ "islands", create_islands },
 				{ "empty", create_empty },
+				{ "sandbox", create_sandbox },
 			};
 		
 		auto itr = generators.find (name);

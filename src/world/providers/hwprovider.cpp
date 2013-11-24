@@ -40,7 +40,7 @@ namespace hCraft {
 	#define HW_LAYER_PAGE_SIZE						 1024
 	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
 	
-	#define HW_CURR_REV												3
+	#define HW_CURR_REV												4
 	
 	
 	inline int
@@ -1089,6 +1089,10 @@ namespace hCraft {
 		
 		writer.write_string (info.world_type.c_str ());
 		writer.write_string (info.def_gm.c_str ());
+		writer.write_string (info.def_inv.c_str ());
+		writer.write_byte (info.use_def_inv ? 1 : 0);
+		writer.write_long (info.time);
+		writer.write_byte (info.time_frozen ? 1 : 0);
 		
 		writer.flush ();
 		this->inf = info;
@@ -1134,6 +1138,10 @@ namespace hCraft {
 		
 		writer.write_string ("NORMAL"); // world type
 		writer.write_string ("SURVIVAL"); // default gamemode
+		writer.write_string (""); // default inventory
+		writer.write_byte (0); // use default inventory?
+		writer.write_long (0); // time
+		writer.write_byte (0); // time frozen?
 		
 		writer.write_int (HW_LAYER_TABLE_OFFSET); // offset of layer table
 		
@@ -1370,6 +1378,10 @@ namespace hCraft {
 		
 		inf.world_type = reader.read_string ();
 		inf.def_gm = reader.read_string ();
+		inf.def_inv = reader.read_string ();
+		inf.use_def_inv = (reader.read_byte () != 0);
+		inf.time = reader.read_long ();
+		inf.time_frozen = (reader.read_byte () != 0);
 	}
 	
 	static void

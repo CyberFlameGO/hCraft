@@ -22,6 +22,8 @@
 #include <thread>
 #include <queue>
 #include <mutex>
+#include <vector>
+#include <map>
 
 
 namespace hCraft {
@@ -65,6 +67,13 @@ namespace hCraft {
 		GFL_NOABORT = (1 << 2),
 	};
 	
+	
+	struct generator_queue {
+		int pid;
+		std::queue<gen_request> requests;
+		unsigned int counter;
+	};
+	
 	/* 
 	 * A continuous loop that runs in its own thread that supplies players with
 	 * chunks once they have been generated.
@@ -77,7 +86,8 @@ namespace hCraft {
 		std::thread *th;
 		bool _running;
 		
-		std::queue<gen_request> requests;
+		std::vector<generator_queue *> queues;
+		std::map<int, int> index_map;
 		std::mutex request_mutex;
 		
 	private:

@@ -66,9 +66,36 @@ namespace hCraft {
 		this->_running = false;
 		if (this->th->joinable ())
 			this->th->join ();
+		
+		for (generator_queue *q : this->queues)
+			delete q;
+		this->queues.clear ();
+		this->index_map.clear ();
 	}
 	
 	
+	
+	static generator_queue*
+	_pick_queue (std::vector<generator_queue *>& queues)
+	{
+		if (queues.empty ())
+			return nullptr;
+		
+		int max = 0;
+		for (int i = 1; i < queues.size (); ++i)
+			if ((queues[i]->counter > queues[max]->counter) && !queues[i]->requests.empty ())
+				max = i;
+		
+		return queues[max];
+	}
+	
+	static void
+	_increment_counters (std::vector<generator_queue *>& queues)
+	{
+		for (generator_queue *q : queues)
+			if (!q->requests.empty ())
+				++ q->counter;
+	}
 	
 	/* 
 	 * Where everything happens.
@@ -89,44 +116,45 @@ namespace hCraft {
 				should_rest = false;
 				++ counter;
 				
-				if (!this->requests.empty ())
+				if (!this->queues.empty ())
 					{
-						gen_request req;
+						std::lock_guard<std::mutex> guard {this->request_mutex};
+						_increment_counters (this->queues);
 						
-						// pop off queue
-						{
-							std::lock_guard<std::mutex> guard {this->request_mutex};
-							if (this->requests.empty ())
-								continue;
-							
-							req = this->requests.front ();
-							this->requests.pop ();
-							++ req_counter;
-						}
-						
-						world *w = req.w;
-						int flags = req.flags;
-						
-						player *pl = w->get_server ().player_by_id (req.pid);
-						if (!pl) continue;
-						
-						if (!(flags & GFL_NOABORT) && (pl->get_world () != w || !pl->can_see_chunk (req.cx, req.cz)))
+						generator_queue *q = _pick_queue (this->queues);
+						q->counter = 0;
+						if (!q->requests.empty ())
 							{
+								// pop request
+								gen_request req = q->requests.front ();
+								q->requests.pop ();
+								++ req_counter;
+								
+								world *w = req.w;
+								int flags = req.flags;
+						
+								player *pl = w->get_server ().player_by_id (req.pid);
+								if (!pl) continue;
+						
+								if (!(flags & GFL_NOABORT) && (pl->get_world () != w || !pl->can_see_chunk (req.cx, req.cz)))
+									{
+										if (!(flags & GFL_NODELIVER))
+											pl->deliver_chunk (w, req.cx, req.cz, nullptr, GFL_ABORTED, req.extra);
+										continue;
+									}
+						
+								if ((flags & GFL_NODELIVER) && (w->get_chunk (req.cx, req.cz) != nullptr))
+									continue;
+						
+								// generate chunk
+								chunk *ch = w->load_chunk (req.cx, req.cz);
+								if (!ch) // shouldn't happen :X
+									continue;
+						
+								// deliver
 								if (!(flags & GFL_NODELIVER))
-									pl->deliver_chunk (w, req.cx, req.cz, nullptr, GFL_ABORTED, req.extra);
-								continue;
+									pl->deliver_chunk (w, req.cx, req.cz, ch, GFL_NONE, req.extra);
 							}
-						
-						if ((flags & GFL_NODELIVER) && (w->get_chunk (req.cx, req.cz) != nullptr))
-							continue;
-						
-						// generate chunk
-						chunk *ch = w->load_chunk (req.cx, req.cz);
-						if (!ch) continue; // shouldn't happen :X
-						
-						// deliver
-						if (!(flags & GFL_NODELIVER))
-							pl->deliver_chunk (w, req.cx, req.cz, ch, GFL_NONE, req.extra);
 					}
 				
 				should_rest = true;
@@ -143,7 +171,22 @@ namespace hCraft {
 	chunk_generator::request (world *w, int cx, int cz, int pid, int flags, int extra)
 	{
 		std::lock_guard<std::mutex> guard {this->request_mutex};
-		this->requests.push ({pid, w, cx, cz, flags, extra});
+		
+		generator_queue *q = nullptr;
+		auto itr = this->index_map.find (pid);
+		if (itr == this->index_map.end ())
+			{
+				q = new generator_queue ();
+				q->pid = pid;
+				q->counter = 0;
+				
+				this->index_map[pid] = this->queues.size ();
+				this->queues.push_back (q);
+			}
+		else
+			q = this->queues[itr->second];
+		
+		q->requests.push ({pid, w, cx, cz, flags, extra});
 	}
 	
 	
@@ -154,19 +197,22 @@ namespace hCraft {
 	void
 	chunk_generator::cancel_requests (world *w)
 	{
-		std::queue<gen_request> valid_reqs;
-			
 		std::lock_guard<std::mutex> guard {this->request_mutex};
-		while (!this->requests.empty ())
-			{
-				gen_request req = this->requests.front ();
-				this->requests.pop ();
-				
-				if (req.w != w)
-					valid_reqs.push (req);
-			}
 		
-		this->requests = valid_reqs;
+		for (generator_queue *q : this->queues)
+			{
+				std::queue<gen_request> valid_reqs;
+				while (!q->requests.empty ())
+					{
+						gen_request req = q->requests.front ();
+						q->requests.pop ();
+				
+						if (req.w != w)
+							valid_reqs.push (req);
+					}
+		
+				q->requests = valid_reqs;
+			}
 	}
 }
 

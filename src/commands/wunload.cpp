@@ -18,6 +18,7 @@
 
 #include "commands/wunload.hpp"
 #include "system/server.hpp"
+#include "system/scheduler.hpp"
 #include "player/player.hpp"
 #include "world/world.hpp"
 #include <vector>
@@ -27,7 +28,7 @@ namespace hCraft {
 	namespace commands {
 		
 		static bool
-		remove_from_autoload (server& srv, const std::string& world_name)
+		_remove_from_autoload (server& srv, const std::string& world_name)
 		{
 			soci::session sql (srv.sql_pool ());
 			int count;
@@ -38,6 +39,40 @@ namespace hCraft {
 			
 			sql.once << "DELETE FROM `autoload-worlds` WHERE `name`='" << world_name << "'";
 			return true;
+		}
+		
+		
+		namespace {
+			struct callback_data {
+				server *srv;
+				world *w;
+				std::vector<player *> pls;
+			};
+		}
+		
+		static void
+		_callback_func (scheduler_task& task)
+		{
+			callback_data *data = static_cast<callback_data *> (task.get_context ());
+			server& srv = *(data->srv);
+			world *wr = data->w;
+			
+			std::string colname = wr->get_colored_name ();
+			wr->stop ();
+			wr->save_all ();
+			srv.get_worlds ().remove (wr);
+			
+			std::vector<player *>& pls = data->pls;
+			for (player *pl : pls)
+				{
+					if (pl->got_known_chunks_for (wr))
+						pl->disconnect ();
+				}
+			
+			srv.get_players ().message (
+				"§4> §cWorld " + colname + " §chas been unloaded§c!");
+			delete wr;
+			delete data;
 		}
 		
 		
@@ -70,7 +105,7 @@ namespace hCraft {
 				{
 					if (reader.opt ("autoload")->found ())
 						{
-							if (remove_from_autoload (pl->get_server (), world_name))
+							if (_remove_from_autoload (pl->get_server (), world_name))
 								pl->message ("§eWorld §b" + world_name + " §ehas been removed from the autoload list§f.");
 							else
 								pl->message ("§cWorld §7" + world_name + " §cis not in the autoload list§7.");
@@ -92,22 +127,23 @@ namespace hCraft {
 			wr->get_players ().populate (to_transfer);
 			for (player *pl : to_transfer)
 				pl->join_world (pl->get_server ().get_main_world ());
-				
-			std::string colname = wr->get_colored_name ();
-			wr->stop ();
-			wr->save_all ();
-			pl->get_server ().get_worlds ().remove (wr, true);
 			
+			// autoload
 			if (reader.opt ("autoload")->found ())
 				{
-					if (remove_from_autoload (pl->get_server (), world_name))
+					if (_remove_from_autoload (pl->get_server (), world_name))
 						pl->message ("§eWorld §b" + world_name + " §ehas been removed from the autoload list§f.");
 					else
 						pl->message ("§cWorld §7" + world_name + " §cis not in the autoload list§7.");
 				}
 			
-			pl->get_server ().get_players ().message (
-				"§4> §cWorld " + colname + " §chas been unloaded§c!");
+			pl->message ("§cUnloading world... §7[§85 seconds§7]");
+			callback_data *data = new callback_data ();
+			data->srv = &pl->get_server ();
+			data->w = wr;
+			data->pls = to_transfer;
+			pl->get_server ().get_scheduler ().new_task (_callback_func, data)
+				.run_once (5000);
 		}
 	}
 }

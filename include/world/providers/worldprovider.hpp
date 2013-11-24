@@ -41,6 +41,11 @@ namespace hCraft {
 	{
 		std::string world_type;
 		std::string def_gm;
+		std::string def_inv;
+		bool use_def_inv;
+		
+		long long time;
+		bool time_frozen;
 		
 		int width;
 		int depth;

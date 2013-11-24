@@ -58,7 +58,7 @@ namespace hCraft {
 		inline unsigned short damage () const { return s_damage; }
 		inline unsigned short amount () const { return s_amount; }
 		
-		inline bool empty () const { return s_amount == 0; }
+		inline bool empty () const { return (s_amount == 0) || (s_id == 0); }
 		inline bool full () const
 		{
 			return this->s_amount >= this->max_stack ();

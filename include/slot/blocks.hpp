@@ -343,7 +343,7 @@ namespace hCraft {
 		static inline bool
 		is_vanilla_id (unsigned short id)
 		{
-			return ((id <= 0x9F) || (id >= 0xAA && id <= 0xAD));
+			return ((id <= 0xA4) || (id >= 0xAA && id <= 0xAF));
 		}
 	};
 	

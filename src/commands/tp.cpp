@@ -123,7 +123,7 @@ namespace hCraft {
 						}
 					
 					// dest
-					const std::string& dest_name = reader.arg (0);
+					const std::string& dest_name = reader.arg (1);
 					player *dest = pl->get_server ().get_players ().find (dest_name.c_str ());
 					if (!dest)
 						{

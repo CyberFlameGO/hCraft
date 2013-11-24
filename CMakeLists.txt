@@ -1,14 +1,29 @@
+# 
+# hCraft's CMakeLists file.
+# 
+
 cmake_minimum_required(VERSION 2.8)
+<<<<<<< HEAD
 project(hcraft)
 file(GLOB_RECURSE SRC ${CMAKE_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE  HEADERS ${CMAKE_SOURCE_DIR}/include/*.hpp)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} " -std=c++11")
+=======
+project(hCraft)
+
+file(GLOB_RECURSE hCraft_SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp)
+file(GLOB_RECURSE hCraft_HEADERS ${CMAKE_SOURCE_DIR}/include/*.hpp)
+
+>>>>>>> upstream/master
 add_subdirectory(cmake)
+set(CMAKE_CXX_FLAGS "-g -O0 -std=c++11")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
 
 include_directories(src/ include/)
-add_executable(hCraft ${SRC} ${HEADERS})
+add_executable(hCraft ${hCraft_SOURCES} ${hCraft_HEADERS})
 
+<<<<<<< HEAD
 set(MISSING_LIB 0)
 set(MISSING_LIB_OVERRIDE 1)
 
@@ -19,7 +34,14 @@ else()
   message(WARNING "PTHREAD NOT FOUND")
   set(MISSING_LIB 1)
 endif()
+=======
+>>>>>>> upstream/master
 
+#
+# Dependencies:
+#
+
+find_package(Pthread)
 find_package(CryptoPP)
 if(${CRYPTOPP_FOUND})
   target_link_libraries(hCraft ${CRYPTOPP_LIBRARIES})
@@ -103,14 +125,19 @@ target_link_libraries(hCraft ${CRYPTOPP_LIB_HACK} ${pthreadEVENT_LIB})
 
 #HACKS_END
 
+<<<<<<< HEAD
 include_directories(${CRYPTOPP_INCLUDE_DIR} ${CURL_INCLUDE_DIRS} ${LIBEVENT_INCLUDE_DIR}
 ${LIBNOISE_INCLUDE_DIR} ${MYSQL_INCLUDE_DIR} ${SOCI_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 
+=======
+target_link_libraries(hCraft ${PTHREAD_LIBRARIES} ${SOCI_LIBRARY} ${SOCI_mysql_PLUGIN} ${pthreadEVENT_LIB} ${CRYPTOPP_LIB_HACK} ${CURL_LIBRARIES} ${MYSQL_LIBRARIES} 
+${LIBEVENT_LIB} ${LIBNOISE_LIBRARY} ${TBB_LIBRARIES} ${ZLIB_LIBRARIES})
+>>>>>>> upstream/master
 
 install(TARGETS hCraft RUNTIME DESTINATION bin)
 
-
 if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE MATCHES Release)
-    set(CMAKE_CXX_FLAGS "-O2 -std=c++11")        ## Optimize
-    set(CMAKE_EXE_LINKER_FLAGS "-s")  ## Strip binary
+    set(CMAKE_CXX_FLAGS "-O3 -std=c++11") ## Optimize
+    set(CMAKE_EXE_LINKER_FLAGS "-s")      ## Strip binary
 endif(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_BUILD_TYPE MATCHES Release)
+

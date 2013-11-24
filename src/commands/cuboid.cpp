@@ -45,6 +45,13 @@ namespace hCraft {
 			cuboid_data *data = static_cast<cuboid_data *> (pl->get_data ("cuboid"));
 			if (!data) return true; // shouldn't happen
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("cuboid");
+					return true;
+				}
+			
 			if (data->select)
 				{
 					std::ostringstream ss;

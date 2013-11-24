@@ -49,6 +49,13 @@ namespace hCraft {
 			curve_data *data = static_cast<curve_data *> (pl->get_data ("curve"));
 			if (!data) return true; // shouldn't happen
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("curve");
+					return true;
+				}
+			
 			sparse_edit_stage& es = data->es;
 			std::vector<vector3>& points = data->points;
 			points.push_back (marked[0]);

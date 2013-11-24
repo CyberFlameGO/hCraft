@@ -109,24 +109,8 @@ namespace hCraft {
 			return ((this->w == other.w) && (this->cx == other.cx) && (this->cz == other.cz));
 		}
 	};
-	
-	/*
-	// TODO: remove?
 
-	class known_chunk_hash
-	{
-		std::hash<int> int_hash;
-		
-	public:
-		std::size_t
-		operator() (const known_chunk& kc) const
-		{
-			return int_hash (((long long)kc.w & 0xFFFFFFFF) + ((int_hash (kc.cx) ^ (int_hash (kc.cz) << 5)) << 7));
-		}
-	};
-	*/
-	
-//--------
+//------------
 	
 	/* 
 	 * Represents a player.
@@ -174,6 +158,7 @@ namespace hCraft {
 		bool inv_painting; // inventory paining mode, added in 1.5
 		char inv_mb; // mouse button ^
 		std::vector<short> inv_paint_slots;
+		window *open_win;
 		
 		char kick_msg[384];
 		bool kicked;
@@ -335,6 +320,7 @@ namespace hCraft {
 		void handle_falls_and_jumps (bool prev, bool curr, entity_pos old_pos);
 		
 		bool handle_crafting (unsigned char wid);
+		void handle_crafting_take (unsigned char wid);
 		
 		void handle_death ();
 		
@@ -397,6 +383,7 @@ namespace hCraft {
 		inline std::mutex& get_world_lock () { return this->world_lock; }
 		static constexpr int chunk_radius () { return 5; }
 		
+		inline window* get_open_window () { return this->open_win; }
 		inline slot_item& held_item () { return this->inv.get (this->held_slot); }
 		inline slot_item cursor_item () { return this->cursor_slot; }
 		inline gamemode_type gamemode () { return this->curr_gamemode; }
@@ -645,6 +632,16 @@ namespace hCraft {
 			void (*dctor) (void *) = nullptr);
 		void delete_data (const char *name, bool destruct = true);
 		void* get_data (const char *name);
+		
+		
+		bool got_known_chunks_for (world *w);
+		
+		
+		/* 
+		 * Sets the specified window as the active one, and closes any already open
+		 * windows. 
+		 */
+		void open_window (window *win);
 		
 	//----
 		

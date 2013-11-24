@@ -46,6 +46,13 @@ namespace hCraft {
 			ellipse_data *data = static_cast<ellipse_data *> (pl->get_data ("ellipse"));
 			if (!data) return true; // shouldn't happen
 			
+			if (!pl->get_world ()->security ().can_build (pl))
+				{
+					pl->message ("§4 * §cYou are not allowed to build here§4.");
+					pl->delete_data ("ellipse");
+					return true;
+				}
+			
 			double a = (data->a == -1) ?
 				(vector3 (marked[1]) - vector3 (marked[0])).magnitude () : data->a;
 			double b = (data->b == -1) ?

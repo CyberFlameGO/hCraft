@@ -33,6 +33,7 @@
 #include <cryptopp/queue.h>
 
 #include <iostream> // DEBUG
+#include <iomanip> // DEBUG
 
 
 namespace hCraft {
@@ -240,21 +241,27 @@ namespace hCraft {
 	// returns the amount of space the specified string will take once it is put
 	// in a packet.
 	static int
-	mc_str_len (const char *str)
+	mc_str_len (const char *str, bool sanitized = true)
 	{
-		int len = std::strlen (str);
+		int len = 0;
+		if (sanitized)
+			{
+				std::string out;
+				sanitize_string (str, out);
+				len = out.length ();
+			}
+		else
+			len = std::strlen (str);
+		
 		if (len > 0x7F)
 			return 2 + len;
 		return 1 + len;
 	}
 	
 	static int
-	mc_str_len (const std::string& str)
+	mc_str_len (const std::string& str, bool sanitized = true)
 	{
-		int len = str.length ();
-		if (len > 0x7F)
-			return 2 + len;
-		return 1 + len;
+		return mc_str_len (str.c_str (), sanitized);
 	}
 	
 	
@@ -510,7 +517,11 @@ namespace hCraft {
 		
 		unsigned int size = 0;
 		do
-			data[size++] = this->read_byte ();
+			{
+				if (size == 4)
+					return -1;
+				data[size++] = this->read_byte ();
+			}
 		while (data[size - 1] & 0x80);
 		
 		unsigned int num = 0;
@@ -818,7 +829,7 @@ namespace hCraft {
 				pack->put_varint (34);
 				pack->put_varint (0x08);
 				pack->put_double (x);
-				pack->put_double (y);
+				pack->put_double (y + 2.0);
 				pack->put_double (z);
 				pack->put_float (r);
 				pack->put_float (l);
@@ -847,6 +858,7 @@ namespace hCraft {
 				
 				pack->put_varint (2 + eid_size);
 				pack->put_varint (0x0B);
+				pack->put_varint (eid);
 				pack->put_byte (anim);
 				
 				return pack;
@@ -875,7 +887,7 @@ namespace hCraft {
 				pack->put_byte ((unsigned char)(std::fmod (std::floor (l), 360.0f) / 360.0 * 256.0));
 				pack->put_short (item);
 				encode_entity_metadata (pack, meta);
-		
+				
 				return pack;
 			}
 			
@@ -1018,9 +1030,9 @@ namespace hCraft {
 			packet*
 			make_entity_move (int eid, double x, double y, double z, float r, float l)
 			{
-				packet *pack = new packet (28);
+				packet *pack = new packet (20);
 				
-				pack->put_varint (27);
+				pack->put_varint (19);
 				pack->put_varint (0x18);
 				pack->put_int (eid);
 				pack->put_int ((int)(x * 32.0));
@@ -1354,9 +1366,8 @@ namespace hCraft {
 			make_block_change (int x, int y, int z, unsigned short id,
 				unsigned char meta)
 			{
-				int id_size = varint_size (id);
-				packet* pack = new packet (13 + id_size);
-		
+				packet* pack = new packet (15);
+				
 				int new_id = id;
 				int new_meta = meta;
 				if (!block_info::is_vanilla_id (new_id))
@@ -1370,7 +1381,8 @@ namespace hCraft {
 						else
 							new_id = new_meta = 0;
 					}
-		
+				
+				int id_size = varint_size (new_id);
 				pack->put_varint (11 + id_size);
 				pack->put_varint (0x23);
 				pack->put_int (x);
@@ -1378,7 +1390,7 @@ namespace hCraft {
 				pack->put_int (z);
 				pack->put_varint (new_id);
 				pack->put_byte (meta);
-		
+				
 				return pack;
 			}
 			
@@ -1410,6 +1422,36 @@ namespace hCraft {
 				pack->put_varint (0x2B);
 				pack->put_byte (reason);
 				pack->put_float (value);
+				
+				return pack;
+			}
+			
+			packet*
+			make_open_window (unsigned char wid, unsigned char wtype,
+				const char *title, unsigned char slot_count, bool use_title)
+			{
+				int title_len = mc_str_len (title);
+				packet *pack = new packet (7 + title_len);
+				
+				pack->put_varint (5 + title_len);
+				pack->put_varint (0x2D);
+				pack->put_byte (wid);
+				pack->put_byte (wtype);
+				pack->put_string (title);
+				pack->put_byte (slot_count);
+				pack->put_bool (use_title);
+				
+				return pack;
+			}
+			
+			packet*
+			make_close_window (unsigned char wid)
+			{
+				packet *pack = new packet (3);
+				
+				pack->put_varint (2);
+				pack->put_varint (0x2E);
+				pack->put_byte (wid);
 				
 				return pack;
 			}

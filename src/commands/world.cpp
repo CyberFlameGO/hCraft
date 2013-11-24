@@ -27,12 +27,30 @@
 #include <sys/stat.h>
 #include <unordered_map>
 #include <sstream>
+#include <iomanip>
+#include <cmath>
 
 #include <iostream> // DEBUG
 
 
 namespace hCraft {
 	namespace commands {
+		
+		static std::string
+		_get_time_str (unsigned long long ticks)
+		{
+			std::ostringstream ss;
+			ticks += 7000;
+			int hours = (ticks / 1000) % 24;
+			int minutes = (int)std::round (ticks / (16.0 + (2.0 / 3.0))) % 60;
+			bool pm = (hours >= 12);
+			if (hours > 12)
+				hours -= 12;
+			ss << hours << ":" << std::setw (2) << std::setfill ('0')
+				<< minutes << std::setfill (' ') << " " << (pm ? "PM" : "AM");
+			return ss.str ();
+		}
+		
 		
 		static void
 		_print_names_from_pids (player *pl, const std::vector<int>& pids)
@@ -89,6 +107,9 @@ namespace hCraft {
 				ss << w->get_depth ();
 			pl->message (ss.str ());
 			ss.str (std::string ());
+			
+			// time
+			pl->message ("§e  Time§f: §9" + _get_time_str (w->get_time ()) + (w->is_time_frozen () ? " [Frozen]" : ""));
 			
 			// owners
 			const auto& owner_pids = sec.get_owners ();
@@ -216,7 +237,6 @@ namespace hCraft {
 			 else
 			  {
 			    pl->message ("§c * §7Unknown sub-command§f: §cowners." + arg1);
-					return;
 			  }
 		}
 		
@@ -470,7 +490,7 @@ namespace hCraft {
 		    {
 		    	if (!pl->has ("command.world.world.get-perms"))
 		    		{
-		    			pl->message ("§c * §7You are not allowed to do that§c.");
+		    			pl->message (messages::not_allowed ());
 		    			return;
 		    		}
 		    	
@@ -515,6 +535,98 @@ namespace hCraft {
 		      pl->message ("§c * §7Invalid sub-command§f: §cdef-gm." + arg1);
 		      return;
 		    }
+		}
+		
+		
+		
+		static void
+		_handle_def_inv (player *pl, world *w, command_reader& reader)
+		{
+			if (!reader.has_next ())
+				{
+					if (!pl->has ("command.world.world.get-perms"))
+		    		{
+		    			pl->message (messages::not_allowed ());
+		    			return;
+		    		}
+		    	
+		    	pl->message ("§6Displaying " + w->get_colored_name () + "§e'§6s default inventory§e:");
+		    	if (!w->use_def_inv)
+		    		pl->message ("§7    Default inventory disabled");
+		    	else
+		    		pl->message ("§7    " + w->def_inv);
+		    	return;
+				}
+			
+			std::string arg = reader.next ();
+			if (sutils::iequals (arg, "set"))
+				{
+					if (!pl->has ("command.world.world.def-inv"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
+					
+					if (!reader.has_next ())
+						{
+							pl->message ("§c * §7Usage§f: §e/world def-inv set §cdef-inv...");
+							return;
+						}
+					
+					w->def_inv = reader.rest ();
+					pl->message (w->get_colored_name () + "§f's §edefault inventory has been set to§f:");
+					pl->message ("§7 | " + w->def_inv);
+				}
+			else if (sutils::iequals (arg, "clear"))
+				{
+					if (!pl->has ("command.world.world.def-inv"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
+					
+					w->def_inv = "";
+					pl->message (w->get_colored_name () + "§f's §edefault inventory has been cleared§f.");
+				}
+			else if (sutils::iequals (arg, "disable"))
+				{
+					if (!pl->has ("command.world.world.def-inv"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
+					
+					if (!w->use_def_inv)
+						{
+							pl->message ("§c * §7Default inventories are already disabled in this world§c.");
+							return;
+						}
+					
+					w->def_inv = "";
+					w->use_def_inv = false;
+					pl->message ("§eDefault inventories in " + w->get_colored_name () + " §ehave been disabled§f.");
+				}
+			else if (sutils::iequals (arg, "enable"))
+				{
+					if (!pl->has ("command.world.world.def-inv"))
+						{
+							pl->message (messages::not_allowed ());
+							return;
+						}
+					
+					if (w->use_def_inv)
+						{
+							pl->message ("§c * §7Default inventories are already enabled in this world§c.");
+							return;
+						}
+					
+					w->use_def_inv = true;
+					pl->message ("§eDefault inventories in " + w->get_colored_name () + " §ehave been enabled§f.");
+				}
+			else
+				{
+					pl->message ("§c * §7Invalid sub-command§f: §cdef-inv." + arg);
+				}
 		}
 		
 		
@@ -611,7 +723,7 @@ namespace hCraft {
 					return;
 				}
 			
-			const std::string& gen_name = reader.next ().as_str ();
+			const std::string gen_name = reader.next ().as_str ();
 			long long gen_seed = w->get_generator ()->seed ();
 			if (reader.has_next ())
 				{
@@ -788,11 +900,8 @@ namespace hCraft {
     		}
     	std::fclose (f);
     	
-    	std::cout << "W 1" << std::endl;
     	_copy_file (w->get_path (), ss.str ().c_str ());
-    	std::cout << "W 2" << std::endl;
     	w->reload_world (w->get_name ());
-    	std::cout << "W 3" << std::endl;
     	w->get_players ().all (
 				[] (player *pl)
 					{
@@ -801,11 +910,168 @@ namespace hCraft {
 						std::cout << "W b" << std::endl;
 						pl->message ("§bWorld reloaded");
 					});
-			std::cout << "W 4" << std::endl;
+			
 			ss.str (std::string ());
 			ss << "§eRestored backup #§b" << backup_num;
 			pl->message (ss.str ());
 		}
+		
+		
+		
+		static void
+		_handle_save (player *pl, world *w, command_reader& reader)
+		{
+			if (!pl->has ("command.world.world.save"))
+    		{
+    			pl->message (messages::not_allowed ());
+    			return;
+    		}
+    	
+    	pl->message ("§eSaving world§f...");
+    	w->save_all ();
+    	pl->message ("§7 | World " + w->get_colored_name () + " §7has been saved.");
+    }
+    
+    
+    
+    static bool
+    _parse_time (const std::string& str, unsigned long long& out)
+    {
+    	if (str.empty ())
+    		return false;
+    	
+    	bool all_digits = true;
+    	for (char c : str)
+    		if (!std::isdigit (c))
+    			{
+    				all_digits = false;
+    				break;
+    			}
+    	
+    	if (all_digits)
+    		{
+    			std::istringstream ss {str};
+    			ss >> out;
+    			return true;
+    		}
+    	
+    	// parse hours
+    	int hours = 0;
+    	int i = 0;
+    	char c;
+    	for (; i < str.size (); ++i)
+    		{
+    			c = str[i];
+    			if (std::isdigit (c))
+  					hours = (hours * 10) + (c - '0');
+    			else
+    				{
+    					if (c == ':')
+    						{
+    							++ i;
+    							break;
+    						}
+    					return false;
+    				}
+    		}
+    	
+    	// and minutes
+    	int minutes = 0;
+    	for (; i < str.size (); ++i)
+    		{
+    			c = str[i];
+    			if (std::isdigit (c))
+  					minutes = (minutes * 10) + (c - '0');
+  				else
+  					return false;
+    		}
+    	
+    	if (hours >= 24 || minutes >= 60)
+    		return false;
+    	
+    	out = (hours * 1000) + (int)(minutes * 16.666666667) + 17000;
+    	return true;
+    }
+    
+    static void
+    _handle_time (player *pl, world *w, command_reader& reader)
+    {
+    	std::ostringstream ss;
+    	
+    	if (!reader.has_next ())
+    		{
+    			pl->message ("§6Displaying world time for " + w->get_colored_name () + "§e:");
+    			pl->message ("§7    " + _get_time_str (w->get_time ()) + (w->is_time_frozen () ? " [Frozen]" : ""));
+    			return;
+    		}
+    	
+    	std::string arg = reader.next ();
+    	if (sutils::iequals (arg, "set"))
+    		{
+    			if (!pl->has ("command.world.world.time"))
+    				{
+    					pl->message (messages::not_allowed ());
+    					return;
+    				}
+    			
+    			if (!reader.has_next ())
+    				{
+    					pl->message ("§c * §7Usage§f: §e/world time set §ctime");
+    					return;
+    				}
+    			
+    			unsigned long long time = 0;
+    			arg = reader.next ().as_str ();
+    			if (!_parse_time (arg, time))
+    				{
+    					pl->message ("§c * §7Invalid time string§c.");
+    					return;
+    				}
+    			
+    			w->set_time (time);
+					ss << "§eWorld time for " << w->get_colored_name () << " §ehas been set to§f: §9"
+						<< _get_time_str (time) << " §f[§9" << (time % 24000) << " ticks§f]";
+					pl->message (ss.str ());
+    		}
+    	else if (sutils::iequals (arg, "stop"))
+    		{
+    			if (!pl->has ("command.world.world.time"))
+    				{
+    					pl->message (messages::not_allowed ());
+    					return;
+    				}
+    			
+    			if (w->is_time_frozen ())
+    				{
+    					pl->message ("§c * §Time is already frozen in this world§c.");
+    					return;
+    				}
+    			
+    			w->stop_time ();
+    			pl->message ("§eWorld time has been stopped in world " + w->get_colored_name ());
+    		}
+    	else if (sutils::iequals (arg, "resume"))
+    		{
+    			if (!pl->has ("command.world.world.time"))
+    				{
+    					pl->message (messages::not_allowed ());
+    					return;
+    				}
+    			
+    			if (!w->is_time_frozen ())
+    				{
+    					pl->message ("§c * §Time is not frozen in this world§c.");
+    					return;
+    				}
+    			
+    			w->resume_time ();
+    			pl->message ("§eWorld time has been resumed in world " + w->get_colored_name ());
+    		}
+    	else
+    		{
+    			pl->message ("§c * §7Unknown sub-command§f: §ctime." + arg);
+    		}
+    }
 		
 		
 		
@@ -835,6 +1101,10 @@ namespace hCraft {
 		 *       Required to resize the world.
 		 *   - commands.world.world.regenerate
 		 *       Required to regenerate the world.
+		 *   - commands.world.world.save
+		 *       Required to save the world.
+		 *   - commands.world.world.time
+		 *       Required to change the time of the world.
 		 */
 		void
 		c_world::execute (player *pl, command_reader& reader)
@@ -863,7 +1133,7 @@ namespace hCraft {
 				_handle_no_args (pl, w);
 			else
 				{
-					const std::string& arg1 = reader.next ().as_str ();
+					std::string arg1 = reader.next ().as_str ();
 					
 					static const std::unordered_map<cistring,
 						void (*)(player *, world *, command_reader &)> _map {
@@ -872,10 +1142,13 @@ namespace hCraft {
 						{ "build-perms", _handle_build_perms },
 						{ "join-perms", _handle_join_perms },
 						{ "def-gm", _handle_def_gm },
+						{ "def-inv", _handle_def_inv },
 						{ "resize", _handle_resize },
 						{ "regenerate", _handle_regenerate },
 						{ "backup", _handle_backup },
 						{ "restore", _handle_restore },
+						{ "save", _handle_save },
+						{ "time", _handle_time },
 					};
 					
 					auto itr = _map.find (arg1.c_str ());

@@ -134,6 +134,8 @@ namespace hCraft {
 		std::deque<block_update> updates;
 		world_physics_state ph_state;
 		unsigned long long ticks;
+		unsigned long long wtime;
+		bool wtime_frozen;
 		
 		std::unordered_map<unsigned long long, chunk *> chunks;
 		std::vector<tagged_chunk> bad_chunks;
@@ -170,6 +172,8 @@ namespace hCraft {
 		std::mutex update_lock;
 		
 		int def_gm;
+		std::string def_inv;
+		int use_def_inv;
 		
 		int id;
 		
@@ -189,6 +193,13 @@ namespace hCraft {
 		void set_size (int width, int depth)
 			{ set_width (width); set_depth (depth); }
 		chunk* get_edge_chunk () const { return this->edge_chunk; }
+		
+		// world time
+		inline unsigned long long get_time () const { return this->wtime; }
+		inline void set_time (unsigned long long v) { this->wtime = v; }
+		inline void stop_time () { this->wtime_frozen = true; }
+		inline void resume_time () { this->wtime_frozen = false; }
+		inline bool is_time_frozen () const { return this->wtime_frozen; }
 		
 		inline entity_pos get_spawn () const { return this->spawn_pos; }
 		inline void set_spawn (const entity_pos& pos) { this->spawn_pos = pos; }

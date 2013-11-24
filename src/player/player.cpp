@@ -68,6 +68,7 @@ namespace hCraft {
 		
 		this->held_slot = 36;
 		this->inv_painting = false;
+		this->open_win = nullptr;
 		
 		this->uuid = generate_uuid ();
 		this->pstate = PS_HANDSHAKE;
@@ -351,12 +352,6 @@ namespace hCraft {
 				// dispose of the packet that we just completed sending.
 				packet *pack = pl->out_queue.front ();
 				pl->out_queue.pop ();
-				
-				{
-					packet_reader reader {pack->data};
-					reader.read_varint (); // skip length
-					opcode = reader.read_varint ();
-				}
 				delete pack;
 				
 				if (pl->kicked && ((pl->pstate == PS_PLAY && opcode == 0x40)
@@ -411,6 +406,7 @@ namespace hCraft {
 	player::disconnect (bool silent, bool wait_for_callbacks_to_finish)
 	{
 		if (this->bad ()) return;
+		std::lock_guard<std::mutex> guard {this->world_lock};
 		this->srv.deregister_entity (this);
 		
 		this->fail_time = std::chrono::system_clock::now ();
@@ -441,7 +437,7 @@ namespace hCraft {
 						this->curr_world->get_players ().remove (this);
 						this->remove_from_tab_list (false);
 					
-						if (this->pstate == PS_LOGIN && !silent)
+						if (this->pstate == PS_PLAY && !silent)
 							{
 								// leave message
 								this->get_server ().get_players ().message (
@@ -470,6 +466,11 @@ namespace hCraft {
 			bufferevent_free (this->bufev);
 		}
 		
+		{	
+			std::lock_guard<std::mutex> guard {this->data_lock};
+			delete this->open_win;
+		}
+		
 		if (this->bundo)
 			this->bundo->close ();
 		
@@ -482,7 +483,6 @@ namespace hCraft {
 		this->curr_sel = nullptr;
 		
 		// and finally
-		//if (this->logged_in)
 		this->get_server ().schedule_destruction (this);
 		this->disconnecting = false;
 	}
@@ -661,6 +661,89 @@ namespace hCraft {
 			}
 	}
 	
+	static void
+	_inv_from_str (inventory& inv, const std::string& inv_str)
+	{
+		const char *ptr = inv_str.c_str ();
+		const char *scol;
+		std::string str;
+		do
+			{
+				str.clear ();
+				
+				scol = std::strchr (ptr, ';');
+				if (scol)
+					{
+						while (ptr != scol)
+							str.push_back (*ptr++);
+						++ ptr;
+					}
+				else
+					{
+						while (*ptr)
+							str.push_back (*ptr++);
+					}
+				
+				// id:meta{amount}
+				std::string sid, smeta, samount;
+				bool got_col = false, got_lbrace = false, good = true;
+				const char *ptr2 = str.c_str ();
+				while (*ptr2)
+					{
+						char c = *ptr2++;
+						if (std::isdigit (c))
+							{
+								if (got_lbrace)
+									samount.push_back (c);
+								else if (got_col)
+									smeta.push_back (c);
+								else
+									sid.push_back (c);
+							}
+						else if (c == '{')
+							{
+								if (got_lbrace)
+									{ good = false; break; }
+								got_lbrace = true;
+							}
+						else if (c == '}')
+							break;
+						else if (c == ':')
+							{
+								if (got_col)
+									{ good = false; break; }
+								got_col = true;
+							}
+					}
+				
+				if (good && !sid.empty ())
+					{
+						unsigned short id;
+						{
+							std::istringstream ss {sid};
+							ss >> id;
+						}
+						
+						short meta = 0;
+						if (!smeta.empty ())
+							{
+								std::istringstream ss {smeta};
+								ss >> meta;
+							}
+						
+						unsigned short amount = 1;
+						if (!samount.empty ())
+							{
+								std::istringstream ss {samount};
+								ss >> amount;
+							}
+						
+						inv.add (slot_item (id, meta, amount));
+					}
+			}
+		while (scol);
+	}
+	
 	/* 
 	 * Sends the player to the given world at the specified location.
 	 */
@@ -736,6 +819,7 @@ namespace hCraft {
 				this->change_gamemode ((gamemode_type)w->def_gm);
 			}
 		
+		this->send (packets::play::make_time_update (w->get_time (), w->get_time ()));
 		this->need_new_chunks = true;
 		
 		// start physics
@@ -744,6 +828,17 @@ namespace hCraft {
 		log () << this->get_username () << " joined world \"" << w->get_name () << "\"" << std::endl;
 		if (had_prev_world)
 			_broadcast_join_message (this, w, prev_world);
+		
+		// load inventory
+		if (w->use_def_inv)
+			{
+				this->inv.clear ();
+				_inv_from_str (this->inv, w->def_inv);
+			}
+		else
+			{
+				// TODO
+			}
 	}
 	
 	/* 
@@ -1255,8 +1350,7 @@ namespace hCraft {
 				for (player *pl : this->visible_players)
 					{
 						pl->send (packets::play::make_entity_move (this->get_eid (),
-							std::round (dest.x * 32.0), std::round (dest.y * 32.0),
-							std::round (dest.z * 32.0), dest.r, dest.l));
+							dest.x, dest.y, dest.z, dest.r, dest.l));
 						pl->send (packets::play::make_entity_head_look (this->get_eid (), dest.r));
 					}
 			}
@@ -1345,7 +1439,6 @@ namespace hCraft {
 			return;
 		
 		std::string col_name;
-		col_name.append ("§");
 		col_name.append (this->get_colored_username ());
 		
 		entity_pos me_pos = this->pos;
@@ -1837,6 +1930,9 @@ namespace hCraft {
 	void
 	player::save_data ()
 	{
+		if (this->pstate != PS_PLAY)
+			return;
+		
 		{
 			soci::session sql (this->get_server ().sql_pool ());
 			
@@ -2252,6 +2348,9 @@ namespace hCraft {
 			{
 				this->send (packets::play::make_entity_status (this->eid, 2));
 				
+				// keep player from regenerating hearts immediately.
+				this->last_heart_regen = std::chrono::steady_clock::now ();
+				
 				// notify others too
 				this->get_world ()->get_players ().send_to_all_visible (
 					packets::play::make_entity_status (this->eid, 2), this);
@@ -2335,6 +2434,42 @@ namespace hCraft {
 	
 	
 	
+	bool
+	player::got_known_chunks_for (world *w)
+	{
+		std::lock_guard<std::mutex> wguard {this->world_lock};
+		for (known_chunk kc : this->known_chunks)
+			if (kc.w == w)
+				return true;
+		
+		return false;
+	}
+	
+	
+	
+	/* 
+	 * Sets the specified window as the active one, and closes any already open
+	 * windows. 
+	 */
+	void
+	player::open_window (window *win)
+	{
+		std::lock_guard<std::mutex> wguard {this->data_lock};
+		if (this->open_win == win)
+			return;
+		
+		if (this->open_win)
+			{
+				// close it
+				this->send (packets::play::make_close_window (this->open_win->wid ()));
+			}
+		
+		this->open_win = win;
+		win->show (this);
+	}
+	
+	
+	
 //----
 	
 	/* 
@@ -2359,7 +2494,7 @@ namespace hCraft {
 						this->last_heart_regen = now;
 					}
 			}
-		else if (this->hunger <= 0)
+		else if ((this->hunger <= 0) && (this->curr_gamemode != GT_CREATIVE))
 			{
 				if ((now - this->last_heart_regen) >= this->heal_delay)
 					{
@@ -2394,6 +2529,10 @@ namespace hCraft {
 			this->srv.get_thread_pool ().enqueue (
 				[] (void *ptr) { (static_cast<player *> (ptr))->stream_chunks (); }, this);
 		
+		// send time
+		if (this->tick_counter % 40 == 0)
+			this->send (packets::play::make_time_update (w.get_time (), w.get_time ()));
+		
 		this->last_tick = now;
 		++ tick_counter;
 		return false;
@@ -2404,12 +2543,138 @@ namespace hCraft {
 	bool
 	player::handle_crafting (unsigned char wid)
 	{
-		if (wid == 0)
+		window *win = this->open_win;
+		if (!win)
 			{
-				
+				if (wid != 0)
+					return false;
+				win = &this->inv;
+			}
+		else if (win->type () != WT_WORKBENCH)
+			return false;
+		
+		log (LT_DEBUG) << "handle_crafting ():" << std::endl;
+		
+		slot_item **grid = new slot_item* [3];
+		for (int i = 0; i < 3; ++i)
+			grid[i] = new slot_item [3];
+			
+		// lay down crafting grid
+		if (win->type () == WT_INVENTORY)
+			{
+				grid[0][0] = win->get (1);
+				grid[0][1] = win->get (2);
+				grid[1][0] = win->get (3);
+				grid[1][1] = win->get (4);
+			}
+		else
+			{
+				grid[0][0] = win->get (1);
+				grid[0][1] = win->get (2);
+				grid[0][2] = win->get (3);
+				grid[1][0] = win->get (4);
+				grid[1][1] = win->get (5);
+				grid[1][2] = win->get (6);
+				grid[2][0] = win->get (7);
+				grid[2][1] = win->get (8);
+				grid[2][2] = win->get (9);
 			}
 		
+		// try to find a match
+		crafting_manager& cman = this->srv.get_crafting_manager ();
+		const crafting_recipe *recipe = cman.match (grid);
+		if (recipe)
+			{
+				log (LT_DEBUG) << "  Matched a recipe!" << std::endl;
+				win->set (0, recipe->result);
+			}
+		else
+			{
+				win->set (0, slot_item ());
+			}
+		
+		for (int i = 0; i < 3; ++i)
+			delete[] grid[i];
+		delete[] grid;
+		
 		return false;
+	}
+	
+	void
+	player::handle_crafting_take (unsigned char wid)
+	{
+		window *win = this->open_win;
+		if (!win)
+			{
+				if (wid != 0)
+					return;
+				win = &this->inv;
+			}
+		else if (win->type () != WT_WORKBENCH)
+			return;
+			
+		// claim items
+		if (win->type () == WT_INVENTORY)
+			{
+				for (int i = 1; i <= 4; ++i)
+					win->get (i).take (1);
+			}
+		else
+			{
+				for (int i = 1; i <= 9; ++i)
+					win->get (i).take (1);
+			}
+		
+		this->handle_crafting (wid);
+	}
+	
+	static slot_item*
+	_craft_all_inv (inventory& inv, crafting_manager& cman)
+	{
+		slot_item **grid = new slot_item* [3];
+		for (int i = 0; i < 3; ++i)
+			grid[i] = new slot_item [3];
+		
+		const crafting_recipe *recipe = nullptr;
+		slot_item *result = new slot_item ();
+		
+		// lay down crafting grid
+		grid[0][0] = inv.get (1);
+		grid[0][1] = inv.get (2);
+		grid[1][0] = inv.get (3);
+		grid[1][1] = inv.get (4);
+		
+		for (;;)
+			{
+				recipe = cman.match (grid);
+				if (recipe)
+					{
+						if (result->empty ())
+							result->set (recipe->result);
+						else if (result->compatible_with (recipe->result))
+							result->give (1);
+						else
+							break;
+					}
+				else
+					break;
+				
+				// claim items
+				for (int i = 0; i < 2; ++i)
+					for (int j = 0; j < 2; ++j)
+					grid[i][j].take (1);
+			}
+		
+		for (int i = 0; i < 3; ++i)
+			delete[] grid[i];
+		delete[] grid;
+		
+		if (result->empty ())
+			{
+				delete result;
+				return nullptr;
+			}
+		return result;
 	}
 	
 	
@@ -2619,9 +2884,28 @@ namespace hCraft {
 		if (this->logged_in)
 			return;
 		
+		log () << "Player " << this->username << " has logged in from @" << this->get_ip () << std::endl;
+		
 		this->send (packets::login::make_login_success (
 			this->uuid.to_str ().c_str (), this->username));
 		this->pstate = PS_PLAY;
+		
+		if (!this->load_data ())
+			{
+				this->disconnect ();
+				return;
+			}
+		else if (this->kicked) // kicked by load_data()
+			return;
+		
+		{
+			// build colored username
+			std::string str;
+			str.append ("§");
+			str.push_back (this->rnk.main ()->color);
+			str.append (this->username);
+			std::strcpy (this->colored_username, str.c_str ());
+		}
 		
 		this->send (packets::play::make_join_game (this->get_eid (),
 			this->curr_gamemode, 0, 0, (this->get_server ().get_config ().max_players > 64)
@@ -2642,23 +2926,6 @@ namespace hCraft {
 			this->get_server ().get_irc ()->chan_msg (std::string ("+ ") + this->get_colored_username () + " §0has joined the server");
 		
 		this->inv.subscribe (this);
-		
-		{
-			slot_item feather (IT_FEATHER, 0, 1);
-			feather.lore.emplace_back ("§aClick with this feather to fly faster!");
-			feather.lore.emplace_back ("§aHold §2SHIFT §afor an additional §22.5x §aboost");
-			this->inv.add (feather);
-		}
-		
-		this->inv.add (slot_item (BT_STONE, 0, 1));
-		this->inv.add (slot_item (BT_COBBLE, 0, 1));
-		this->inv.add (slot_item (BT_BRICKS, 0, 1));
-		this->inv.add (slot_item (BT_DIRT, 0, 1));
-		this->inv.add (slot_item (BT_WOOD, 0, 1));
-		this->inv.add (slot_item (BT_TRUNK, 0, 1));
-		//this->inv.add (slot_item (BT_LEAVES, 0, 1));
-		this->inv.add (slot_item (BT_GLASS, 0, 1));
-		this->inv.add (slot_item (BT_SLAB, 0, 1));
 		
 		// make the player move at normal speed
 		{
@@ -2805,7 +3072,6 @@ namespace hCraft {
 				return -1;
 			}
 		
-		//*/
 		/*
 		// Used when testing
 		{
@@ -2819,23 +3085,7 @@ namespace hCraft {
 		}
 		//*/
 		
-		pl->log () << "Player " << username << " has logged in from @" << pl->get_ip () << std::endl;
 		std::strcpy (pl->username, username);
-		
-		if (!pl->load_data ())
-			return -1;
-		if (pl->kicked)
-			// player got kicked by load_data ()
-			return 0;
-			
-		{
-			std::string str;
-			str.append ("§");
-			str.push_back (pl->rnk.main ()->color);
-			str.append (pl->username);
-			std::strcpy (pl->colored_username, str.c_str ());
-		}
-		
 		
 		// encryption\authentication
 		if (pl->srv.get_config ().online_mode)
@@ -3482,6 +3732,14 @@ namespace hCraft {
 		return 0;
 	}
 	
+	
+	
+	static void
+	_open_workbench (player *pl)
+	{
+		pl->open_window (new workbench (pl->inv, window::next_id ()));
+	}
+	
 	int
 	player::handle_pl_packet_08 (player *pl, packet_reader reader)
 	{
@@ -3497,6 +3755,8 @@ namespace hCraft {
 		int cy = reader.read_byte (); // cursor Y
 		/*int cz =*/ reader.read_byte (); // cursor Z
 		
+		world *w = pl->get_world ();
+		
 		if (x == -1 && y == 255 && z == -1 && direction == -1)
 			{
 				slot_item s = pl->inv.get (pl->held_slot);
@@ -3510,8 +3770,8 @@ namespace hCraft {
 								pl->eating = true;
 								
 								// eating animation
-								pl->get_world ()->get_players ().send_to_all_visible (
-									packets::play::make_animation (pl->eid, 5), pl);
+								w->get_players ().send_to_all_visible (
+									packets::play::make_animation (pl->eid, 3), pl);
 							}
 					}
 				else
@@ -3519,6 +3779,19 @@ namespace hCraft {
 						// TODO: handle arrows
 					}
 				return 0;
+			}
+		
+		/* 
+		 * Handle special blocks (workbenches, chests, etc...)
+		 */
+		if (!pl->is_crouched ())
+			{
+				int prev_id = w->get_id (x, y, z);
+				if (prev_id == BT_WORKBENCH)
+					{
+						_open_workbench (pl);
+						return 0;
+					}
 			}
 		
 		item = pl->held_item ();
@@ -3529,7 +3802,7 @@ namespace hCraft {
 		
 		int nx = x, ny = y, nz = z;
 		
-		block_data bd = pl->get_world ()->get_block (x, y, z);
+		block_data bd = w->get_block (x, y, z);
 		if (bd.id != BT_TALL_GRASS && !(bd.id == BT_SNOW_COVER && bd.meta == 0))
 			{
 				switch (direction)
@@ -3549,8 +3822,8 @@ namespace hCraft {
 				return 0;
 			}
 		
-		int w_width = pl->get_world ()->get_width ();
-		int w_depth = pl->get_world ()->get_depth ();
+		int w_width = w->get_width ();
+		int w_depth = w->get_depth ();
 		if (((w_width > 0) && ((nx >= w_width) || (nx < 0))) ||
 				((w_depth > 0) && ((nz >= w_depth) || (nz < 0))))
 			{
@@ -3578,7 +3851,7 @@ namespace hCraft {
 				pl->send_orig_block (nx, ny, nz);
 				return 0;
 			}
-		else if (!pl->get_world ()->security ().can_build (pl))
+		else if (!w->security ().can_build (pl))
 			{
 				pl->message ("§4 * §cYou are not allowed to build here§4.");
 				pl->send_orig_block (nx, ny, nz);
@@ -3596,7 +3869,7 @@ namespace hCraft {
 			_place_trunk (pl, nx, ny, nz, direction, item);
 		else
 			{
-				pl->get_world ()->queue_update (nx, ny, nz,
+				w->queue_update (nx, ny, nz,
 					item.id (), item.damage (), 0, 0, nullptr, pl);
 				++ pl->bl_created;
 			}
@@ -3645,13 +3918,16 @@ namespace hCraft {
 			pl->send (packets::play::make_multi_block_change (500, 200, records));
 		}
 		
-		//pl->inv.update ();
-		
-		if (animation == 1)
+		int anim_code = -1;
+		switch (animation)
 			{
-				pl->get_world ()->get_players ().send_to_all_visible (
-					packets::play::make_animation (pl->eid, animation), pl);
+				// swing arm
+				case 1: anim_code = 0; break;
 			}
+		
+		if (anim_code != -1)
+			pl->get_world ()->get_players ().send_to_all_visible (
+				packets::play::make_animation (pl->eid, anim_code), pl);
 		
 		if (pl->curr_gamemode == GT_CREATIVE && pl->inv.get (pl->held_slot).id () == IT_FEATHER)
 			{
@@ -3683,8 +3959,18 @@ namespace hCraft {
 		
 		switch (action)
 			{
-				case 1: pl->crouched = true; break;
-				case 2: pl->crouched = false; break;
+				case 1:
+					pl->get_world ()->get_players ().send_to_all_visible (
+						packets::play::make_animation (pl->eid, 104), pl);
+					pl->crouched = true;
+					break;
+					
+				case 2:
+					pl->get_world ()->get_players ().send_to_all_visible (
+						packets::play::make_animation (pl->eid, 105), pl);
+					pl->crouched = false;
+					break;
+				
 				case 3: /* leave bed */ break;
 				case 4: pl->sprinting = true; break;
 				case 5: pl->sprinting = false; break;
@@ -3698,7 +3984,25 @@ namespace hCraft {
 	int
 	player::handle_pl_packet_0d (player *pl, packet_reader reader)
 	{
-		// close window
+		unsigned char wid = reader.read_byte ();
+		
+		if (!pl->open_win && wid != 0)
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" sent "
+					"an invalid \"Close Window\" packet (no window open)." << std::endl;
+				return -1;
+			}
+			
+		if (pl->open_win && pl->open_win->wid () != wid)
+			{
+				pl->log (LT_WARNING) << "Player \"" << pl->get_username () << "\" sent "
+					"an invalid \"Close Window\" packet (mismatching windows)." << std::endl;
+				return -1;
+			}
+		
+		delete pl->open_win;
+		pl->open_win = nullptr;
+		
 		return 0;
 	}
 	
@@ -3714,13 +4018,14 @@ namespace hCraft {
 		short action = reader.read_short ();
 		char mode = reader.read_byte ();
 		
-		//slot_item item = reader.read_slot ();
-		
-		if (wid != 0)
-			return 0; // TODO: we currently only handle player inventory
-		
-		window *win = &pl->inv;
+		window *win = pl->open_win ? pl->open_win : &pl->inv;
 		pl->log (LT_DEBUG) << "| Mode [" << (int)mode << "] Button [" << (int)button << "] Slot [" << slot << "]" << std::endl;
+		
+		bool craft_changed = false;
+		if (win->type () == WT_INVENTORY)
+			craft_changed = (slot >= 1 && slot <= 4);
+		else if (win->type () == WT_WORKBENCH)
+			craft_changed = (slot >= 1 && slot <= 9);
 		
 		switch (mode)
 			{
@@ -3731,8 +4036,7 @@ namespace hCraft {
 				 */
 				case 0:
 					if (slot < 0 || slot >= win->slot_count ())
-						pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-							<< "\" tried to use a slot outside of window." << std::endl;
+						return 0;
 					{
 						slot_item& item = win->get (slot);
 							
@@ -3747,26 +4051,48 @@ namespace hCraft {
 												pl->log (LT_DEBUG) << "Picking up " << item.amount () << " of " << item.id () << " up from [" << slot << "]" << std::endl;
 												pl->cursor_slot.set (item);
 												item.clear ();
+												
+												if (slot == 0)
+													pl->handle_crafting_take (wid);
 											}
 									}
 								else
 									{
-										if (!win->can_place_at (slot, item))
-											return 0;
+										//if (!win->can_place_at (slot, item))
+										//	return 0;
 										
-										if (pl->cursor_slot.compatible_with (item))
+										if (slot == 0)
+											{
+												if (pl->cursor_slot.compatible_with (item))
+													{
+														int take = pl->cursor_slot.max_stack () - pl->cursor_slot.amount ();
+														if (take > item.amount ())
+															take = item.amount ();
+														
+														if (take > 0)
+															{
+																pl->cursor_slot.give (take);
+																item.take (take);
+																pl->handle_crafting_take (wid);
+															}
+														pl->log (LT_DEBUG) << "Taking " << take << " from crafting result slot" << std::endl;
+													}
+											}
+										else if (pl->cursor_slot.compatible_with (item))
 											{
 												// put stack down
 												int take = pl->cursor_slot.amount ();
 												if (item.amount () + take > item.max_stack ())
 													take = item.max_stack () - item.amount ();
 												
+												pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+												pl->log (LT_DEBUG) << "   Empty? " << (item.empty ()) << std::endl;
 												if (item.empty ())
 													item.set (pl->cursor_slot);		
 												else
 													item.give (take);
 												pl->cursor_slot.take (take);
-												pl->log (LT_DEBUG) << "Putting " << take << " down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+												
 											}
 										else
 											{
@@ -3781,7 +4107,24 @@ namespace hCraft {
 						else if (button == 1)
 							{
 								// right mouse click
-								if (pl->cursor_slot.empty ())
+								if (slot == 0)
+									{
+										if (!item.empty ())
+											{
+												int take = pl->cursor_slot.max_stack () - pl->cursor_slot.amount ();
+												if (take > item.amount ())
+													take = item.amount ();
+										
+												if (take > 0)
+													{
+														pl->cursor_slot.give (take);
+														item.take (take);
+														pl->handle_crafting_take (wid);
+													}
+												pl->log (LT_DEBUG) << "Taking " << take << " from crafting result slot" << std::endl;
+											}
+									}
+								else if (pl->cursor_slot.empty ())
 									{
 										if (!item.empty ())
 											{
@@ -3803,6 +4146,9 @@ namespace hCraft {
 												// put one down
 												if (item.amount () < item.max_stack ())
 													{
+														pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
+														pl->log (LT_DEBUG) << "   Empty? " << (item.empty ()) << std::endl;
+														
 														if (item.empty ())
 															{
 																item.set (pl->cursor_slot);
@@ -3811,7 +4157,6 @@ namespace hCraft {
 														else
 															item.give (1);
 														pl->cursor_slot.take (1);
-														pl->log (LT_DEBUG) << "Putting one down [" << pl->cursor_slot.amount () << " left in hand]" << std::endl;
 													}
 											}
 									}
@@ -3828,21 +4173,28 @@ namespace hCraft {
 				 */
 				case 1:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
 					{
-						slot_item& item = win->get (slot);
-						if (item.empty ())
+						slot_item *item = &win->get (slot);
+						if (slot == 0)
+							{
+								item = _craft_all_inv (pl->inv, pl->srv.get_crafting_manager ());
+								if (!item)
+									break;
+							}
+						else if (item->empty ())
 							break;
+						int item_amount = item->amount ();
 						
 						auto range = win->shift_range (slot);
 						if (range.first == -1 || range.second == -1)
-							break;
+							{
+								if (slot == 0)
+									delete item;
+								break;
+							}
 							
-						pl->log (LT_DEBUG) << "Shifting [" << slot << " of type " << item.id () << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
+						pl->log (LT_DEBUG) << "Shifting [" << slot << " of type " << item->id () << "] to [" << range.first << " -> " << range.second << "]" << std::endl;
 						
 						// we perform two passes - try items with matching IDs first, and
 						// then finally try empty slots too.
@@ -3850,25 +4202,25 @@ namespace hCraft {
 						for (int j = 0; j < 2; ++j)
 							{
 								int i, a = (range.first < range.second) ? 1 : -1;
-								for (i = range.first; i != (range.second + a) && !item.empty (); i += a)
+								for (i = range.first; i != (range.second + a) && !item->empty (); i += a)
 									{
 										slot_item& sl = win->get (i);
-										if (first_pass ? (item.id () == sl.id ()) : sl.compatible_with (item))
+										if (first_pass ? (item->id () == sl.id ()) : sl.compatible_with (*item))
 											{
 												//pl->log (LT_DEBUG) << "Trying [" << i << "]: yes" << std::endl;
-												int take = item.amount ();
+												int take = item->amount ();
 												if (sl.amount () + take > sl.max_stack ())
 													take = sl.max_stack () - sl.amount ();
 												
 												int dbg_then = sl.amount ();
 												if (sl.empty ())
 													{
-														sl.set (item);
+														sl.set (*item);
 														sl.set_amount (take);
 													}	
 												else
 													sl.give (take);
-												item.take (take);
+												item->take (take);
 												
 												pl->log (LT_DEBUG) << "  Adding " << take << " to [" << i << "] [of type: " << sl.id () << "] [then: " << dbg_then << "] [now: " << sl.amount () << "]" << std::endl;
 											}
@@ -3879,7 +4231,15 @@ namespace hCraft {
 								first_pass = false;
 							}
 						
-						pl->log (LT_DEBUG) << "  Done, " << item.amount () << " left" << std::endl;
+						pl->log (LT_DEBUG) << "  Done, " << item->amount () << " left" << std::endl;
+						if (slot == 0)
+							{
+								for (int j = 1; j <= 4; ++j)
+									pl->inv.get (j).take (item_amount);
+								delete item;
+								
+								pl->handle_crafting (wid);
+							}
 						break;
 					}
 				
@@ -3891,11 +4251,7 @@ namespace hCraft {
 				 */
 				case 2:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
 					{
 						if (button < 0 || button > 8)
 							{
@@ -3954,6 +4310,7 @@ namespace hCraft {
 				 *   button 6, slot -999 = ending right mouse paint
 				 */
 				case 5:
+					craft_changed = false;
 					switch (button)
 						{
 							// start left/middle mouse paint
@@ -4011,6 +4368,14 @@ namespace hCraft {
 									return -1;
 								pl->inv_painting = false;
 								
+								for (short s : pl->inv_paint_slots)
+									if ((!pl->open_win && (s >= 1 && s <= 4)) || 
+											(pl->open_win && pl->open_win->type () == WT_WORKBENCH && (s >= 1 && s <= 9)))
+										{
+											craft_changed = true;
+											break;
+										}
+								
 								pl->log (LT_DEBUG) << "End inventory paint [mouse: " << ((pl->inv_mb == 0) ? "left" : "right") << "]" << std::endl;
 								if (!pl->inv_paint_slots.empty ())
 									{
@@ -4052,11 +4417,8 @@ namespace hCraft {
 				 */
 				case 6:
 					if (slot < 0 || slot >= win->slot_count ())
-						{
-							pl->log (LT_WARNING) << "Player \"" << pl->get_username ()
-								<< "\" tried to use a slot outside of window." << std::endl;
-							return -1;
-						}
+						return 0;
+					
 					if (button == 0)
 						{
 							if (pl->cursor_slot.empty ())
@@ -4081,6 +4443,9 @@ namespace hCraft {
 						}
 					break;
 			}
+		
+		if (craft_changed)
+			pl->handle_crafting (wid);
 		
 		return 0;
 	}

@@ -28,7 +28,7 @@ namespace hCraft {
 	{
 		this->id = IT_UNKNOWN;
 		this->durability = 0;
-		this->max_stack = 0;
+		this->max_stack = 64;
 		std::strcpy (this->name, "unknown");
 	}
 	
@@ -202,7 +202,7 @@ namespace hCraft {
 				case IT_WOODEN_HOE:
 				case IT_STONE_HOE:
 				case IT_IRON_HOE:
-				case IT_GOLD_HOE:
+				case IT_GOLDEN_HOE:
 				case IT_DIAMOND_HOE:
 				
 				case IT_FLINT_AND_STEEL:

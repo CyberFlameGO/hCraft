@@ -69,7 +69,7 @@ namespace hCraft {
 		IT_STONE_HOE,
 		IT_IRON_HOE,
 		IT_DIAMOND_HOE,
-		IT_GOLD_HOE,
+		IT_GOLDEN_HOE,
 		IT_SEEDS,
 		IT_WHEAT,
 		IT_BREAD,

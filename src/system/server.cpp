@@ -561,6 +561,7 @@ namespace hCraft {
 						if (pl)
 							pl->message ("§9You are no longer muted§3.");
 						itr = srv.muted.erase (itr);
+						
 					}
 				else
 					{
@@ -591,7 +592,7 @@ namespace hCraft {
 		std::strcpy (out.srv_name, "hCraft server");
 		std::strcpy (out.srv_motd, "§6A new §ehCraft §6server is born§f!");
 		out.max_players = 12;
-		std::strcpy (out.main_world, "main");
+		std::strcpy (out.main_world, "Main");
 		out.online_mode = true;
 		out.load_prev_pos = false;
 		
@@ -1502,7 +1503,7 @@ namespace hCraft {
 			.run_forever (1 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::save_worlds, this)
-			.run_forever (5 * 60 * 1000, 50 * 60 * 1000);
+			.run_forever (5 * 60 * 1000, 5 * 60 * 1000);
 		
 		this->get_scheduler ().new_task (hCraft::server::ping_players, this)
 			.run_forever (8 * 1000);
@@ -1569,6 +1570,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "circle");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "ellipse");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "sphere");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "kill");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "polygon");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "curve");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "rank");
@@ -1592,6 +1594,8 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "players");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warn");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warnlog");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "worlds");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "top");
 	}
 	
 	void
@@ -1626,6 +1630,12 @@ namespace hCraft {
 		grp_guest->add ("command.world.world.owner.change-members");
 		grp_guest->add ("command.world.realm");
 		grp_guest->add ("command.world.goto");
+		grp_guest->add ("command.world.worlds");
+		grp_guest->add ("command.info.help");
+		grp_guest->add ("command.info.rules");
+		grp_guest->add ("command.info.players");
+		grp_guest->add ("command.info.warnlog");
+		grp_guest->add ("command.misc.kill");
 		grp_guest->msuffix = "§f:";
 		
 		group* grp_member = groups.add (2, "Member");
@@ -1702,12 +1712,15 @@ namespace hCraft {
 		grp_admin->add ("command.info.money.*");
 		grp_admin->add ("command.admin.kick");
 		grp_admin->add ("command.admin.ban");
+		grp_admin->add ("command.misc.kill.others");
+		grp_admin->add ("command.misc.top");
 		grp_admin->add ("command.world.tp.*");
 		grp_admin->add ("command.chat.say.*");
 		grp_admin->add ("command.world.portal.*");
 		grp_admin->add ("command.world.world.get-perms");
 		grp_admin->add ("command.world.world.change-members");
 		grp_admin->add ("command.world.world.change-owners");
+		grp_admin->add ("command.world.world.time");
 		grp_admin->add ("place.sign.colors");
 		
 		grp_admin->text_color = 'c';
@@ -1724,9 +1737,7 @@ namespace hCraft {
 		grp_executive->add ("command.world.wunload");
 		grp_executive->add ("command.world.physics");
 		grp_executive->add ("command.world.wsetspawn");
-		grp_executive->add ("command.world.world.set-perms");
-		grp_executive->add ("command.world.world.resize");
-		grp_executive->add ("command.world.world.regenerate");
+		grp_executive->add ("command.world.world.*");
 		grp_executive->add ("command.chat.nick");
 		grp_executive->add ("command.admin.unban");
 		grp_executive->add ("command.admin.ban.*");

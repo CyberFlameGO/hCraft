@@ -37,6 +37,7 @@
 #include "commands/goto.hpp"
 #include "commands/help.hpp"
 #include "commands/kick.hpp"
+#include "commands/kill.hpp"
 #include "commands/line.hpp"
 #include "commands/me.hpp"
 #include "commands/money.hpp"
@@ -55,6 +56,7 @@
 #include "commands/sphere.hpp"
 #include "commands/status.hpp"
 #include "commands/tp.hpp"
+#include "commands/top.hpp"
 #include "commands/unban.hpp"
 #include "commands/undo.hpp"
 #include "commands/unmute.hpp"
@@ -64,6 +66,7 @@
 #include "commands/whodid.hpp"
 #include "commands/wload.hpp"
 #include "commands/world.hpp"
+#include "commands/worlds.hpp"
 #include "commands/wsetspawn.hpp"
 #include "commands/wunload.hpp"
 
@@ -93,6 +96,8 @@ namespace hCraft {
 	
 	// misc commands:
 	static command* create_c_ping () { return new commands::c_ping (); }
+	static command* create_c_kill () { return new commands::c_kill (); }
+	static command* create_c_top () { return new commands::c_top (); }
 	
 	// world commands:
 	static command* create_c_wcreate () { return new commands::c_wcreate (); }
@@ -106,6 +111,7 @@ namespace hCraft {
 	static command* create_c_block_type () { return new commands::c_block_type (); }
 	static command* create_c_portal () { return new commands::c_portal (); }
 	static command* create_c_world () { return new commands::c_world (); }
+	static command* create_c_worlds () { return new commands::c_worlds (); }
 	static command* create_c_realm () { return new commands::c_realm (); }
 	
 	// draw commands:
@@ -148,6 +154,7 @@ namespace hCraft {
 			{ "wload", create_c_wload },
 			{ "goto", create_c_goto },
 			{ "tp", create_c_tp },
+			{ "top", create_c_top },
 			{ "nick", create_c_nick },
 			{ "wunload", create_c_wunload },
 			{ "physics", create_c_physics },
@@ -163,6 +170,7 @@ namespace hCraft {
 			{ "sphere", create_c_sphere },
 			{ "polygon", create_c_polygon },
 			{ "curve", create_c_curve },
+			{ "kill", create_c_kill },
 			{ "rank", create_c_rank },
 			{ "status", create_c_status },
 			{ "money", create_c_money },
@@ -184,6 +192,7 @@ namespace hCraft {
 			{ "players", create_c_players },
 			{ "warn", create_c_warn },
 			{ "warnlog", create_c_warnlog },
+			{ "worlds", create_c_worlds },
 			};
 		
 		auto itr = creators.find (name);

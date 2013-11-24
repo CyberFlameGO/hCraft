@@ -261,12 +261,12 @@ namespace hCraft {
 			{
 				std::ostringstream ss;
 				
-				pl->message ("§eCreating a new world with the name of §a" + world_name + "§f:");
-				ss << "§eWorld type§f: §9" << ((wtyp == WT_NORMAL) ? "normal" : "light");
+				pl->message ("§3Creating a new world with the name of §e" + world_name + "§f:");
+				ss << "§7 | §eWorld type§f: §9" << ((wtyp == WT_NORMAL) ? "normal" : "light");
 				pl->message (ss.str ());
 				
 				ss.str (std::string ());
-				ss << "§eWorld dimensions§f: §c";
+				ss << "§7 | §eWorld dimensions§f: §c";
 				if (world_width == 0)
 					ss << "§binf";
 				else
@@ -280,12 +280,12 @@ namespace hCraft {
 				
 				ss.clear (); ss.str (std::string ());
 				if ((world_width == 0) || (world_depth == 0))
-					ss << "§eEstimated size §f(§ewhen full§f): §cinfinite";
+					ss << "§7 | §eEstimated size §f(§ewhen full§f): §cinfinite";
 				else
 					{
 						double est_kb = ((world_width * world_depth) / 256) * 7.2375 + 49.7;
 						ss.clear (); ss.str (std::string ());
-						ss << "§eEstimated size §f(§ewhen full§f): §c~";
+						ss << "§7 | §eEstimated size §f(§ewhen full§f): §c~";
 						if (est_kb >= 1024.0)
 							ss << (est_kb / 1024.0) << "MB";
 						else
@@ -294,11 +294,11 @@ namespace hCraft {
 				pl->message (ss.str ());
 				
 				ss.clear (); ss.str (std::string ());
-				ss << "§eGenerator§f: §b" << gen_name << "§f, §eProvider§f: §b" << provider_name;
+				ss << "§7 | §eGenerator§f: §b" << gen_name << "§f, §eProvider§f: §b" << provider_name;
 				pl->message (ss.str ());
 				
 				ss.clear (); ss.str (std::string ());
-				ss << "§eWorld seed§f: §a" << gen_seed;
+				ss << "§7 | §eWorld seed§f: §a" << gen_seed;
 				pl->message (ss.str ());
 			}
 			
@@ -315,6 +315,7 @@ namespace hCraft {
 			
 			wr->prepare_spawn (10, true);
 			wr->save_all ();
+			pl->message ("§7 | Done.");
 			
 			if (load_world)
 				{

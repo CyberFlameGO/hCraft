@@ -1,7 +1,12 @@
 hCraft
 ======
 
-![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/45-small.png)
+![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
+
+Public Test Server
+------------------
+
+A public test server is now live (devbox.hCraft.org:25565)!
 
 What is hCraft?
 ---------------
@@ -39,6 +44,7 @@ The _currently_ implemented features are:
 Building
 --------
 
+<<<<<<< HEAD
 To build hCraft, you will need a C++11-compatible compiler and a copy ofCMake. 
 Just change to the directory that contains
 hCraft, and type `cmake CMakeLists.txt`. That will generate a makefile for your
@@ -49,6 +55,15 @@ compile and link the executable in Debug mode. An executable
 ### NEW BUILDING NOTE
 hCraft now uses CMake to automaticly configure all the paths and dependencies it is
 no longer required to edit the build files, just follow the above directions.
+=======
+To build hCraft, you will need a C++11-compatible compiler and a working copy
+of [CMake](http://www.cmake.org/). Change to the directory that contains
+hCraft, and invoke (on Linux) `cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release`
+to generate a makefile, and then proceed by typing `make`. After compilation has
+ended, the executable could then be found inside the newly created `build`
+directory.
+
+>>>>>>> upstream/master
 
 ### Dependencies
 *  [PThreads]
@@ -71,4 +86,6 @@ Copyright
 
 hCraft is released under GNU's general public license (GPLv3), more information
 can be found [here](http://www.gnu.org/licenses/gpl.html).
+
+![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/45-small.png)
 
