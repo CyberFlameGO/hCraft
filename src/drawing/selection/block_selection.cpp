@@ -386,5 +386,25 @@ namespace hCraft {
 		
 		this->reconstruct (a, b);
 	}
+	
+	
+	
+//----
+	
+	/* 
+	 * Serializes the selection into the specified byte array.
+	 * Returns the number of bytes emitted.
+	 */
+	int
+	block_selection::serialize (unsigned char *out)
+		{ return 0; }
+	
+	/* 
+	 * Returns the number of bytes needed to store this selection's serialized
+	 * form.
+	 */
+	unsigned int
+	block_selection::serialized_size ()
+		{ return 0; }
 }
 

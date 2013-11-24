@@ -30,6 +30,7 @@
 #include "portal.hpp"
 #include "block_history.hpp"
 #include "world_security.hpp"
+#include "zone.hpp"
 
 #include <unordered_set>
 #include <unordered_map>
@@ -160,6 +161,7 @@ namespace hCraft {
 		std::mutex portal_lock;
 		
 		world_security wsec;
+		zone_manager zman;
 		
 	public:
 		bool auto_lighting;
@@ -209,6 +211,7 @@ namespace hCraft {
 		inline std::mutex& get_chunk_lock () { return this->chunk_lock; }
 		
 		inline world_security& security () { return this->wsec; }
+		inline zone_manager& get_zones () { return this->zman; }
 		
 	public:
 		std::string get_colored_name ();
@@ -425,6 +428,16 @@ namespace hCraft {
 		void start_physics ();
 		void stop_physics ();
 		void pause_physics ();
+		
+		
+		
+	//----
+		
+		/* 
+		 * Checks whether the specified player can modify the block located at the
+		 * given coordinates.
+		 */
+		bool can_build_at (int x, int y, int z, player *pl);
 		
 		
 	//----

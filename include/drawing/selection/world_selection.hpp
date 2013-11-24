@@ -26,11 +26,15 @@ namespace hCraft {
 	
 	class player; // forward dec
 	
-	
+
+	// modifying pre-existing values will cause incorrect
+	// serialization/deserialization.
 	enum selection_type
 	{
-		ST_NONE,
-		ST_CUBOID,
+		ST_NONE				= 0,
+		ST_CUBOID			=	1,
+		ST_SPHERE			= 2,
+		ST_BLOCKS			= 3,
 	};
 	
 	
@@ -51,6 +55,11 @@ namespace hCraft {
 		 * Returns a copy of this selection.
 		 */
 		virtual world_selection* copy () = 0;
+		
+		/* 
+		 * Returns the type of the selection.
+		 */
+		virtual selection_type type () = 0;
 		
 		
 		
@@ -111,6 +120,30 @@ namespace hCraft {
 		 * Moves the selection @{units} blocks into the direction @{dir}.
 		 */
 		virtual void move (direction dir, int units) = 0;
+		
+		
+		
+	//----
+		
+		/* 
+		 * Serializes the selection into the specified byte array.
+		 * Returns the number of bytes emitted.
+		 */
+		virtual int serialize (unsigned char *out) = 0;
+		
+		/* 
+		 * Returns the number of bytes needed to store this selection's serialized
+		 * form.
+		 */
+		virtual unsigned int serialized_size () = 0;
+		
+		/* 
+		 * Constructs a new selection from the serialized data in the specified byte
+		 * array.
+		 * Returns null on failure.
+		 */
+		static world_selection* deserialize (const unsigned char *data,
+			unsigned int len);
 	};
 }
 

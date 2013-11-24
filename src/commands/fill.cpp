@@ -225,11 +225,52 @@ namespace hCraft {
 					return;
 				}
 			
+			{
+				std::ostringstream ss;
+				ss << "§5Draw§f: §3block fill";
+				if (bd_in.id != 0xFFFF)
+					{
+						block_info *in_binf = block_info::from_id (bd_in.id);
+						ss << " §f[§7from§f: §8";
+						if (in_binf)
+							ss << in_binf->name;
+						else
+							ss << bd_in.id;
+						if (bd_in.meta != 0)
+							ss << ":" << (int)bd_in.meta;
+						
+						block_info *out_binf = block_info::from_id (bd_out.id);
+						ss << "§f, §7to§f: §8";
+						if (out_binf)
+							ss << out_binf->name;
+						else
+							ss << bd_out.id;
+						if (bd_out.meta != 0)
+							ss << ":" << (int)bd_out.meta;
+						ss << "§f]";
+					}
+				else
+					{
+						block_info *binf = block_info::from_id (bd_out.id);
+						ss << " §f[§7block§f: §8";
+						if (binf)
+							ss << binf->name;
+						else
+							ss << bd_out.id;
+						if (bd_out.meta != 0)
+							ss << ":" << (int)bd_out.meta;
+						ss << "§f]";
+					}
+				ss << "§f:";
+				pl->message (ss.str ());
+			}
+			
 			int block_counter = 0;
 			int selection_counter = 0;
 			int fill_limit = pl->get_rank ().fill_limit ();
 			
 			// fill all selections
+			int zoned_blocks = 0;
 			{
 				world *wr = pl->get_world ();
 				dense_edit_stage es (wr);
@@ -273,7 +314,13 @@ namespace hCraft {
 													continue;
 												if (bd.id == bd_out.id && bd.meta == bd_out.meta)
 													continue;
-										
+												
+												if (!wr->can_build_at (x, y, z, pl))
+													{
+														++ zoned_blocks;
+														continue;
+													}
+												
 												if (block_counter >= fill_limit)	
 													{
 														std::ostringstream ss;
@@ -312,9 +359,17 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
-				ss << "§7 | §a" << block_counter << " §eblock" << ((block_counter == 1) ? "" : "s")
-					 << " replaced [§8" << selection_counter << " §7selection"
-					 << ((selection_counter == 1) ? "" : "s") << "§e]";
+				
+				if (zoned_blocks > 0)
+					{
+						ss << "§7 | " << zoned_blocks << " §czoned blocks could not be replaced.";
+						pl->message (ss.str ());
+						ss.str (std::string ());
+					}
+				
+				ss << "§7 | §b" << block_counter << " §eblock" << ((block_counter == 1) ? "" : "s")
+					 << " replaced (§7modified §8" << selection_counter << " §7selection"
+					 << ((selection_counter == 1) ? "" : "s") << "§e)";
 				pl->message (ss.str ());
 				pl->get_server ().get_logger () (LT_DRAW)
 					<< "Player \"" << pl->get_username () << "\" filled " << block_counter << " block(s)." << std::endl;

@@ -254,5 +254,37 @@ namespace hCraft {
 				default: return;
 			}
 	}
+	
+	
+	
+//----
+	
+	/* 
+	 * Serializes the selection into the specified byte array.
+	 * Returns the number of bytes emitted.
+	 */
+	int
+	sphere_selection::serialize (unsigned char *out)
+	{
+		out[0] = (int)ST_SPHERE; // type
+		
+		utils::write_int (out + 1, this->cp.x);
+		out[5] = this->cp.y;
+		utils::write_int (out + 6, this->cp.z);
+		
+		utils::write_double (out + 10, this->rad);
+		
+		return 1 + 9 + 8;
+	}
+	
+	/* 
+	 * Returns the number of bytes needed to store this selection's serialized
+	 * form.
+	 */
+	unsigned int
+	sphere_selection::serialized_size ()
+	{
+		return 1 + 9 + 8; // type + center point + radius
+	}
 }
 

@@ -134,6 +134,29 @@ namespace hCraft {
 	}
 	
 	static char
+	get_neighbour_bl (chunk *ch, int bx, int by, int bz)
+	{
+		if (by > 255) return 0;
+		if (by <   0) return 0;
+		
+		if (bx > 15)
+			{ bx = 0; ch = ch->east; if (!ch) return 0; }
+		if (bx <  0)
+			{ bx = 15; ch = ch->west; if (!ch) return 0; }
+		if (bz > 15)
+			{ bz = 0; ch = ch->south; if (!ch) return 0; }
+		if (bz <  0)
+			{ bz = 15; ch = ch->north; if (!ch) return 0; }
+		
+		block_data bd = ch->get_block (bx, by, bz);
+		block_info *binf = block_info::from_id (bd.id);
+		if (binf->opaque && (binf->luminance == 0))
+			return 0;
+		return bd.bl;
+	}
+	
+	
+	static char
 	calc_chunk_sky_light (chunk *ch, int x, int y, int z, fn_enqueue enq, void *p)
 	{
 		block_data this_block = ch->get_block (x, y, z);
@@ -184,6 +207,49 @@ namespace hCraft {
 		
 		return nl;
 	}
+	
+	static char
+	calc_chunk_block_light (chunk *ch, int x, int y, int z, fn_enqueue enq, void *p)
+	{
+		block_data this_block = ch->get_block (x, y, z);
+		block_info *this_info = block_info::from_id (this_block.id);
+		char nl;
+		
+		if (this_info->opaque)
+			{
+				nl = this_info->luminance;
+			}
+		else
+			{
+				char ble = get_neighbour_bl (ch, x + 1, y, z);
+				char blw = get_neighbour_bl (ch, x - 1, y, z);
+				char blu = get_neighbour_bl (ch, x, y + 1, z);
+				char bld = get_neighbour_bl (ch, x, y - 1, z);
+				char bls = get_neighbour_bl (ch, x, y, z + 1);
+				char bln = get_neighbour_bl (ch, x, y, z - 1);
+		
+				char brightest = _max (ble, _max (blw, _max (blu, _max (bld, _max (bls, _max (bln, 0))))));
+				nl = brightest - 1 + this_info->luminance;
+				if (nl <  0) nl = 0;
+				else if (nl > 15) nl = 15;
+			}
+		
+		if (this_block.bl != nl)
+			{
+				ch->set_block_light (x, y, z, nl);
+				
+				if (x < 15) enq (p, x + 1, y, z);
+				if (x > 0)  enq (p, x - 1, y, z);
+				if (y < 255) enq (p, x, y + 1, z);
+				if (y >   0) enq (p, x, y - 1, z);
+				if (z < 15) enq (p, x, y, z + 1);
+				if (z > 0)  enq (p, x, y, z - 1);
+			}
+		
+		return nl;
+	}
+	
+	
 	
 	static char
 	calc_sky_light (lighting_manager &lm, int x, int y, int z, fn_enqueue enq, void *p)
@@ -246,30 +312,6 @@ namespace hCraft {
 		
 		return nl;
 	}
-	
-	
-	static char
-	get_neighbour_bl (chunk *ch, int bx, int by, int bz)
-	{
-		if (by > 255) return 0;
-		if (by <   0) return 0;
-		
-		if (bx > 15)
-			{ bx = 0; ch = ch->east; if (!ch) return 0; }
-		if (bx <  0)
-			{ bx = 15; ch = ch->west; if (!ch) return 0; }
-		if (bz > 15)
-			{ bz = 0; ch = ch->south; if (!ch) return 0; }
-		if (bz <  0)
-			{ bz = 15; ch = ch->north; if (!ch) return 0; }
-		
-		block_data bd = ch->get_block (bx, by, bz);
-		block_info *binf = block_info::from_id (bd.id);
-		if (binf->opaque && (binf->luminance == 0))
-			return 0;
-		return bd.bl;
-	}
-	
 	 
 	static char
 	calc_block_light (lighting_manager& lm, int x, int y, int z, fn_enqueue enq, void *p)
@@ -333,15 +375,17 @@ namespace hCraft {
 	static void
 	chunk_enqueue_bl (void *param, int x, int y, int z)
 	{
-		
+		std::queue<light_update> *q = static_cast<std::queue<light_update> *> (param);
+		q->emplace (x, y, z);
 	}
+	
 	/* 
 	 * Relights a whole chunk (as much as possible).
 	 */
 	void
 	lighting_manager::relight_chunk (chunk *ch)
 	{
-		std::queue<light_update> updates;
+		std::queue<light_update> sl_updates, bl_updates;
 		
 		for (int x = 0; x < 16; ++x)
 			for (int z = 0; z < 16; ++z)
@@ -349,7 +393,6 @@ namespace hCraft {
 					// the top-most layer is always lit.
 					ch->set_sky_light (x, 255, z, 15);
 					
-					bool at_air = false;
 					unsigned short id;
 					
 					char curr_opacity = 15;
@@ -361,11 +404,16 @@ namespace hCraft {
 							// TODO: accept all transparent blocks
 							id = ch->get_id (x, y,z);
 							if (id != BT_AIR)
-								at_air = false;
-							else if (!at_air)
 								{
-									at_air = true;
-									updates.emplace (x, y, z);
+									block_info *binf = block_info::from_id (id);
+									if (binf && binf->luminance > 0)
+										{
+											bl_updates.emplace (x, y, z);
+										}
+								}
+							else
+								{
+									sl_updates.emplace (x, y, z);
 								}
 							
 							ch->set_sky_light (x, y, z, (curr_opacity > 0) ? curr_opacity : 0);
@@ -373,11 +421,18 @@ namespace hCraft {
 				}
 		
 		
-		while (!updates.empty ())
+		while (!sl_updates.empty ())
 			{
-				light_update u = updates.front ();
-				updates.pop ();
-				calc_chunk_sky_light (ch, u.x, u.y, u.z, chunk_enqueue_sl, &updates);
+				light_update u = sl_updates.front ();
+				sl_updates.pop ();
+				calc_chunk_sky_light (ch, u.x, u.y, u.z, chunk_enqueue_sl, &sl_updates);
+			}
+		
+		while (!bl_updates.empty ())
+			{
+				light_update u = bl_updates.front ();
+				bl_updates.pop ();
+				calc_chunk_block_light (ch, u.x, u.y, u.z, chunk_enqueue_bl, &bl_updates);
 			}
 	} 
 	

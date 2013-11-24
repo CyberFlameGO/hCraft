@@ -16,45 +16,43 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _hCraft__WORLD_SECURITY_H_
-#define _hCraft__WORLD_SECURITY_H_
+#ifndef _hCraft__COMMANDS__ZONE_H_
+#define _hCraft__COMMANDS__ZONE_H_
 
-#include "system/security.hpp"
-#include <vector>
-#include <string>
+#include "command.hpp"
 
 
 namespace hCraft {
-	
-	class player;
-	
-	
-	/* 
-	 * Manages world ownership, members, build&join permissions, etc...
-	 */
-	class world_security: public ownership_security
-	{
-		std::string ps_build;
-		std::string ps_join;
+	namespace commands {
 		
-	public:
-		const std::string& get_build_perms () const;
-		const std::string& get_join_perms () const;
-		
-		void set_build_perms (const std::string& str);
-		void set_join_perms (const std::string& str);
-		
-	public:
-		/* 
-		 * Returns true if the specified player can modify blocks in the world.
+		/*
+		 * /zone
+		 * 
+		 * Zone management.
+		 * 
+		 * Permissions:
+		 *   - command.world.zone
+		 *       Needed to execute the command.
 		 */
-		bool can_build (player *pl) const;
-		
-		/* 
-		 * Returns true if the specified player can join the world.
-		 */
-		bool can_join (player *pl) const;
-	};
+		class c_zone: public command
+		{
+		public:
+			const char* get_name () { return "zone"; }
+			
+			const char*
+			get_summary ()
+				{ return "Zone management."; }
+			
+			const char*
+			get_help ()
+				{ return ""; }
+			
+			const char* get_exec_permission () { return "command.world.zone"; }
+			
+		//----
+			void execute (player *pl, command_reader& reader);
+		};
+	}
 }
 
 #endif

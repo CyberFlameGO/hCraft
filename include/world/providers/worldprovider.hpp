@@ -31,6 +31,7 @@ namespace hCraft {
 	
 	class chunk;
 	class world;
+	class zone;
 	class world_security;
 	
 	
@@ -165,6 +166,18 @@ namespace hCraft {
 		
 		
 		/* 
+		 * Saves the specified list of zones to disk.
+		 */
+		virtual void save_zones (world &wr,  const std::vector<zone *>& zones) = 0;
+		
+		/* 
+		 * Loads the zone list from disk into the given vector.
+		 */
+		virtual void load_zones (world &wr, std::vector<zone *>& zones) = 0;
+		
+		
+		
+		/* 
 		 * Saves the specified list of portals to disk.
 		 */
 		virtual void save_portals (world &wr, const std::vector<portal *>& portals) = 0;
@@ -173,6 +186,7 @@ namespace hCraft {
 		 * Loads the portal list from disk into the given vector.
 		 */
 		virtual void load_portals (world &wr, std::vector<portal *>& portals) = 0;
+		
 		
 		
 		

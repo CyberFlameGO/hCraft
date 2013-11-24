@@ -34,6 +34,7 @@
 #include "world/block_undo.hpp"
 #include "util/uuid.hpp"
 
+#include <set>
 #include <atomic>
 #include <queue>
 #include <deque>
@@ -200,6 +201,9 @@ namespace hCraft {
 		std::mutex world_lock;
 		bool joining_world;
 		bool streaming_chunks;
+		std::set<zone *> curr_zones;
+		entity_pos old_pos;
+		entity_pos last_good_pos;
 		
 		std::unordered_set<player *> visible_players;
 		std::mutex visible_player_lock;
@@ -325,6 +329,8 @@ namespace hCraft {
 		void handle_death ();
 		
 		void handle_portals ();
+		
+		bool handle_zones (entity_pos dest);
 		
 	//----
 		
@@ -551,17 +557,6 @@ namespace hCraft {
 		 * an error message to the player and return false.
 		 */
 		bool perm (const char *perm);
-		
-		/* 
-		 * Syntax:
-		 *   term1|term2|term3|...|termN
-		 * 
-		 * Where term is one of:
-		 *   <group name>   : e.g. moderator or builder
-		 *   ^<player name> : e.g. ^BizarreCake
-		 *   *<permission>  : e.g. *command.admin.say
-		 */
-		bool has_access (const std::string& access_str);
 		
 		
 		

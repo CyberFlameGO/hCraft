@@ -166,7 +166,6 @@ namespace hCraft {
 			}
 		
 		const world_information& winf = prov->info ();
-		std::cout << "SEED: " << winf.seed << std::endl;
 		world_generator *gen = world_generator::create (winf.generator.c_str (), winf.seed);
 		if (!gen)
 			{
@@ -200,6 +199,13 @@ namespace hCraft {
 		wr->prov->open (*wr);
 		wr->prov->load_portals (*wr, wr->portals);
 		wr->prov->load_security (*wr, wr->security ());
+		{
+			// zones
+			std::vector<zone *> vzones;
+			wr->prov->load_zones (*wr, vzones);
+			for (zone *zn : vzones)
+				wr->zman.add (zn);
+		}
 		wr->prov->close ();
 		
 		wr->prepare_spawn (10, false);
@@ -300,6 +306,13 @@ namespace hCraft {
 			this->prov->open (*this);
 			this->prov->load_portals (*this, this->portals);
 			this->prov->load_security (*this, this->security ());
+			{
+				// zones
+				std::vector<zone *> vzones;
+				this->prov->load_zones (*this, vzones);
+				for (zone *zn : vzones)
+					this->zman.add (zn);
+			}
 			this->prov->close ();
 		}
 		
@@ -848,6 +861,9 @@ namespace hCraft {
 		
 		// portals
 		this->prov->save_portals (*this, this->portals);
+		
+		// zones
+		this->prov->save_zones (*this, this->zman.get_all ());
 		
 		for (auto itr = this->chunks.begin (); itr != this->chunks.end (); ++itr)
 			{
@@ -1591,6 +1607,27 @@ namespace hCraft {
 		if (this->typ == WT_LIGHT) return;
 		if (this->ph_state == PHY_PAUSED) return;
 		this->ph_state = PHY_PAUSED;
+	}
+	
+	
+	
+//-----
+	
+	/* 
+	 * Checks whether the specified player can modify the block located at the
+	 * given coordinates.
+	 */
+	bool
+	world::can_build_at (int x, int y, int z, player *pl)
+	{
+		std::vector<zone *> zones;
+		this->zman.find (x, y, z, zones);
+		
+		for (zone *zn : zones)
+			if (!zn->get_security ().can_build (pl))
+				return false;
+		
+		return true;
 	}
 	
 	

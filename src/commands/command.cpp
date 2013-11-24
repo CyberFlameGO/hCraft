@@ -69,6 +69,7 @@
 #include "commands/worlds.hpp"
 #include "commands/wsetspawn.hpp"
 #include "commands/wunload.hpp"
+#include "commands/zone.hpp"
 
 #include <unordered_map>
 #include <stdexcept>
@@ -113,6 +114,7 @@ namespace hCraft {
 	static command* create_c_world () { return new commands::c_world (); }
 	static command* create_c_worlds () { return new commands::c_worlds (); }
 	static command* create_c_realm () { return new commands::c_realm (); }
+	static command* create_c_zone () { return new commands::c_zone (); }
 	
 	// draw commands:
 	static command* create_c_select () { return new commands::c_select (); }
@@ -193,6 +195,7 @@ namespace hCraft {
 			{ "warn", create_c_warn },
 			{ "warnlog", create_c_warnlog },
 			{ "worlds", create_c_worlds },
+			{ "zone", create_c_zone },
 			};
 		
 		auto itr = creators.find (name);

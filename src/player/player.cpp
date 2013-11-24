@@ -1193,6 +1193,7 @@ namespace hCraft {
 			}
 	}
 	
+	
 	void
 	player::handle_portals ()
 	{
@@ -1245,6 +1246,82 @@ namespace hCraft {
 			}
 	}
 	
+	
+	
+	bool
+	player::handle_zones (entity_pos dest)
+	{
+		std::lock_guard<std::mutex> guard {this->world_lock};
+		if (this->is_dead ())
+			return false;
+		
+		block_pos bp = dest;
+		std::vector<zone *> zones;
+		this->get_world ()->get_zones ().find (bp.x, bp.y, bp.z, zones);
+		
+		// build the list of zones that the player is entering.
+		std::vector<zone *> entering;
+		for (zone *zn : zones)
+			if (this->curr_zones.find (zn) == this->curr_zones.end ())
+				entering.push_back (zn);
+		
+		// build the list of zones that the player is leaving.
+		std::vector<zone *> leaving;
+		for (zone *zn : this->curr_zones)
+			if (std::find (zones.begin (), zones.end (), zn) == zones.end ())
+				leaving.push_back (zn);
+		
+		for (zone *zn : entering)
+			if (!zn->get_security ().can_enter (this))
+				{
+					dest = block_pos (this->last_good_pos);
+					dest.x += 0.5;
+					dest.z += 0.5;
+					dest.r = this->last_good_pos.r;
+					dest.l = this->last_good_pos.l;
+				
+					this->send (packets::play::make_player_pos_and_look (
+						dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
+					this->pos = dest;
+					this->message ("§4 * §cYou are not allowed to enter this zone§4.");
+					return true;
+				}
+		
+		
+		for (zone *zn : leaving)
+			if (!zn->get_security ().can_leave (this))
+				{
+					dest = block_pos (this->last_good_pos);
+					dest.x += 0.5;
+					dest.z += 0.5;
+					dest.r = this->last_good_pos.r;
+					dest.l = this->last_good_pos.l;
+				
+					this->send (packets::play::make_player_pos_and_look (
+						dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
+					this->pos = dest;
+					this->message ("§4 * §cYou are not allowed to leave this zone§4.");
+					return true;
+				}
+		
+		// rebuild the list of zones that the player is currently in.
+		this->curr_zones.clear ();
+		for (zone *zn : zones)
+			this->curr_zones.insert (zn);
+		
+		// leave/enter messages.
+		for (zone *zn : entering)
+			if (!zn->get_enter_msg ().empty ())
+				this->message (zn->get_enter_msg ());
+		for (zone *zn : leaving)
+			if (!zn->get_leave_msg ().empty ())
+				this->message (zn->get_leave_msg ());
+		
+		this->last_good_pos = pos;
+		return false;
+	}
+	
+	
 	/* 
 	 * Moves the player to the specified position.
 	 */
@@ -1271,6 +1348,10 @@ namespace hCraft {
 							dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
 					}
 			}
+		
+		// zones
+		if (this->handle_zones (dest))
+			return;
 		
 		entity_pos prev_pos = this->pos;
 		this->pos = dest;
@@ -1357,6 +1438,8 @@ namespace hCraft {
 		
 		this->handle_falls_and_jumps (prev_pos.on_ground, this->pos.on_ground, prev_pos);
 		this->handle_portals ();
+		
+		this->old_pos = this->pos;
 	}
 	
 	/* 
@@ -1668,114 +1751,6 @@ namespace hCraft {
 		
 		this->message (messages::insufficient_permissions (
 			this->get_server ().get_groups (), perm));
-		return false;
-	}
-	
-	/* 
-	 * Syntax:
-	 *   term1|term2|term3|...|termN
-	 * 
-	 * Where term is one of:
-	 *   <group name>   : e.g. moderator or builder
-	 *   ^<player name> : e.g. ^BizarreCake
-	 *   *<permission>  : e.g. *command.admin.say
-	 */
-	bool 
-	player::has_access (const std::string& access_str)
-	{
-		if (access_str.empty ())
-			return true;
-		
-		enum term_type
-			{
-				TT_GROUP,
-				TT_ATLEAST_GROUP,
-				TT_PLAYER,
-				TT_PERM
-			};
-		
-		const char *str = access_str.c_str ();
-		const char *ptr = str;
-		while (*ptr)
-			{
-				term_type typ = TT_GROUP;
-				std::string word;
-				int neg = 0;
-				
-				while (*ptr && (*ptr != '|'))
-					{
-						int c = *ptr;
-						switch (c)
-							{
-								case '!':
-									++ neg;
-									if (neg > 1)
-										return false;
-									break;
-								
-								case '^':
-									if (typ == TT_PLAYER)
-										return false;
-									typ = TT_PLAYER;
-									break;
-								
-								case '*':
-									if (typ == TT_PERM)
-										return false;
-									typ = TT_PERM;
-									break;
-								
-								case '>':
-									if (typ == TT_ATLEAST_GROUP)
-										return false;
-									typ = TT_ATLEAST_GROUP;
-									break;
-								
-								default:
-									word.push_back (c);
-							}
-						++ ptr;
-					}
-				
-				if (*ptr == '|')
-					++ ptr;
-				
-				bool res = true;
-				switch (typ)
-					{
-						case TT_GROUP:
-							{
-								group *grp = this->srv.get_groups ().find (word.c_str ());
-								if (!grp)
-									res = false;
-								else if (!this->get_rank ().contains (grp))
-									res = false;
-							}
-							break;
-						
-						case TT_ATLEAST_GROUP:
-							{
-								group *grp = this->srv.get_groups ().find (word.c_str ());
-								if (grp && (this->get_rank ().power () < grp->power))
-									res = false;
-							}
-							break;
-						
-						case TT_PLAYER:
-							res = sutils::iequals (word, this->username);
-							break;
-						
-						case TT_PERM:
-							res = this->has (word.c_str ());
-							break;
-					}
-				
-				if (neg == 1)
-					res = !res;
-				if (res)
-					return true;
-			}
-		
 		return false;
 	}
 	
@@ -3667,6 +3642,26 @@ namespace hCraft {
 						pl->send_orig_block (x, y, z);
 						return 0;
 					}
+				else
+					{
+						// check zones
+						std::vector<zone *> zones;
+						w.get_zones ().find (x, y, z, zones);
+						bool can_build = true;
+						for (zone *zn : zones)
+							if (!zn->get_security ().can_build (pl))
+								{
+									can_build = false;
+									break;
+								}
+				
+						if (!can_build)
+							{
+								pl->message ("§4 * §cYou are not allowed to build in this zone§4.");
+								pl->send_orig_block (x, y, z);
+								return 0;
+							}
+					}
 				
 				// degrade tool
 				if (pl->curr_gamemode != GT_CREATIVE)
@@ -3856,6 +3851,26 @@ namespace hCraft {
 				pl->message ("§4 * §cYou are not allowed to build here§4.");
 				pl->send_orig_block (nx, ny, nz);
 				return 0;
+			}
+		else
+			{
+				// check zones
+				std::vector<zone *> zones;
+				w->get_zones ().find (nx, ny, nz, zones);
+				bool can_build = true;
+				for (zone *zn : zones)
+					if (!zn->get_security ().can_build (pl))
+						{
+							can_build = false;
+							break;
+						}
+				
+				if (!can_build)
+					{
+						pl->message ("§4 * §cYou are not allowed to build in this zone§4.");
+						pl->send_orig_block (nx, ny, nz);
+						return 0;
+					}
 			}
 		
 		// some blocks must be placed differently.

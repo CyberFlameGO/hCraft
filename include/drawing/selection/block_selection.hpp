@@ -54,6 +54,11 @@ namespace hCraft {
 		world_selection* copy ()
 			{ return new block_selection (*this); }
 		
+		/* 
+		 * Returns the type of the selection.
+		 */
+		virtual selection_type type () override { return ST_BLOCKS; }
+		
 		
 		/* 
 		 * Checks whether the specified point is contained by the selected area.
@@ -105,6 +110,20 @@ namespace hCraft {
 		 * Moves the selection @{units} blocks into the direction @{dir}.
 		 */
 		virtual void move (direction dir, int units);
+		
+		
+		
+		/* 
+		 * Serializes the selection into the specified byte array.
+		 * Returns the number of bytes emitted.
+		 */
+		virtual int serialize (unsigned char *out) override;
+		
+		/* 
+		 * Returns the number of bytes needed to store this selection's serialized
+		 * form.
+		 */
+		virtual unsigned int serialized_size () override;
 	};
 }
 
