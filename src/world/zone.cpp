@@ -82,6 +82,20 @@ namespace hCraft {
 	}
 	
 	/* 
+	 * Constructs a new zone as a copy of the specified zone with the given
+	 * selection.
+	 */
+	zone::zone (zone *other, world_selection *sel)
+		: name (other->name), sec (other->sec), 
+			enter_msg (other->enter_msg), leave_msg (other->leave_msg)
+	{
+		this->creator_pid = other->creator_pid;
+		this->created_time = other->created_time;
+		
+		this->sel = sel;
+	}
+	
+	/* 
 	 * Destructor.
 	 */
 	zone::~zone ()

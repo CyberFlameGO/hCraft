@@ -1024,5 +1024,111 @@ namespace hCraft {
 		block_data bl = this->w->get_block (x, y, z);
 		return {bl.id, bl.meta};
 	}
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	/* 
+	 * Constructs a new conditional edit stage on top of the specified
+	 * edit stage.
+	 */
+	cond_edit_stage::cond_edit_stage (edit_stage& es, block_test_func test_fn, void *ctx)
+		: es (es), edit_stage (es.get_world ())
+	{
+		this->test_fn = test_fn;
+		this->ctx = ctx;
+		this->bad_blocks = 0;
+	}
+	
+	
+	
+	/* 
+	 * Block modification \ retrieval:
+	 */
+	void
+	cond_edit_stage::set (int x, int y, int z, unsigned short id, unsigned char meta, unsigned char ex)
+	{
+		if (!this->test_fn (this->es.get_world (), x, y, z, this->ctx))
+			++ this->bad_blocks;
+		else
+			this->es.set (x, y, z, id, meta, ex);
+	}
+	
+	blocki
+	cond_edit_stage::get (int x, int y, int z)
+	{
+		return this->es.get (x, y, z);
+	}
+	
+	void
+	cond_edit_stage::reset (int x, int y, int z)
+	{
+		this->es.reset (x, y, z);
+	}
+	
+	int
+	cond_edit_stage::mod_count_at (int cx, int cz)
+	{
+		return this->es.mod_count_at (cx, cz);
+	}
+	
+	
+	/* 
+	 * Sends all modified blocks to the specified player(s).
+	 */
+	void
+	cond_edit_stage::preview (std::vector<player *>& players, bool update_sbs)
+	{
+		this->es.preview (players, update_sbs);
+	}
+	
+	/* 
+	 * Same as preview (), but only sends a single chunk.
+	 */
+	void
+	cond_edit_stage::preview_chunk (std::vector<player *>& players, int cx, int cz, bool update_sbs)
+	{
+		this->es.preview_chunk (players, cx, cz, update_sbs);
+	}
+	
+	/* 
+	 * Restores back all block modifications sent by preview().
+	 */
+	void
+	cond_edit_stage::restore (std::vector<player *>& players, bool update_sbs)
+	{
+		this->es.restore (players, update_sbs);
+	}
+	
+	
+	/* 
+	 * Commits all block modifications to the underlying world.
+	 * The edit stage is then cleared.
+	 */
+	void
+	cond_edit_stage::commit (bool physics)
+	{
+		this->es.commit (physics);
+	}
+	
+	/* 
+	 * Does not notify players, nor does this activate physics blocks.
+	 */
+	void
+	cond_edit_stage::commit_chunk (chunk *ch, int cx, int cz)
+	{
+		this->es.commit_chunk (ch, cx, cz);
+	}
+	
+	
+	/* 
+	 * Clears the edit stage.
+	 */
+	void
+	cond_edit_stage::clear ()
+	{
+		this->es.clear ();
+	}
 }
 

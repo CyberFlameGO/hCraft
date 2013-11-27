@@ -102,6 +102,12 @@ namespace hCraft {
 		zone (const std::string& name, world_selection *sel);
 		
 		/* 
+		 * Constructs a new zone as a copy of the specified zone with the given
+		 * selection.
+		 */
+		zone (zone *other, world_selection *sel);
+		
+		/* 
 		 * Destructor.
 		 */
 		~zone ();

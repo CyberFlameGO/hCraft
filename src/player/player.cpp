@@ -4496,6 +4496,7 @@ namespace hCraft {
 				return -1;
 			}
 		
+		std::cout << "[" << index << "] Implemented: " << item.implemented () << std::endl;
 		if (!item.implemented ())
 			pl->inv.set (index, {BT_AIR}, true);
 		else

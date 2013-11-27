@@ -362,7 +362,7 @@ namespace hCraft {
 				
 				if (zoned_blocks > 0)
 					{
-						ss << "§7 | " << zoned_blocks << " §czoned blocks could not be replaced.";
+						ss << "§7 | " << zoned_blocks << " §czoned block" << ((zoned_blocks == 1) ? "" : "s") << " could not be replaced.";
 						pl->message (ss.str ());
 						ss.str (std::string ());
 					}

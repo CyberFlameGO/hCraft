@@ -56,7 +56,19 @@ namespace hCraft {
 					return true;
 				}
 			
-			sparse_edit_stage& es = data->es;
+			if (!data->es.get_world ()->can_build_at (marked[0].x, marked[0].y, marked[0].z, pl))
+				{
+					pl->message ("§4 * §cCannot mark that block§4.");
+					return false;
+				}
+			
+			sparse_edit_stage& ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			std::vector<vector3>& points = data->points;
 			points.push_back (marked[0]);
 			if (points.size () > 1)
@@ -81,9 +93,17 @@ namespace hCraft {
 				}
 			
 			es.set (first.x, first.y, first.z, BT_WOOL, 11);
-			
 			es.preview_to (pl);
-			return false;
+			
+			{
+				std::ostringstream ss;
+				int fb = es.failed_blocks ();
+				if (fb > 0)
+					{
+						ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+						pl->message (ss.str ());
+					}
+			}
 			
 			return false;
 		}
@@ -99,7 +119,13 @@ namespace hCraft {
 					return;
 				}
 			
-			sparse_edit_stage& es = data->es;
+			sparse_edit_stage& ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			std::vector<vector3>& points = data->points;
 			if (points.empty ())
 				{
@@ -112,13 +138,15 @@ namespace hCraft {
 			es.clear ();
 			
 			draw_ops draw (es);
-			draw.curve (points, data->bl);
+			int blocks = draw.curve (points, data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();
 			pl->delete_data ("curve");
-			pl->message ("§3Curve complete");
-			return;
+			
+			std::ostringstream ss;
+			ss << "§7 | Curve complete §f- §b" << blocks << " §7blocks modified";
+			pl->message (ss.str ());
 		}
 		
 		
@@ -169,9 +197,9 @@ namespace hCraft {
 				[] (void *ptr) { delete static_cast<curve_data *> (ptr); });
 			pl->get_nth_marking_callback (1) += on_blocks_marked;
 			
-			pl->message ("§8Curve §7(§8Block§7: §b" + str + "§7):");
-			pl->message ("§8 * §7Please mark the required points§8.");
-			pl->message ("§8 * §7Type §c/curve stop §7to stop§8."); 
+			pl->message ("§5Draw§f: §3Catmull-Rom spline §f[§7block§f: §8" + sutils::get_slot_name (bl) + "§f]:");
+			pl->message ("§7 | §ePlease mark the required points§f.");
+			pl->message ("§7 | §eType §c/curve stop §eto stop§f."); 
 		}
 	}
 }

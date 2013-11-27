@@ -70,7 +70,14 @@ namespace hCraft {
 			
 			int bc;
 			
-			dense_edit_stage es (pl->get_world ());
+			world *w = pl->get_world ();
+			dense_edit_stage des {w};
+			cond_edit_stage es (des,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl);
+			
 			draw_ops draw (es);
 			bc = draw.filled_cuboid (marked[0], marked[1], data->bl, pl->get_rank ().fill_limit ());
 			if (bc == -1)
@@ -85,6 +92,15 @@ namespace hCraft {
 			
 			{
 				std::ostringstream ss;
+				
+				int fb = es.failed_blocks ();
+				if (fb > 0)
+					{
+						ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+						pl->message (ss.str ());
+						ss.str (std::string ());
+					}
+				
 				ss << "§7 | Cuboid complete - §b" << bc << " §7blocks modified";
 				pl->message (ss.str ());
 			}

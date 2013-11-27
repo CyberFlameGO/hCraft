@@ -52,7 +52,19 @@ namespace hCraft {
 			bezier_data *data = static_cast<bezier_data *> (pl->get_data ("bezier"));
 			if (!data) return true; // shouldn't happen
 			
-			edit_stage &es = data->es;
+			if (!data->es.get_world ()->can_build_at (marked[0].x, marked[0].y, marked[0].z, pl))
+				{
+					pl->message ("§4 * §cCannot mark that block§4.");
+					return false;
+				}
+			
+			edit_stage &ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			if (es.get_world () != pl->get_world ())
 				{
 					pl->message ("§4 * §cWorlds changed§4.");
@@ -83,7 +95,17 @@ namespace hCraft {
 				}
 			
 			draw_ops draw (es);
-			draw.bezier (points, data->bl);
+			int blocks = draw.bezier (points, data->bl);
+			
+			{
+				std::ostringstream ss;
+				int fb = es.failed_blocks ();
+				if (fb > 0)
+					{
+						ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+						pl->message (ss.str ());
+					}
+			}
 			
 			if (points.size () < (size_t)(data->order + 1))
 				{
@@ -93,7 +115,10 @@ namespace hCraft {
 			
 			es.commit ();
 			pl->delete_data ("bezier");
-			pl->message ("§3Bezier curve complete");
+			
+			std::ostringstream ss;
+			ss << "§7 | Bezier curve complete §f - §7~§b" << blocks << " §7blocks modified";
+			pl->message (ss.str ());
 			return true;
 		}
 		
@@ -157,11 +182,15 @@ namespace hCraft {
 			pl->get_nth_marking_callback (1) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Bezier curve §7(§8Order§7: §b" << order << "§7, §8Block§7: §b" << str << "§7):";
+			ss << "§5Draw§f: §3bezier curve §f[§7order§f: §8" << order << "§f, §7block§f: §8"
+				 << block_info::from_id (bl.id)->name;
+			if (bl.meta != 0)
+				ss << ':' << (int)bl.meta;
+			ss << "§f]:";
 			pl->message (ss.str ());
 			
 			ss.str (std::string ()); ss.clear ();
-			ss << "§8 * §7Please mark §b" << (order + 1) << " §7blocks§7.";
+			ss << "§7 | §ePlease mark §b" << (order + 1) << " §eblocks§f.";
 			pl->message (ss.str ());
 		}
 	}
