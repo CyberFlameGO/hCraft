@@ -265,7 +265,7 @@ namespace hCraft {
 					{
 						pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
 					}
-				*/
+				//*/
 				
 				if (pl->encrypted)
 					{
@@ -4496,8 +4496,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		std::cout << "[" << index << "] Implemented: " << item.implemented () << std::endl;
-		if (!item.implemented ())
+		if (!item.implemented () && (short)item.id () != -1)
 			pl->inv.set (index, {BT_AIR}, true);
 		else
 			pl->inv.set (index, item, false);
