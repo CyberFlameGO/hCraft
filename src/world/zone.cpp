@@ -256,6 +256,9 @@ namespace hCraft {
 		int cz = z >> 4;
 		int cy = y >> 6;
 		
+		if (cy < 0 || cy >= 4)
+			return;
+		
 		auto itr = this->blocks[cy].find ({cx, cz});
 		if (itr != this->blocks[cy].end ())
 			{
