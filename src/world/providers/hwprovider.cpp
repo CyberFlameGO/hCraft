@@ -42,7 +42,7 @@ namespace hCraft {
 	#define HW_LAYER_PAGE_SIZE						 1024
 	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
 	
-	#define HW_CURR_REV												5
+	#define HW_CURR_REV												4
 	
 	
 	inline int
