@@ -172,8 +172,9 @@ namespace hCraft {
 				for (int yy = min.y; yy <= max.y; yy += 64)
 					{
 						int yi = yy >> 6;
+						if (yi >= 4) continue;
 						auto& blocks = this->blocks[yi];
-						std::cout << "yi: " << yi << ", xx: " << xx << ", yy: " << yy << ", zz: " << zz << std::endl;
+						
 						auto itr = blocks.find ({xx >> 4, zz >> 4});
 						if (itr != blocks.end ())
 							{
