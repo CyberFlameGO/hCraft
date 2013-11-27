@@ -606,6 +606,41 @@ namespace hCraft {
 						}
 				}
 			
+			{
+				// get collective volume
+				int collective_vol = 0;
+				for (auto itr = pl->selections.begin (); itr != pl->selections.end (); ++itr)
+					{
+						world_selection *sel = itr->second;
+						collective_vol += sel->volume ();
+					}
+				
+				if (collective_vol > pl->get_rank ().select_limit ())
+					{
+						// undo changes
+						for (ax_mod m : changes)
+							{
+								int xx = (m.ax & A_X) ? m.units : 0;
+								int yy = (m.ax & A_Y) ? m.units : 0;
+								int zz = (m.ax & A_Z) ? m.units : 0;
+					
+								for (world_selection *sel : sels)
+									{
+										if (do_expand)
+											sel->contract (xx, yy, zz);
+										else
+											sel->expand (xx, yy, zz);
+									}
+							}
+						
+						for (world_selection *sel : sels)
+							sel->show (pl);
+						
+						pl->message (messages::over_select_limit (pl->get_rank ().select_limit ()));
+						return;
+					}
+			}
+			
 			for (world_selection *sel : sels)
 				sel->show (pl);
 			pl->sb_commit ();
