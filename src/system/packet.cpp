@@ -1462,8 +1462,6 @@ namespace hCraft {
 				int item_size = slot_size (item);
 				packet *pack = new packet (6 + item_size);
 				
-				std::cout << "Sending set slot [slot: " << slot << "] [id: " << item.id () << "]" << std::endl;
-				
 				/* 
 				 * TODO: Item metadata.
 				 */
