@@ -158,7 +158,7 @@ namespace hCraft {
 				[] (void *ptr) { delete static_cast<whodid_data *> (ptr); });
 			pl->get_nth_marking_callback (1) += on_blocks_marked;
 			
-			pl->message ("§7 | §ePlease mark §bone §eblock.");
+			pl->message ("§ePlease mark §bone §eblock.");
 		}
 	}
 }

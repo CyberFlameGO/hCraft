@@ -18,6 +18,8 @@
 
 #include "util/stringutils.hpp"
 #include "util/wordwrap.hpp"
+#include "slot/slot.hpp"
+#include "slot/items.hpp"
 #include <cctype>
 #include <sstream>
 
@@ -272,6 +274,55 @@ namespace hCraft {
 					imeta >> m;
 				}
 			return blocki (id, m);
+		}
+		
+		
+		
+		/* 
+		 * Returns the specified item's name with its damage/meta value appended
+		 * (unless it's 0).
+		 */
+		std::string
+		get_slot_name (const slot_item& sl)
+		{
+			if (!sl.is_valid ())
+				return "unknown";
+			
+			std::ostringstream ss;
+			if (sl.is_item ())
+				{
+					item_info *iinf = item_info::from_id (sl.id ());
+					if (iinf)
+						ss << iinf->name;
+					else
+						ss << sl.id ();
+				}
+			else
+				{
+					block_info *binf = block_info::from_id (sl.id ());
+					if (binf)
+						ss << binf->name;
+					else
+						ss << sl.id ();
+					
+					if (sl.damage () != 0)
+						{
+							ss << ':' << (int)sl.damage ();
+						}
+				}
+			
+			if (sl.amount () != 1)
+				{
+					ss << '{' << (int)sl.amount () << '}';
+				}
+			
+			return ss.str ();
+		}
+		
+		std::string
+		get_slot_name (blocki bl)
+		{
+			return get_slot_name (slot_item (bl.id, bl.meta, 1));
 		}
 		
 		

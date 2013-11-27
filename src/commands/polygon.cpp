@@ -56,15 +56,22 @@ namespace hCraft {
 		}
 		
 		
-		static void
-		fill_polygon (edit_stage& es, block_pos pt, blocki material)
+		static bool
+		fill_polygon (edit_stage& es, block_pos pt, blocki material, player *pl)
 		{
+			world *w = es.get_world ();
+			
 			std::queue<block_pos> q;
 			q.push (pt);
 			while (!q.empty ())
 				{
 					block_pos n = q.front ();
 					q.pop ();
+					
+					if (!w->in_bounds (n.x, n.y, n.z))
+						continue;
+					if (!w->can_build_at (n.x, n.y, n.z, pl))
+						return false;
 					
 					if (es.get (n.x, n.y, n.z) != material)
 						{
@@ -75,15 +82,17 @@ namespace hCraft {
 							q.emplace (n.x, n.y, n.z + 1);
 						}
 				}
+			
+			return true;
 		}
 		
-		static void
-		regular_polygon (player *pl, vector3 pt, int sides, double radius, blocki material, bool fill)
+		static bool
+		regular_polygon (player *pl, vector3 pt, int sides, double radius,
+			blocki material, bool fill, cond_edit_stage& es)
 		{
 			double curr = -0.785398163; 
 			double cang = 6.283185307 / sides;
 			
-			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			
 			double sx, sz, lx, lz;
@@ -108,12 +117,16 @@ namespace hCraft {
 				}
 			draw.line ({lx, pt.y, lz}, {sx, pt.y, sz}, material);
 			
+			if (es.failed_blocks () > 0)
+				return false;
 			if (radius >= 2.0 && fill)
 				{
-					fill_polygon (es, {(int)pt.x, (int)pt.y, (int)pt.z}, material);
+					if (!fill_polygon (es, {(int)pt.x, (int)pt.y, (int)pt.z}, material, pl))
+						return false;
 				}
 			
 			es.commit ();
+			return true;
 		}
 		
 		static bool
@@ -129,7 +142,13 @@ namespace hCraft {
 					return true;
 				}
 			
-			if (data->es.get_world () != pl->get_world ())
+			cond_edit_stage es {data->es,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
+			if (es.get_world () != pl->get_world ())
 				{
 					pl->message ("§4 * §cWorlds changed§4.");
 					pl->delete_data ("polygon");
@@ -143,10 +162,15 @@ namespace hCraft {
 					if (markedc == 2)
 						radius = (vector3 (marked[1]) - vector3 (marked[0])).magnitude ();
 						
-					regular_polygon (pl, marked[0], data->reg_sides, radius, data->bl, data->fill);
+					if (!regular_polygon (pl, marked[0], data->reg_sides, radius, data->bl, data->fill, es))
+						{
+							pl->delete_data ("polygon");
+							pl->message ("§7 | §cPolygon could not be completed (zones)");
+							return true;
+						}
 					
 					pl->delete_data ("polygon");
-					pl->message ("§3Polygon complete");
+					pl->message ("§7 | Regular polygon complete");
 					return true;
 				}
 			
@@ -158,12 +182,23 @@ namespace hCraft {
 			// preview
 			if (data->points.size () > 1)
 				{
-					data->es.restore_to (pl);
-					data->es.clear ();
+					es.restore_to (pl);
+					es.clear ();
 				}
-			draw_ops draw (data->es);
+			draw_ops draw (es);
 			draw.polygon (data->points, data->bl);
-			data->es.preview_to (pl);
+			es.preview_to (pl);
+			
+			{
+				std::ostringstream ss;
+				int fb = es.failed_blocks ();
+				if (fb > 0)
+					{
+						ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+						pl->message (ss.str ());
+						ss.str (std::string ());
+					}
+			}
 			
 			return false;
 		}
@@ -193,17 +228,27 @@ namespace hCraft {
 					return;
 				}
 			
-			sparse_edit_stage &es = data->es;
+			sparse_edit_stage &ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			es.restore_to (pl);
 			es.clear ();
 			
+			int blocks;
 			draw_ops draw (es);
-			draw.polygon (data->points, data->bl);
+			blocks = draw.polygon (data->points, data->bl);
 			es.commit ();
 			
 			pl->stop_marking ();
 			pl->delete_data ("polygon");
-			pl->message ("§3Polygon complete");
+			
+			std::ostringstream ss;
+			ss << "§7 | Polygon complete §f- §b" << blocks << " §7blocks modified";
+			pl->message (ss.str ());
 		}
 		
 
@@ -299,23 +344,23 @@ namespace hCraft {
 			pl->get_nth_marking_callback (pt_count) += on_blocks_marked;
 			
 			std::ostringstream ss;
-			ss << "§8Polygon §7(§8Block§7: §b" << str;
+			ss << "§5Draw§f: §3" << ((reg_sides != -1) ? "regular " : "") << "polygon §f[§7block§f: §8" << sutils::get_slot_name (bl);
 			if (reg_sides >= 3)
-				ss << "§7, §8Sides§7: §b" << reg_sides;
+				ss << "§f, §7sides§f: §8" << reg_sides;
 			if (radius >= 1.0) 
-				ss << "§7, §8Radius§7: §b" << radius;
-			ss << "§7):";
+				ss << "§f, §7Radius§f: §8" << radius;
+			ss << "§f]:";
 			pl->message (ss.str ());
 			
 			if (reg_sides < 3)
 				{
-					pl->message ("§8 * §7Please mark the required points§8.");
-					pl->message ("§8 * §7Type §c/polygon stop §7to stop§8.");
+					pl->message ("§7 | §ePlease mark the required points§f.");
+					pl->message ("§7 | §eType §c/polygon stop §eto stop§f.");
 				}
 			else
 				{
 					ss.str (std::string ()); ss.clear ();
-					ss << "§8 * §7Please mark §b" << pt_count << " §7blocks.";
+					ss << "§7 | §ePlease mark §b" << pt_count << " §eblock" << ((pt_count == 1) ? "" : "s") << "§f.";
 					pl->message (ss.str ());
 				}
 		}

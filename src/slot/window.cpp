@@ -452,7 +452,8 @@ namespace hCraft {
 	{
 		if (index >= 10 && index <= 45)
 			this->inv.set (index - 1, item, update);
-		window::set (index, item, update);
+		else
+			window::set (index, item, update);
 	}
 	
 	/* 

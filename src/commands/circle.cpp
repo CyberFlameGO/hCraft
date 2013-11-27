@@ -60,7 +60,13 @@ namespace hCraft {
 				}
 			
 			int blocks;
-			dense_edit_stage es (pl->get_world ());
+			dense_edit_stage des (pl->get_world ());
+			cond_edit_stage es {des,
+				[] (world *wr, int x, int y, int z, void *ctx) -> bool
+					{
+						return wr->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			draw_ops draw (es);
 			if (data->fill)
 				blocks = draw.filled_circle (marked[0], radius, data->bl, data->pn, pl->get_rank ().fill_limit ());
@@ -75,6 +81,14 @@ namespace hCraft {
 			es.commit ();
 			
 			std::ostringstream ss;
+			int fb = es.failed_blocks ();
+			if (fb > 0)
+				{
+					ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+					pl->message (ss.str ());
+					ss.str (std::string ());
+				}
+			
 			ss << "§7 | Circle complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
 			

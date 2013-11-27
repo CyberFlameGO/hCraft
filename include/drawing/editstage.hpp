@@ -317,6 +317,81 @@ namespace hCraft {
 		virtual blocki get (int x, int y, int z) override;
 		virtual void reset (int x, int y, int z) { }
 	};
+	
+	
+	
+//------------------------------------------------------------------------------
+	
+	using block_test_func
+		= bool (*)(world *wr, int x, int y, int z, void *ctx);
+	
+	/* 
+	 * Wraps on top of another edit stage, and provides conditional block
+	 * modification depending on the result of a user-supplied function
+	 * that is applied to every block.
+	 */
+	class cond_edit_stage: public edit_stage
+	{
+		edit_stage& es;
+		block_test_func test_fn;
+		int bad_blocks;
+		void *ctx;
+		
+	public:
+		inline int failed_blocks () const { return this->bad_blocks; }
+		
+	public:
+		/* 
+		 * Constructs a new conditional edit stage on top of the specified
+		 * edit stage.
+		 */
+		cond_edit_stage (edit_stage& es, block_test_func test_fn, void *ctx);
+		
+		
+		/* 
+		 * Block modification \ retrieval:
+		 */
+		virtual void set (int x, int y, int z, unsigned short id, unsigned char meta = 0, unsigned char ex = 0) override;
+		virtual blocki get (int x, int y, int z) override;
+		virtual void reset (int x, int y, int z) override;
+		
+		virtual int mod_count_at (int cx, int cz) override;
+		
+		
+		/* 
+		 * Sends all modified blocks to the specified player(s).
+		 */
+		virtual void preview (std::vector<player *>& players, bool update_sbs = true) override;
+		
+		/* 
+		 * Same as preview (), but only sends a single chunk.
+		 */
+		virtual void preview_chunk (std::vector<player *>& players, int cx, int cz, bool update_sbs = true) override;
+		
+		/* 
+		 * Restores back all block modifications sent by preview().
+		 */
+		virtual void restore (std::vector<player *>& players, bool update_sbs = true) override;
+		
+		
+		/* 
+		 * Commits all block modifications to the underlying world.
+		 * The edit stage is then cleared.
+		 */
+		virtual void commit (bool physics = true) override;
+		
+		/* 
+		 * Does not notify players, nor does this activate physics blocks.
+		 */
+		virtual void commit_chunk (chunk *ch, int cx, int cz) override;
+		
+		
+		/* 
+		 * Clears the edit stage.
+		 */
+		virtual void clear () override;
+	};
+
 }
 
 #endif

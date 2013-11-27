@@ -33,6 +33,7 @@
 #include "world/generation/islands.hpp"
 #include "world/generation/empty.hpp"
 #include "world/generation/sandbox.hpp"
+#include "world/generation/super_overhang.hpp"
 
 
 namespace hCraft {
@@ -90,6 +91,10 @@ namespace hCraft {
 	create_sandbox (long seed)
 		{ return new sandbox_world_generator (seed); }
 	
+	static world_generator*
+	create_super_overhang (long seed)
+		{ return new super_overhang_world_generator (seed); }
+	
 	
 	/* 
 	 * Finds and instantiates a new world generator from the given name.
@@ -106,6 +111,7 @@ namespace hCraft {
 				{ "islands", create_islands },
 				{ "empty", create_empty },
 				{ "sandbox", create_sandbox },
+				{ "super-overhang", create_super_overhang },
 			};
 		
 		auto itr = generators.find (name);

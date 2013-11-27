@@ -183,7 +183,7 @@ namespace hCraft {
 		/* 
 		 * Returns the name of this world provider.
 		 */
-		virtual const char* name ()
+		virtual const char* name () override
 			{ return "hw"; }
 		
 		
@@ -193,55 +193,67 @@ namespace hCraft {
 		 * By using open () and close (), multiple chunks can be read\written
 		 * without reopening the world file everytime.
 		 */
-		virtual void open (world &wr);
+		virtual void open (world &wr) override;
 		
 		/* 
 		 * Closes the underlying file stream.
 		 */
-		virtual void close ();
+		virtual void close () override;
 		
 		
 		
 		/* 
 		 * Saves only the specified chunk.
 		 */
-		virtual void save (world& wr, chunk *ch, int x, int z);
+		virtual void save (world& wr, chunk *ch, int x, int z) override;
 		
 		/* 
 		 * Saves the specified world without writing out any chunks.
 		 * NOTE: If a world file already exists at the destination path, an empty
 		 *       template will NOT be written out.
 		 */
-		virtual void save_empty (world &wr);
+		virtual void save_empty (world &wr) override;
 		
 		/* 
 		 * Updates world information for a given world. 
 		 */
-		virtual void save_info (world &w, const world_information &info);
+		virtual void save_info (world &w, const world_information &info) override;
 		
 		
 		
 		/* 
 		 * Saves the specified list of portals to disk.
 		 */
-		virtual void save_portals (world &wr, const std::vector<portal *>& portals);
+		virtual void save_portals (world &wr, const std::vector<portal *>& portals) override;
 		
 		/* 
 		 * Loads the portal list from disk into the given vector.
 		 */
-		virtual void load_portals (world &wr, std::vector<portal *>& portals);
+		virtual void load_portals (world &wr, std::vector<portal *>& portals) override;
+		
+		
+		
+		/* 
+		 * Saves the specified list of zones to disk.
+		 */
+		virtual void save_zones (world &wr,  const std::vector<zone *>& zones) override;
+		
+		/* 
+		 * Loads the zone list from disk into the given vector.
+		 */
+		virtual void load_zones (world &wr, std::vector<zone *>& zones) override;
 		
 		
 		
 		/* 
 		 * Updates\saves owner\member list, build\join permissions, etc...
 		 */
-		virtual void save_security (world &w, const world_security& sec);
+		virtual void save_security (world &w, const world_security& sec) override;
 		
 		/* 
 		 * Loads world security information.
 		 */
-		virtual void load_security (world &w, world_security& sec);
+		virtual void load_security (world &w, world_security& sec) override;
 		
 		
 		
@@ -249,19 +261,19 @@ namespace hCraft {
 		 * Opens the file located at path @{path} and performs a check to see if it
 		 * is of the same format created by this exporter.
 		 */
-		virtual bool claims (const char *path);
+		virtual bool claims (const char *path) override;
 		
 		/* 
 		 * Attempts to load the chunk located at the specified coordinates into
 		 * @{ch}. Returns true on success, and false if the chunk is not present
 		 * within the world file.
 		 */
-		virtual bool load (world &wr, chunk *ch, int x, int z);
+		virtual bool load (world &wr, chunk *ch, int x, int z) override;
 		
 		/* 
 		 * Loads world information into the specified structure.
 		 */
-		virtual const world_information& info ()
+		virtual const world_information& info () override
 			{ return this->inf; }
 		
 		

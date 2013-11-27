@@ -92,6 +92,65 @@ namespace hCraft {
 		
 		
 		
+		inline void
+		write_short (unsigned char *data, unsigned short num)
+		{
+			data[0] = num & 0xFF;
+			data[1] = (num >> 8) & 0xFF;
+		}
+		
+		inline void
+		write_int (unsigned char *data, unsigned int num)
+		{
+			data[0] = num & 0xFF;
+			data[1] = (num >> 8) & 0xFF;
+			data[2] = (num >> 16) & 0xFF;
+			data[3] = (num >> 24) & 0xFF;
+		}
+		
+		inline void
+		write_long (unsigned char *data, unsigned long long num)
+		{
+			data[0] = num & 0xFF;
+			data[1] = (num >> 8) & 0xFF;
+			data[2] = (num >> 16) & 0xFF;
+			data[3] = (num >> 24) & 0xFF;
+			data[4] = (num >> 32) & 0xFF;
+			data[5] = (num >> 40) & 0xFF;
+			data[6] = (num >> 48) & 0xFF;
+			data[7] = (num >> 56) & 0xFF;
+		}
+		
+		inline void
+		write_double (unsigned char *data, double num)
+			{ write_long (data, *((long long *)&num)); }
+		
+		
+		inline unsigned int
+		read_int (const unsigned char *data)
+		{
+			return (unsigned int)(data[0])
+				| ((unsigned int)(data[1]) << 8)
+				| ((unsigned int)(data[2]) << 16)
+				| ((unsigned int)(data[3]) << 24);
+		}
+		
+		static double
+		read_double (const unsigned char *data)
+		{
+			unsigned long long v = ((unsigned long long)(data[0])
+				| ((unsigned long long)(data[1]) << 8)
+				| ((unsigned long long)(data[2]) << 16)
+				| ((unsigned long long)(data[3]) << 24)
+				| ((unsigned long long)(data[4]) << 32)
+				| ((unsigned long long)(data[5]) << 40)
+				| ((unsigned long long)(data[6]) << 48)
+				| ((unsigned long long)(data[7]) << 56));
+			return *((double *)&v);
+		}
+		
+		
+		
 	//----
 		
 		/* 

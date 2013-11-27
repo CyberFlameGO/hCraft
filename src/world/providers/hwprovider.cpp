@@ -20,6 +20,8 @@
 #include "world/world_security.hpp"
 #include "world/world.hpp"
 #include "world/chunk.hpp"
+#include "world/zone.hpp"
+#include "drawing/selection/world_selection.hpp"
 #include "util/position.hpp"
 #include <iostream>
 #include <fstream>
@@ -1863,6 +1865,138 @@ namespace hCraft {
 		delete[] data;
 	}
 	
+	
+	
+//----
+	
+	/* 
+	 * Saves the specified list of zones to disk.
+	 */
+	void
+	hw_provider::save_zones (world &wr,  const std::vector<zone *>& zones)
+	{
+		unsigned int data_size = 4; // zone count
+		for (zone *zn : zones)
+			{
+				data_size += 2 + zn->get_name ().length ();
+				data_size += 4 + zn->get_selection ()->serialized_size (); // selection
+				
+				//data_size += 4; // creator pid
+				//data_size += 8; // creation time
+				
+				data_size += 2 + zn->get_security ().get_build_perms ().length ();
+				data_size += 2 + zn->get_security ().get_enter_perms ().length ();
+				data_size += 2 + zn->get_security ().get_leave_perms ().length ();
+				
+				data_size += 4 + 4 * zn->get_security ().get_owners ().size (); // owners
+				data_size += 4 + 4 * zn->get_security ().get_members ().size (); // members
+				
+				data_size += 2 + zn->get_enter_msg ().length ();
+				data_size += 2 + zn->get_leave_msg ().length ();
+			}
+		
+		unsigned int n = 0;
+		unsigned char *data = new unsigned char[data_size];
+		
+		n += _write_int (data + n, zones.size ());
+		for (zone *zn : zones)
+			{
+				n += _write_string (data + n, zn->get_name ());
+				
+				n += _write_int (data + n, zn->get_selection ()->serialized_size ());
+				n += zn->get_selection ()->serialize (data + n);
+				
+				n += _write_string (data + n, zn->get_security ().get_build_perms ());
+				n += _write_string (data + n, zn->get_security ().get_enter_perms ());
+				n += _write_string (data + n, zn->get_security ().get_leave_perms ());
+				
+				// owners
+				{
+					auto& owners = zn->get_security ().get_owners ();
+					n += _write_int (data + n, owners.size ());
+					for (int pid : owners)
+						n += _write_int (data + n, pid);
+				}
+				
+				// members
+				{
+					auto& members = zn->get_security ().get_members ();
+					n += _write_int (data + n, members.size ());
+					for (int pid : members)
+						n += _write_int (data + n, pid);
+				}
+				
+				n += _write_string (data + n, zn->get_enter_msg ());
+				n += _write_string (data + n, zn->get_leave_msg ());
+			}
+		
+		this->write_layer ("zones", data, data_size);
+		delete[] data;
+	}
+	
+	/* 
+	 * Loads the zone list from disk into the given vector.
+	 */
+	void
+	hw_provider::load_zones (world &wr, std::vector<zone *>& zones)
+	{
+		unsigned int data_size = 0;
+		unsigned char *data = this->read_layer ("zones", data_size);
+		if (!data || data_size == 0)
+			return;
+		
+		unsigned int n = 0;
+		unsigned int zone_count = _read_int (data + n, n);
+		for (unsigned int i = 0; i < zone_count; ++i)
+			{
+				std::string name = _read_string (data + n, n);
+				
+				// recover selection
+				unsigned int ser_len = _read_int (data + n, n);
+				world_selection *sel = world_selection::deserialize (data + n, ser_len);
+				n += ser_len;
+				
+				std::string ps_build, ps_enter, ps_leave;
+				ps_build = _read_string (data + n, n);
+				ps_enter = _read_string (data + n, n);
+				ps_leave = _read_string (data + n, n);
+				
+				std::vector<int> owners, members;
+				{
+					int count = _read_int (data + n, n);
+					for (int i = 0; i < count; ++i)
+						owners.push_back (_read_int (data + n, n));
+				}
+				{
+					int count = _read_int (data + n, n);
+					for (int i = 0; i < count; ++i)
+						members.push_back (_read_int (data + n, n));
+				}
+				
+				std::string enter_msg, leave_msg;
+				enter_msg = _read_string (data + n, n);
+				leave_msg = _read_string (data + n, n);
+				
+				if (sel)
+					{
+						zone *zn = new zone (name, sel);
+						zn->get_security ().set_build_perms (ps_build);
+						zn->get_security ().set_enter_perms (ps_enter);
+						zn->get_security ().set_leave_perms (ps_leave);
+						zn->set_enter_msg (enter_msg);
+						zn->set_leave_msg (leave_msg);
+						
+						for (int pid : owners)
+							zn->get_security ().add_owner (pid);
+						for (int pid : members)
+							zn->get_security ().add_member (pid);
+						
+						zones.push_back (zn);
+					}
+			}
+		
+		delete[] data;	
+	}
 	
 	
 //-----

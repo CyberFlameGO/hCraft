@@ -262,5 +262,39 @@ namespace hCraft {
 				default: return;
 			}
 	}
+	
+	
+	
+//----
+	
+	/* 
+	 * Serializes the selection into the specified byte array.
+	 * Returns the number of bytes emitted.
+	 */
+	int
+	cuboid_selection::serialize (unsigned char *out)
+	{
+		out[0] = (int)ST_CUBOID; // type
+		
+		utils::write_int (out + 1, this->p1.x);
+		out[5] = this->p1.y;
+		utils::write_int (out + 6, this->p1.z);
+		
+		utils::write_int (out + 10, this->p2.x);
+		out[14] = this->p2.y;
+		utils::write_int (out + 15, this->p2.z);
+		
+		return 1 + 9 * 2;
+	}
+	
+	/* 
+	 * Returns the number of bytes needed to store this selection's serialized
+	 * form.
+	 */
+	unsigned int
+	cuboid_selection::serialized_size ()
+	{
+		return 1 + 9 * 2; // type + three control points.
+	}
 }
 

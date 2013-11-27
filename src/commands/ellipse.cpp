@@ -58,8 +58,14 @@ namespace hCraft {
 			double b = (data->b == -1) ?
 				(vector3 (marked[2]) - vector3 (marked[0])).magnitude () : data->b;
 			
+			dense_edit_stage des (pl->get_world ());
+			cond_edit_stage es {des,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			int blocks;
-			dense_edit_stage es (pl->get_world ());
 			draw_ops draw (es);
 			if (data->fill)
 				blocks = draw.filled_ellipse (marked[0], a, b, data->bl, data->pn, pl->get_rank ().fill_limit ());
@@ -76,6 +82,14 @@ namespace hCraft {
 			std::ostringstream ss;
 			ss << "§7 | Ellipse complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
+			
+			int fb = es.failed_blocks ();
+			if (fb > 0)
+				{
+					ss.str (std::string ());
+					ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+					pl->message (ss.str ());
+				}
 			
 			pl->delete_data ("ellipse");
 			return true;

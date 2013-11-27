@@ -53,7 +53,7 @@ namespace hCraft {
 		
 		
 		static void
-		_print_names_from_pids (player *pl, const std::vector<int>& pids)
+		_print_names_from_pids (player *pl, const std::set<int>& pids)
 		{
 			std::ostringstream ss;
 			

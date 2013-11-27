@@ -24,6 +24,8 @@ The _currently_ implemented features are:
 *  Authentication and encryption are supported.
 *  Worlds can be loaded from/saved to an experimental world format (*HWv1*) -
    a compact single-file world container.
+*  Zones - separate build\enterance\leave permissions, enter and leave messages
+*  can be set for any zone in a world.
 *  Players can easily switch between worlds using the /w command (Multiworld!).
 *  A permissions-like rank system.
 *  Custom physics (still very experimental)! The current implementation can handle

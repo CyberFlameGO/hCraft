@@ -24,6 +24,9 @@
 
 
 namespace hCraft {
+
+	class slot_item;	
+	
 	
 	/* 
 	 * String-related utility and helper functions.
@@ -68,6 +71,13 @@ namespace hCraft {
 		
 		bool is_block (const std::string& str);
 		blocki to_block (const std::string& str);
+		
+		/* 
+		 * Returns the specified item's name with its damage/meta value appended
+		 * (unless it's 0).
+		 */
+		std::string get_slot_name (const slot_item& sl);
+		std::string get_slot_name (blocki bl);
 		
 		
 		

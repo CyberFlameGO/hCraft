@@ -1596,6 +1596,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "warnlog");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "worlds");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "top");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "zone");
 	}
 	
 	void
@@ -1695,6 +1696,7 @@ namespace hCraft {
 		grp_moderator->add ("command.admin.mute");
 		grp_moderator->add ("command.admin.unmute");
 		grp_moderator->add ("command.admin.warn");
+		grp_moderator->add ("command.world.zone");
 		grp_moderator->add ("command.info.whodid");
 		grp_spectator->add ("command.admin.warnlog.others");
 		grp_moderator->msuffix = "§f:";

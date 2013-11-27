@@ -63,7 +63,13 @@ namespace hCraft {
 					return true;
 				}
 			
-			sparse_edit_stage& es = data->es;
+			sparse_edit_stage& ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			if (es.get_world () != pl->get_world ())
 				{
 					pl->es_remove (&data->es);
@@ -75,6 +81,12 @@ namespace hCraft {
 			int blocks;
 			if (data->cont)
 				{
+					if (!data->es.get_world ()->can_build_at (marked[0].x, marked[0].y, marked[0].z, pl))
+						{
+							pl->message ("§4 * §cCannot mark that block§4.");
+							return false;
+						}
+					
 					std::vector<vector3>& points = data->points;
 					points.push_back (marked[0]);
 					if (points.size () > 1)
@@ -108,6 +120,16 @@ namespace hCraft {
 						}
 					
 					es.preview_to (pl);
+					
+					{
+						std::ostringstream ss;
+						int fb = es.failed_blocks ();
+						if (fb > 0)
+							{
+								ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+								pl->message (ss.str ());
+							}
+					}
 					return false;
 				}
 			
@@ -122,6 +144,16 @@ namespace hCraft {
 			es.commit ();
 			
 			std::ostringstream ss;
+			{
+				int fb = es.failed_blocks ();
+				if (fb > 0)
+					{
+						ss << "§7 | " << fb << " §czoned block" << ((fb == 1) ? "" : "s") << " could not be replaced.";
+						pl->message (ss.str ());
+						ss.str (std::string ());
+					}
+			}
+			
 			ss << "§7 | Line complete §f- §b" << blocks << " §7blocks modified";
 			pl->message (ss.str ());
 			
@@ -157,7 +189,13 @@ namespace hCraft {
 					return;
 				}
 			
-			sparse_edit_stage& es = data->es;
+			sparse_edit_stage& ses = data->es;
+			cond_edit_stage es {ses,
+				[] (world *w, int x, int y, int z, void *ctx) -> bool
+					{
+						return w->can_build_at (x, y, z, static_cast<player *> (ctx));
+					}, pl};
+			
 			std::vector<vector3>& points = data->points;
 			if (points.empty ())
 				{
