@@ -96,7 +96,7 @@ endif()
 
 if(MISSING_LIB_OVERRIDE)
   message(STATUS "MISSING LIBRARY OVERRIDE IS ENABLED PLEASE MAKE SURE MISSING LIBRARIES ARE LOCATED MANUALY")
-  message(STATIS "This warning is also enabled because of issues with CryptoPPfind.cmake"
+  message(STATUS "This warning is also enabled because of issues with CryptoPPfind.cmake")
 else()
   if(MISSING_LIB)
     message(FATAL_ERROR "There are libraries required for hCraft missing or not found on your system EXITING")
