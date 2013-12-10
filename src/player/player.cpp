@@ -265,7 +265,7 @@ namespace hCraft {
 					{
 						pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
 					}
-				*/
+				//*/
 				
 				if (pl->encrypted)
 					{
@@ -501,13 +501,18 @@ namespace hCraft {
 		else
 			std::strcpy (this->kick_msg, msg);
 		
+		json::object js;
+		js.insert_string ("text", msg);
+		std::ostringstream ss;
+		js.write (ss);
+		
 		this->kicked = true;
 		if (sanitize)
 			{
 				if (this->pstate == PS_PLAY)
-					this->send (packets::play::make_disconnect (msg));
+					this->send (packets::play::make_disconnect (ss.str ().c_str ()));
 				else if (this->pstate == PS_LOGIN)
-					this->send (packets::login::make_disconnect (msg));
+					this->send (packets::login::make_disconnect (ss.str ().c_str ()));
 			}
 	}
 	
@@ -1905,7 +1910,7 @@ namespace hCraft {
 	void
 	player::save_data ()
 	{
-		if (this->pstate != PS_PLAY)
+		if (this->pstate != PS_PLAY || !this->logged_in)
 			return;
 		
 		{
@@ -4496,8 +4501,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		std::cout << "[" << index << "] Implemented: " << item.implemented () << std::endl;
-		if (!item.implemented ())
+		if (!item.implemented () && (short)item.id () != -1)
 			pl->inv.set (index, {BT_AIR}, true);
 		else
 			pl->inv.set (index, item, false);
