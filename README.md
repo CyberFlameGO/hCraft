@@ -61,7 +61,6 @@ directory.
 
 
 ### Dependencies
-*  [PThreads]
 *  [libevent](http://libevent.org/)
 *  [MySQL](http://www.mysql.com/)
 *  [SOCI](http://www.soci.sourceforge.net/)
