@@ -1,6 +1,6 @@
-# 
+#
 # hCraft's CMakeLists file.
-# 
+#
 
 cmake_minimum_required(VERSION 2.8)
 project(hCraft)
@@ -11,7 +11,7 @@ file(GLOB_RECURSE hCraft_HEADERS ${CMAKE_SOURCE_DIR}/include/*.hpp)
 add_subdirectory(cmake)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
-
+set(LIB_SUFFIX "64")
 include_directories(src/ include/)
 add_executable(hCraft ${hCraft_SOURCES} ${hCraft_HEADERS})
 
@@ -20,7 +20,7 @@ add_executable(hCraft ${hCraft_SOURCES} ${hCraft_HEADERS})
 #
 
 set(MISSING_LIB 0)
-set(MISSING_LIB_OVERRIDE 1)
+set(MISSING_LIB_OVERRIDE 0)
 
 find_package(Pthread)
 if(${PTHREAD_FOUND})
@@ -71,7 +71,7 @@ else()
 endif()
 
 find_package(Soci)
-if(${SOCI_LIBRARY})
+if(${SOCI_FOUND})
   target_link_libraries(hCraft ${SOCI_LIBRARY} ${SOCI_mysql_PLUGIN})
 else()
   message(WARNING "SOCI NOT FOUND")
@@ -110,12 +110,11 @@ endif(MISSING_LIB_OVERRIDE)
 #HACKS
 
 #CryptoPP Find package is broken doesn't find correct LIB paths on Arch
-set(CRYPTOPP_LIB_HACK /usr/lib/libcryptopp.so)
+#set(CRYPTOPP_LIB_HACK /usr/lib/libcryptopp.so)
 
 #Another hack to also link aginst libevent_pthreads to resolve evthread_use_pthreads undefined
 set(pthreadEVENT_LIB /usr/lib/libevent_pthreads-2.0.so.5)
-
-target_link_libraries(hCraft ${CRYPTOPP_LIB_HACK} ${pthreadEVENT_LIB})
+target_link_libraries(hCraft ${pthreadEVENT_LIB})
 
 #HACKS_END
 
