@@ -46,6 +46,12 @@ The _currently_ implemented features are:
 Building
 --------
 
+### NEW BUILDING NOTE
+
+hCraft now uses CMake to automaticly configure all the paths and dependencies it is
+no longer required to edit the build files, just follow the above directions.
+
+
 To build hCraft, you will need a C++11-compatible compiler and a working copy
 of [CMake](http://www.cmake.org/). Change to the directory that contains
 hCraft, and invoke (on Linux) `cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release`

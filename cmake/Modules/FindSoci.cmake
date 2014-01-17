@@ -26,12 +26,14 @@
 #
 ### Global Configuration Section
 #
+
 SET(_SOCI_ALL_PLUGINS    mysql odbc postgresql sqlite3)
 SET(_SOCI_REQUIRED_VARS  SOCI_INCLUDE_DIR SOCI_LIBRARY)
 
 #
 ### FIRST STEP: Find the soci headers.
 #
+
 FIND_PATH(
     SOCI_INCLUDE_DIR soci.h
     PATH "/usr/local"
@@ -44,9 +46,10 @@ SET(SOCI_INCLUDE_DIRS ${SOCI_INCLUDE_DIR})
 #
 ### SECOND STEP: Find the soci core library. Respect LIB_SUFFIX
 #
+
 FIND_LIBRARY(
     SOCI_LIBRARY
-    NAMES soci_core
+    NAMES soci_core libsoci_core
     HINTS ${SOCI_INCLUDE_DIR}/..
     PATH_SUFFIXES lib${LIB_SUFFIX})
 MARK_AS_ADVANCED(SOCI_LIBRARY)
@@ -57,14 +60,15 @@ MARK_AS_ADVANCED(SOCI_LIBRARY_DIR)
 #
 ### THIRD STEP: Find all installed plugins if the library was found
 #
-IF(SOCI_INCLUDE_DIR AND SOCI_LIBRARY)
 
+IF(SOCI_INCLUDE_DIR AND SOCI_LIBRARY)
+    SET(SOCI_FOUND True)
     MESSAGE(STATUS "Soci found: Looking for plugins")
     FOREACH(plugin IN LISTS _SOCI_ALL_PLUGINS)
 
         FIND_LIBRARY(
             SOCI_${plugin}_PLUGIN
-            NAMES soci_${plugin}
+            NAMES soci_${plugin} libsoci_${plugin}
             HINTS ${SOCI_INCLUDE_DIR}/..
             PATH_SUFFIXES lib${LIB_SUFFIX})
         MARK_AS_ADVANCED(SOCI_${plugin}_PLUGIN)
@@ -82,6 +86,7 @@ IF(SOCI_INCLUDE_DIR AND SOCI_LIBRARY)
     #
     ### FOURTH CHECK: Check if the required components were all found
     #
+
     FOREACH(component ${Soci_FIND_COMPONENTS})
         IF(${SOCI_${component}_FOUND})
             # Does not work with NOT ... . No idea why.
@@ -95,5 +100,6 @@ ENDIF()
 #
 ### ADHERE TO STANDARDS
 #
+
 include(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Soci DEFAULT_MSG ${_SOCI_REQUIRED_VARS})
