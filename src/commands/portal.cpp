@@ -106,7 +106,7 @@ namespace hCraft {
 					return;
 				}
 			
-			std::string& target_block_str = reader.next ().as_str ();
+			std::string target_block_str = reader.next ().as_str ();
 			if (sutils::iequals (target_block_str, "exit"))
 				{
 					_finish_portal (pl);
@@ -142,7 +142,7 @@ namespace hCraft {
 			blocki replace_block = target_block;
 			if (reader.has_next ())
 				{
-					std::string& replace_block_str = reader.next ().as_str ();
+					std::string replace_block_str = reader.next ().as_str ();
 					if (!(replace_block = sutils::to_block (replace_block_str)).valid ())
 						{
 							pl->message ("§c * §7Invalid block§f: §c" + replace_block_str);

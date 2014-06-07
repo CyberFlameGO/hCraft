@@ -57,7 +57,7 @@ namespace hCraft {
 			else if (reader.arg_count () > 1)
 				{ this->show_summary (pl); return; }
 			
-			std::string& world_name = reader.arg (0);
+			std::string world_name = reader.arg (0);
 			world *wr = pl->get_server ().get_worlds ().find (world_name.c_str ());
 			if (!wr)
 				{

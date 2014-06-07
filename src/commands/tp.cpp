@@ -60,7 +60,7 @@ namespace hCraft {
 					 *   /tp <player>
 					 */
 					
-					const std::string& target_name = reader.arg (0);
+					const std::string target_name = reader.arg (0);
 					player *target = pl->get_server ().get_players ().find (
 						target_name.c_str ());
 					if (!target)
@@ -114,7 +114,7 @@ namespace hCraft {
 						}
 					
 					// src
-					const std::string& src_name = reader.arg (0);
+					const std::string src_name = reader.arg (0);
 					player *src = pl->get_server ().get_players ().find (src_name.c_str ());
 					if (!src)
 						{
@@ -123,7 +123,7 @@ namespace hCraft {
 						}
 					
 					// dest
-					const std::string& dest_name = reader.arg (1);
+					const std::string dest_name = reader.arg (1);
 					player *dest = pl->get_server ().get_players ().find (dest_name.c_str ());
 					if (!dest)
 						{

@@ -1150,7 +1150,7 @@ namespace hCraft {
 			auto opt_w = reader.opt ("world");
 			if (opt_w->found ())
 				{
-					const std::string& w_name = opt_w->arg (0).as_str ();
+					const std::string w_name = opt_w->arg (0).as_str ();
 					w = pl->get_server ().get_worlds ().find (w_name.c_str ());
 					if (!w)
 						{

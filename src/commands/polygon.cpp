@@ -297,7 +297,7 @@ namespace hCraft {
 				}
 			
 			
-			std::string& str = reader.next ().as_str ();
+			std::string str = reader.next ().as_str ();
 			if (sutils::iequals (str, "stop"))
 				{
 					draw_polygon (pl);

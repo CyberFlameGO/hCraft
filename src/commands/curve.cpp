@@ -172,7 +172,7 @@ namespace hCraft {
 			if (reader.no_args () || reader.arg_count () > 1)
 				{ this->show_summary (pl); return; }
 			
-			std::string& str = reader.next ().as_str ();
+			std::string str = reader.next ().as_str ();
 			if (sutils::iequals (str, "stop"))
 				{
 					draw_curve (pl);

@@ -46,7 +46,7 @@ namespace hCraft {
 			if (reader.no_args ())
 				{ this->show_summary (pl); return; }
 			
-			std::string& target_name = reader.next ().as_str ();
+			std::string target_name = reader.next ().as_str ();
 			std::string  reason = reader.has_next () ? reader.all_after (0)
 				: "No reason specified";
 			std::string  kick_msg = "§c";

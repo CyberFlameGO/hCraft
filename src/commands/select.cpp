@@ -44,7 +44,7 @@ namespace hCraft {
 				}
 			
 			block_pos curr_pos = pl->pos;
-			std::string& narg = reader.next ().as_str ();
+			std::string narg = reader.next ().as_str ();
 			std::string sel_type;
 			std::string name;
 			
@@ -368,7 +368,7 @@ namespace hCraft {
 				R_EXCLUDE,
 			} state = R_INCLUDE;
 			
-			std::string& n = reader.peek_next ();
+			std::string n = reader.peek_next ();
 			if (sutils::iequals (n, "but") || sutils::iequals (n, "except"))
 				{
 					state = R_EXCLUDE;

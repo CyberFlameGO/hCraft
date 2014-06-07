@@ -122,7 +122,7 @@ namespace hCraft {
 			if (reader.no_args () || reader.no_args ())
 				{ this->show_summary (pl); return; }
 			
-			std::string& opt = reader.next ();
+			std::string opt = reader.next ();
 			static std::unordered_map<cistring, void (*)(player *, command_reader &)>
 				funs {
 						{ "on", handle_on },

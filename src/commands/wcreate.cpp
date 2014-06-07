@@ -132,7 +132,7 @@ namespace hCraft {
 			 */
 			
 			// world name
-			std::string& world_name = reader.arg (0);
+			std::string world_name = reader.arg (0);
 			if (!world::is_valid_name (world_name.c_str ()))
 				{
 					pl->message ("§c * §7World names must be under §a32 §7characters long and "

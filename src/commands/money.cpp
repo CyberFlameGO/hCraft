@@ -265,7 +265,7 @@ namespace hCraft {
 				}
 			else
 				{
-					std::string& a = reader.next ();
+					std::string a = reader.next ();
 					if (sutils::iequals (a, "pay"))
 						{
 							do_pay (pl, reader);

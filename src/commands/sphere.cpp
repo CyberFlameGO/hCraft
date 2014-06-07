@@ -113,7 +113,7 @@ namespace hCraft {
 			
 			bool do_fill = reader.opt ("fill")->found ();
 			
-			std::string& str = reader.next ().as_str ();
+			std::string str = reader.next ().as_str ();
 			if (!sutils::is_block (str))
 				{
 					pl->message ("§c * §7Invalid block§f: §c" + str);

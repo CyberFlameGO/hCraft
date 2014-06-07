@@ -72,7 +72,7 @@ namespace hCraft {
 			world_selection *sel = pl->curr_sel;
 			world *w = pl->get_world ();
 			
-			std::string& tstr = reader.arg (0);
+			std::string tstr = reader.arg (0);
 			int ex = _extra_from_string (tstr);
 			if (ex == -1)
 				{

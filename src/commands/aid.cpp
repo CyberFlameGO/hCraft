@@ -49,7 +49,7 @@ namespace hCraft {
 			blocki bl = {BT_WOOL, 4};
 			if (reader.has_next ())
 				{
-					std::string& str = reader.next ().as_str ();
+					std::string str = reader.next ().as_str ();
 					if (sutils::iequals (str, "mark") || sutils::iequals (str, "m"))
 						{
 							block_pos pos = pl->pos;

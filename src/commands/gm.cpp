@@ -49,7 +49,7 @@ namespace hCraft {
 			player *target = pl;
 			if (reader.arg_count () == 2)
 				{
-					std::string& plname = reader.next ().as_str ();
+					std::string plname = reader.next ().as_str ();
 					target = pl->get_server ().get_players ().find (plname.c_str ());
 					if (!target)
 						{
@@ -58,7 +58,7 @@ namespace hCraft {
 						}
 				}
 			
-			std::string& gmstr = reader.next ().as_str ();
+			std::string gmstr = reader.next ().as_str ();
 			gamemode_type gm   = GT_SURVIVAL;
 			if (gmstr.size () == 1)
 				{

@@ -248,7 +248,7 @@ namespace hCraft {
 			
 			bool do_cont = reader.opt ("cont")->found ();
 			
-			std::string& str = reader.next ().as_str ();
+			std::string str = reader.next ().as_str ();
 			if (sutils::iequals (str, "stop"))
 				{
 					draw_line (pl);
