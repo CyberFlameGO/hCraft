@@ -19,10 +19,30 @@
 #include "entities/entity.hpp"
 #include "player/player.hpp"
 #include "system/server.hpp"
+#include "util/utils.hpp"
+#include "slot/blocks.hpp"
 #include <cstring>
+
+#include <iostream> // DEBUG
 
 
 namespace hCraft {
+
+  bool
+  bounding_box::intersects (const bounding_box& other)
+  {
+    if ((this->max.x >= other.min.x) && (this->min.x <= other.max.x))
+      {
+        if ((this->max.y < other.min.y) || (this->min.y > other.max.y))
+          return false;
+        
+        return (this->max.z >= other.min.z) && (this->min.z <= other.max.z); 
+      }
+    
+    return false;
+  }
+
+
 	
 	/* 
 	 * Constructs a new metadata record.
@@ -127,6 +147,8 @@ namespace hCraft {
 		this->riding = false;
 		this->sprinting = false;
 		this->right_action = false;
+		
+		this->bbox = bounding_box { vector3 (-0.5, -0.5, -0.5), vector3 (0.5, 0.5, 0.5) };
 	}
 	
 	/* 
@@ -134,7 +156,23 @@ namespace hCraft {
 	 */
 	entity::~entity ()
 	{
+		this->curr_world = nullptr;
+	}
+	
+	
+	
+	/* 
+	 * Returns true if this entity can be seen by the specified one.
+	 */
+	bool
+	entity::visible_to (entity *ent)
+	{
+	  chunk_pos me_pos = this->pos;
+		chunk_pos ot_pos = ent->pos;
 		
+		return (
+			(utils::iabs (me_pos.x - ot_pos.x) <= player::chunk_radius ()) &&
+			(utils::iabs (me_pos.z - ot_pos.z) <= player::chunk_radius ()));
 	}
 	
 	
@@ -166,13 +204,312 @@ namespace hCraft {
 	entity::despawn_from (player *pl)
 	{
 		if (this->get_type () == ET_PLAYER)
-			if (dynamic_cast<player *> (this) == pl)
+			if (static_cast<player *> (this) == pl)
 				return false;
 		
 		pl->send (packets::play::make_destroy_entity (this->eid));
 		return true;
 	}
 	
+	
+	
+	static void
+	_coll_x (entity& ent)
+	{
+	  if (ent.velocity.x == 0.0)
+	    return;
+	  
+	  world *wr = ent.get_world ();
+	  if (!wr)
+	    return;
+	  
+	  block_pos bpos = ent.pos;
+	  if (wr->get_id (bpos.x, bpos.y, bpos.z) != BT_AIR)
+	    return;
+	  
+	  double sx = ent.pos.x - 0.5*ent.get_width ();
+	  double ex = sx + ent.get_width ();
+	  double sy = ent.pos.y;
+	  double ey = sy + 1.0;
+	  double sz = ent.pos.z - 0.5*ent.get_depth ();
+	  double ez = sz + ent.get_depth ();
+	   
+	  if (ent.velocity.x < 0.0)
+	    sx += ent.velocity.x;
+	  else
+	    ex += ent.velocity.x;
+	  
+	  int cp;
+	  bool found = false;
+	  for (double x = sx; x <= ex; x += 1.0)
+	    for (double y = sy; y <= ey; y += 1.0)
+	      for (double z = sz; z <= ez; z += 1.0)
+	        {
+	          block_info *binf = block_info::from_id (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z)));
+	          if (binf && binf->opaque)
+	            {
+	              if (ent.velocity.x > 0.0)
+	                {
+	                  if (wr->get_id (utils::floor (x) - 1, utils::floor (y), utils::floor (z)) != BT_AIR)
+	                    continue;
+	                }
+	              else
+	                {
+	                  if (wr->get_id (utils::floor (x) + 1, utils::floor (y), utils::floor (z)) != BT_AIR)
+	                    continue;
+	                }
+	              
+	              // found collision
+	              wr->queue_update (utils::floor (x), utils::floor (y), utils::floor (z), BT_GLASS);
+	              if (!found)
+	                {
+	                  cp = x;
+	                  found = true;
+	                }
+	              else
+	                {
+	                  if (((ent.velocity.x > 0.0) && (x < cp)) ||
+	                      ((ent.velocity.x < 0.0) && (x > cp)))
+	                      cp = x;
+	                }
+	            }
+	        }
+	  
+	  if (found)
+	    {
+	      double v = ent.velocity.x;
+	      ent.velocity.x = 0.0;
+	      
+	      ent.pos.x = cp;
+	      if (v > 0.0)
+	        ent.pos.x -= ent.get_width ()*0.51;
+	      else
+	        ent.pos.x += 1.0 + ent.get_width ()*0.51;
+      }
+	}
+	
+	static void
+	_coll_z (entity& ent)
+	{
+	  if (ent.velocity.z == 0.0)
+	    return;
+	  
+	  world *wr = ent.get_world ();
+	  if (!wr)
+	    return;
+	  
+	  block_pos bpos = ent.pos;
+	  if (wr->get_id (bpos.x, bpos.y, bpos.z) != BT_AIR)
+	    return;
+	  
+	  double sx = ent.pos.x - 0.5*ent.get_width ();
+	  double ex = sx + ent.get_width ();
+	  double sy = ent.pos.y;
+	  double ey = sy + 1.0;
+	  double sz = ent.pos.z - 0.5*ent.get_depth ();
+	  double ez = sz + ent.get_depth ();
+	   
+	  if (ent.velocity.z < 0.0)
+	    sz += ent.velocity.z;
+	  else
+	    ez += ent.velocity.z;
+	  
+	  int cp;
+	  bool found = false;
+	  for (double x = sx; x <= ex; x += 1.0)
+	    for (double y = sy; y <= ey; y += 1.0)
+	      for (double z = sz; z <= ez; z += 1.0)
+	        {
+	          block_info *binf = block_info::from_id (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z)));
+	          if (binf && binf->opaque)
+	            {
+	              if (ent.velocity.z > 0.0)
+	                {
+	                  if (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z) - 1) != BT_AIR)
+	                    continue;
+	                }
+	              else
+	                {
+	                  if (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z) + 1) != BT_AIR)
+	                    continue;
+	                }
+	              
+	              // found collision
+	              wr->queue_update (utils::floor (x), utils::floor (y), utils::floor (z), BT_GLASS);
+	              if (!found)
+	                {
+	                  cp = z;
+	                  found = true;
+	                }
+	              else
+	                {
+	                  if (((ent.velocity.z > 0.0) && (z < cp)) ||
+	                      ((ent.velocity.z < 0.0) && (z > cp)))
+	                      cp = z;
+	                }
+	            }
+	        }
+	  
+	  if (found)
+	    {
+	      double v = ent.velocity.z;
+	      ent.velocity.z = 0.0;
+	      
+	      ent.pos.z = cp;
+	      if (v > 0.0)
+	        ent.pos.z -= ent.get_depth ()*0.51;
+	      else
+	        ent.pos.z += 1.0 + ent.get_depth ()*0.51;
+	    }
+	}
+	
+	inline static double
+	_dist_squared (double x1, double y1, double x2, double y2)
+	{
+	  double d1 = x1 - x2;
+	  double d2 = y1 - y2;
+	  return d1*d1 + d2*d2;
+	}
+	
+	/*
+	static void
+	_coll_xz (entity& ent)
+	{
+	  if (ent.velocity.x == 0.0)
+	    return;
+	  
+	  world *wr = ent.get_world ();
+	  if (!wr)
+	    return;
+	  
+	  double sx = ent.pos.x - 0.5*ent.get_width ();
+	  double ex = sx + ent.get_width ();
+	  double sy = ent.pos.y;
+	  double ey = sy + 1.0;
+	  double sz = ent.pos.z - 0.5*ent.get_depth ();
+	  double ez = sz + ent.get_depth ();
+	   
+	  if (ent.velocity.x < 0.0)
+	    sx += ent.velocity.x;
+	  else
+	    ex += ent.velocity.x;
+	  
+	  if (ent.velocity.z < 0.0)
+	    sz += ent.velocity.z;
+	  else
+	    ez += ent.velocity.z;
+	  
+	  int cp_x, cp_z;
+	  bool found = false;
+	  for (double x = sx; x <= ex; x += 1.0)
+	    for (double y = sy; y <= ey; y += 1.0)
+	      for (double z = sz; z <= ez; z += 1.0)
+	        {
+	          block_info *binf = block_info::from_id (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z)));
+	          if (binf && binf->opaque)
+	            {
+	              // found collision
+	              if (!found)
+	                {
+	                  cp_x = x;
+	                  cp_z = z;
+	                  found = true;
+	                }
+	              else if (_dist_squared (cp_x, cp_z, ent.pos.x, ent.pos.z) > _dist_squared (x, z, ent.pos.x, ent.pos.z))
+	                {
+	                  cp_x = x;
+	                  cp_z = z;
+	                }
+	            }
+	        }
+	  
+	  if (found)
+	    {
+	      ent.pos.x = cp_x;
+	      ent.pos.z = cp_z;
+	      
+	      if ((ent.velocity.x > 0.0) && (wr->get_id (cp_x - 1, utils::floor (ent.pos.y), cp_z) == BT_AIR))
+	        ent.pos.x -= ent.get_width ()*0.51;
+	      else if ((ent.velocity.x < 0.0) && (wr->get_id (cp_x + 1, utils::floor (ent.pos.y), cp_z) == BT_AIR))
+	        ent.pos.x += 1.0 + ent.get_width ()*0.51;
+	      
+	      if (wr->get_id (utils::floor (ent.pos.x), utils::floor (ent.pos.y), cp_z) != BT_AIR)
+	        {
+	          if ((ent.velocity.z > 0.0) && (wr->get_id (utils::floor (ent.pos.x), utils::floor (ent.pos.y), cp_z - 1) == BT_AIR))
+	            ent.pos.z -= ent.get_depth ()*0.51;
+	          else if ((ent.velocity.z < 0.0) && (wr->get_id (utils::floor (ent.pos.x), utils::floor (ent.pos.y), cp_z + 1) == BT_AIR))
+	            ent.pos.z += 1.0 + ent.get_depth ()*0.51;
+	        }
+	      
+	      ent.velocity.x = 0.0;
+	      ent.velocity.z = 0.0;
+	    }
+	}
+	*/
+	
+	static void
+	_coll_y (entity& ent)
+	{
+	  if (ent.velocity.y == 0.0)
+	    return;
+	  
+	  world *wr = ent.get_world ();
+	  if (!wr)
+	    return;
+	  
+	  double sx = ent.pos.x - 0.5*ent.get_width ();
+	  double ex = sx + ent.get_width ();
+	  double sy = ent.pos.y;
+	  double ey = sy + 1.0 /*ent.get_height ()*/;
+	  double sz = ent.pos.z - 0.5*ent.get_depth ();
+	  double ez = sz + ent.get_depth ();
+	  
+	  if (ent.velocity.y < 0.0)
+	    sy += ent.velocity.y;
+	  else
+	    ey += ent.velocity.y;
+	  
+	  // clamp
+	  if (sy < 0.0) sy = 0.0;
+	  if (sy > 255.0) sy = 255.0;
+	  if (ey < 0.0) ey = 0.0;
+	  if (ey > 255.0) ey = 255.0;
+	  
+	  int cp;
+	  bool found = false;
+	  for (double x = sx; x <= ex; x += 1.0)
+	    for (double y = sy; y <= ey; y += 1.0)
+	      for (double z = sz; z <= ez; z += 1.0)
+	        {
+	          block_info *binf = block_info::from_id (wr->get_id (utils::floor (x), utils::floor (y), utils::floor (z)));
+	          if (binf && binf->opaque)
+	            {
+	              // found collision
+	              if (!found)
+	                {
+	                  cp = y;
+	                  found = true;
+	                }
+	              else
+	                {
+	                  if (((ent.velocity.y > 0.0) && (y < cp)) ||
+	                      ((ent.velocity.y < 0.0) && (y > cp)))
+	                      cp = y;
+	                }
+	            }
+	        }
+	  
+	  if (found)
+	    {
+	      ent.pos.y = cp;
+	      if (ent.velocity.y > 0.0)
+	        ent.pos.y -= 2.0;
+	      else
+	        ++ ent.pos.y;
+	      
+	      ent.velocity.y = 0.0;
+	    }
+	}
 	
 	
 	/* 
@@ -182,11 +519,63 @@ namespace hCraft {
 	bool
 	entity::tick (world &w)
 	{
-	/*
-		this->pos.x += this->velocity.x * 0.05;
-		this->pos.y += this->velocity.y * 0.05;
-		this->pos.z += this->velocity.z * 0.05;
-	*/
+		// drag force
+		this->velocity = 0.98 * this->velocity;
+		
+		// ground friction
+		if ((this->pos.y >= 1.0) && ((this->pos.y - (int)this->pos.y) == 0.0))
+		  {
+		    this->velocity = 0.5 * this->velocity;
+		  }
+		
+		// acceleration due to gravity
+		this->velocity.y -= 0.08;
+		if (this->velocity.y < -3.92)
+		  this->velocity.y = -3.92;
+		
+		// collision detection
+	  {
+	    entity_pos tmp, pos1, pos2;
+	    vector3 vel = this->velocity;
+	    
+	    // first way
+	    tmp = this->pos;
+	    _coll_x (*this);
+	    _coll_z (*this);
+	    pos1 = this->pos;
+	    
+	    // second way
+	    this->pos = tmp;
+	    this->velocity = vel;
+	    _coll_z (*this);
+	    _coll_x (*this);
+	    pos2 = this->pos;
+	    
+	    if (_dist_squared (pos1.x, pos1.y, tmp.x, tmp.y) < _dist_squared (pos2.x, pos2.y, tmp.x, tmp.y))
+	      this->pos = pos1;
+	    else
+	      this->pos = pos2;
+	  }
+    _coll_y (*this);
+		
+		this->pos.x += this->velocity.x;
+		this->pos.y += this->velocity.y;
+		this->pos.z += this->velocity.z;
+		
+		// notify players of new movement
+		if (this->pos != this->old_pos)
+		  {
+		    if (this->pos.x != this->old_pos.x || this->pos.y != this->old_pos.y ||
+		      this->pos.z != this->old_pos.z)
+		      {
+		        // just position
+		        w.get_players ().send_to_all_visible (
+		          packets::play::make_entity_move (this->get_eid (),
+					      this->pos.x, this->pos.y, this->pos.z, this->pos.r, this->pos.l), this);
+		      }
+		  }
+		
+		this->old_pos = pos;
 		return false;
 	}
 	

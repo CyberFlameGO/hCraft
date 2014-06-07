@@ -31,6 +31,7 @@
 namespace hCraft {
 	
 	class player;
+	class entity;
 	
 	
 	enum class player_find_method
@@ -147,7 +148,7 @@ namespace hCraft {
 		 * Sends the specified packet to all players in this list.
 		 */
 		void send_to_all (packet *pack, player *except = nullptr);
-		void send_to_all_visible (packet *pack, player *target);
+		void send_to_all_visible (packet *pack, entity *target);
 	};
 }
 

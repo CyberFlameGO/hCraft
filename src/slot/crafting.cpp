@@ -91,6 +91,13 @@ namespace hCraft {
 		this->shape_recipes.push_back ({ {"_00", "_1_", "_1_"}, { {IT_GOLD_INGOT, 0x10} , {IT_STICK, 0x10} }, false, {IT_GOLDEN_HOE, 0, 1} });
 		this->shape_recipes.push_back ({ {"_00", "_1_", "_1_"}, { {IT_DIAMOND, 0x10} , {IT_STICK, 0x10} }, false, {IT_DIAMOND_HOE, 0, 1} });
 		
+		// swords
+		this->shape_recipes.push_back ({ {"0__", "0__", "1__"}, { {BT_WOOD, 0x10}, {IT_STICK, 0x10} }, false, {IT_WOODEN_SWORD, 0, 1} });
+		this->shape_recipes.push_back ({ {"0__", "0__", "1__"}, { {BT_COBBLE, 0x10}, {IT_STICK, 0x10} }, false, {IT_STONE_SWORD, 0, 1} });
+		this->shape_recipes.push_back ({ {"0__", "0__", "1__"}, { {IT_IRON_INGOT, 0x10}, {IT_STICK, 0x10} }, false, {IT_IRON_SWORD, 0, 1} });
+		this->shape_recipes.push_back ({ {"0__", "0__", "1__"}, { {IT_GOLD_INGOT, 0x10}, {IT_STICK, 0x10} }, false, {IT_GOLDEN_SWORD, 0, 1} });
+		this->shape_recipes.push_back ({ {"0__", "0__", "1__"}, { {IT_DIAMOND, 0x10}, {IT_STICK, 0x10} }, false, {IT_DIAMOND_SWORD, 0, 1} });
+		
 		// trunk to wooden planks
 		this->shapeless_recipes.push_back ({ {"0__", "___", "___"}, { {BT_TRUNK, 0} }, true, {BT_WOOD, 0, 4} });
 		this->shapeless_recipes.push_back ({ {"0__", "___", "___"}, { {BT_TRUNK, 1} }, true, {BT_WOOD, 1, 4} });

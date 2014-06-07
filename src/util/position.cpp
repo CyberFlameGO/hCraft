@@ -60,6 +60,14 @@ namespace hCraft {
 	
 	
 	
+	double
+	entity_pos::distance_from (const entity_pos& other)
+	{
+	  return (vector3 (*this) - vector3 (other)).magnitude ();
+	}
+	
+	
+	
 //----
 	
 	block_pos::block_pos (const entity_pos &other)

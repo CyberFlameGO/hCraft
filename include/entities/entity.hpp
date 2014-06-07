@@ -137,6 +137,7 @@ namespace hCraft {
 	enum entity_type
 	{
 		ET_PLAYER,
+		ET_PLAYER_BOT,
 		
 		ET_PIG,
 		
@@ -157,14 +158,33 @@ namespace hCraft {
 	
 	
 	
+	struct bounding_box
+	{
+	  vector3 min, max;
+	  
+	//----
+	  double width () const { return this->max.x - this->min.x; }
+	  double height () const { return this->max.y - this->min.y; }
+	  double depth () const { return this->max.z - this->min.z; }
+	  
+	//----
+	  bool intersects (const bounding_box& other);
+	};
+	
+	
+	
 	/* 
 	 * An entity can be any movable dynamic object in a world that encompasses
 	 * a certain "state" (e.g.: players, mobs, minecarts, etc...).
 	 */
 	class entity
 	{
+	private:
+	  entity_pos old_pos;
+	  
 	protected:
 		server &srv;
+		world *curr_world;
 		int eid;
 		
 		bool on_fire;
@@ -177,8 +197,8 @@ namespace hCraft {
 		entity_pos pos;
 		std::chrono::steady_clock::time_point spawn_time;
 		
-		// in terms of blocks per second
-		vector3 velocity;
+		vector3 velocity; // blocks per second
+		bounding_box bbox;
 		
 	public:
 		inline int get_eid () { return this->eid; }
@@ -188,6 +208,13 @@ namespace hCraft {
 		inline bool is_riding () { return this->riding; }
 		inline bool is_sprinting () { return this->sprinting; }
 		inline bool is_right_action () { return this->right_action; }
+		
+		virtual double get_width () const { return 1.0; }
+		virtual double get_height () const { return 1.0; }
+		virtual double get_depth () const { return 1.0; }
+		
+		inline world* get_world () const { return this->curr_world; }
+		inline void set_world (world *wr) { this->curr_world = wr; }
 		
 	public:
 		/* 
@@ -207,6 +234,13 @@ namespace hCraft {
 		 * Returns the type of this entity.
 		 */
 		virtual entity_type get_type () = 0;
+		
+		
+		
+		/* 
+		 * Returns true if this entity can be seen by the specified one.
+		 */
+		bool visible_to (entity *ent);
 		
 		
 		

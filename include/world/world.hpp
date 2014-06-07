@@ -173,6 +173,7 @@ namespace hCraft {
 		std::mutex estage_lock;
 		std::mutex update_lock;
 		
+		bool pvp;
 		int def_gm;
 		std::string def_inv;
 		int use_def_inv;

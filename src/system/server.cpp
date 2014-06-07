@@ -1365,6 +1365,7 @@ namespace hCraft {
 			{
 				soci::session& sql = this->spool.at (i);
 				sql.open (soci::mysql, conn_str);
+				sql.once << "SET SESSION wait_timeout=31536000";
 			}
 		
 		{
@@ -1597,6 +1598,7 @@ namespace hCraft {
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "worlds");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "top");
 		_add_command (this->perms, this->commands, this->cfg.dcmds, "zone");
+		_add_command (this->perms, this->commands, this->cfg.dcmds, "bot");
 	}
 	
 	void
@@ -1716,6 +1718,7 @@ namespace hCraft {
 		grp_admin->add ("command.admin.ban");
 		grp_admin->add ("command.misc.kill.others");
 		grp_admin->add ("command.misc.top");
+		grp_admin->add ("command.misc.bot");
 		grp_admin->add ("command.world.tp.*");
 		grp_admin->add ("command.chat.say.*");
 		grp_admin->add ("command.world.portal.*");
@@ -1723,6 +1726,7 @@ namespace hCraft {
 		grp_admin->add ("command.world.world.change-members");
 		grp_admin->add ("command.world.world.change-owners");
 		grp_admin->add ("command.world.world.time");
+		grp_admin->add ("command.world.world.pvp");
 		grp_admin->add ("place.sign.colors");
 		
 		grp_admin->text_color = 'c';

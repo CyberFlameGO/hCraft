@@ -103,7 +103,6 @@ namespace hCraft {
 		this->tick_counter = 0;
 		
 		this->curr_gamemode = GT_SURVIVAL;
-		this->curr_world = nullptr;
 		this->joining_world = false;
 		this->chcurr = chunk_pos (0, 0);
 		this->ping_waiting = false;
@@ -117,6 +116,7 @@ namespace hCraft {
 		this->keep_alives_received = 0;
 		
 		this->last_portal_use = std::chrono::steady_clock::now ();
+		this->last_hit = std::chrono::steady_clock::now ();
 		
 		this->evbase = evbase;
 		this->bufev  = bufferevent_socket_new (evbase, sock,
@@ -259,14 +259,6 @@ namespace hCraft {
 				tl = pl->total_read;
 				pl->total_read += n;
 				
-				// DEBUG
-				/*
-				if (pl->total_read == 1)
-					{
-						pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[0] << "]" << std::endl;
-					}
-				//*/
-				
 				if (pl->encrypted)
 					{
 						// decrypt data.
@@ -303,6 +295,12 @@ namespace hCraft {
 					}
 				else if (pl->read_rem == 0)
 					{
+					  // DEBUG
+				    /*
+				    if (!(pl->rdbuf[1] >= 0x03 && pl->rdbuf[1] <= 0x06))
+			        pl->log (LT_DEBUG) << "Packet [" << (int)pl->rdbuf[1] << "]" << std::endl;
+				    //*/
+					  
 						/* finished reading packet */
 						unsigned char *data = new unsigned char [pl->total_read];
 						std::memcpy (data, pl->rdbuf, pl->total_read);
@@ -809,7 +807,7 @@ namespace hCraft {
 		else
 			this->bundo = new block_undo (std::string ("data/undo/") + w->get_name () + "/" + this->get_username () + ".undo");
 		
-		this->curr_world = w;
+		this->set_world (w);
 		this->pos = destpos;
 		this->curr_world->get_players ().add (this);
 		this->load_tab_list ();
@@ -1460,20 +1458,6 @@ namespace hCraft {
 			dest.x, dest.y, dest.z, dest.r, dest.l, dest.on_ground));
 	}
 	
-	/* 
-	 * Checks whether this player can be seen by player @{pl}.
-	 */
-	bool
-	player::visible_to (player *pl)
-	{
-		chunk_pos me_pos = this->pos;
-		chunk_pos pl_pos = pl->pos;
-		
-		return (
-			(utils::iabs (me_pos.x - pl_pos.x) <= player::chunk_radius ()) &&
-			(utils::iabs (me_pos.z - pl_pos.z) <= player::chunk_radius ()));
-	}
-	
 	
 	
 //----
@@ -1885,7 +1869,7 @@ namespace hCraft {
 						{ }
 					
 					entity_pos last_pos = {pos_x, pos_y, pos_z, (float)pos_r, (float)pos_l, true};
-					this->curr_world = this->srv.get_worlds ().find (world.c_str ());
+					this->set_world (this->srv.get_worlds ().find (world.c_str ()));
 					if (this->curr_world)
 						{
 							this->pos = last_pos;
@@ -2834,6 +2818,31 @@ namespace hCraft {
 	}
 	
 	
+	static void
+	_place_torch (player *pl, int x, int y, int z, int dir)
+	{
+	  world *wr = pl->get_world ();
+	  if (wr->get_id (x, y, z) != BT_AIR)
+	    return;
+	  
+	  int m = 0;
+	  switch (dir)
+	    {
+	      case 0:
+	        pl->send_orig_block (x, y, z);
+	        return;
+	      
+	      case 1: m = 0; break;
+	      case 2: m = 4; break;
+	      case 3: m = 3; break;
+	      case 4: m = 2; break;
+	      case 5: m = 1; break;
+	    }
+	  
+	  wr->queue_update (x, y, z, BT_TORCH, m, 0, 0, nullptr, pl);
+	}
+	
+	
 	
 //----
 	
@@ -2864,7 +2873,8 @@ namespace hCraft {
 		if (this->logged_in)
 			return;
 		
-		log () << "Player " << this->username << " has logged in from @" << this->get_ip () << std::endl;
+		log () << "Player " << this->username << " has logged in from @" << this->get_ip ()
+		       << " [uuid: " << this->get_uuid ().to_str () << "]" << std::endl;
 		
 		this->send (packets::login::make_login_success (
 			this->uuid.to_str ().c_str (), this->username));
@@ -3052,7 +3062,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		/*
+		///*
 		// Used when testing
 		{
 			static const char *names[] =
@@ -3461,6 +3471,146 @@ namespace hCraft {
 	
 	
 	
+	/* 
+	 * Calculates the amount of damage (in hearts) that should be dealt after
+	 * being hit by the specified player.
+	 */
+	int
+	_calc_hit_damage (player *pl)
+	{
+	  slot_item& held = pl->held_item ();
+	  switch (held.id ())
+	    {
+	    case IT_WOODEN_SHOVEL:
+	    case IT_GOLDEN_SHOVEL:
+	      return 2;
+	    
+	    case IT_STONE_SHOVEL:
+	    case IT_WOODEN_PICKAXE:
+	    case IT_GOLDEN_PICKAXE:
+	      return 3;
+	    
+	    case IT_IRON_SHOVEL:
+	    case IT_STONE_PICKAXE:
+	    case IT_WOODEN_AXE:
+	    case IT_GOLDEN_AXE:
+	      return 4;
+	    
+	    case IT_DIAMOND_SHOVEL:
+	    case IT_IRON_PICKAXE:
+	    case IT_STONE_AXE:
+	    case IT_WOODEN_SWORD:
+	    case IT_GOLDEN_SWORD:
+	      return 5;
+	    
+	    case IT_DIAMOND_PICKAXE:
+	    case IT_IRON_AXE:
+	    case IT_STONE_SWORD:
+	      return 6;
+	    
+	    case IT_DIAMOND_AXE:
+	    case IT_IRON_SWORD:
+	      return 7;
+	    
+	    case IT_DIAMOND_SWORD:
+	      return 8;
+	    }
+	  
+	  return 1;
+	}
+	
+	int
+	player::handle_pl_packet_02 (player *pl, packet_reader reader)
+	{
+	  int eid = reader.read_int ();
+	  char mouse = reader.read_byte ();
+	  
+	  world *wr = pl->get_world ();
+	  entity *ent = pl->get_server ().entity_by_id (eid);
+	  if (!ent)
+	    return 0;
+	  
+	  // left click
+	  if (mouse == 1)
+	    {
+	      living_entity *target = dynamic_cast<living_entity *> (ent);
+	      if (target)
+	        {
+	          // make sure PvP is enabled in this area
+	          bool pvp = wr->pvp;
+	          {
+	            block_pos tpos = target->pos;
+	            std::vector<zone *> zones;
+						  wr->get_zones ().find (tpos.x, tpos.y, tpos.z, zones);
+						  for (zone *zn : zones)
+						    {
+						      if (!zn->pvp_enabled ())
+						        {
+						          block_pos mypos = pl->pos;
+						          if (zn->get_selection ()->contains (mypos.x, mypos.y, mypos.z))
+						            pl->message ("§cPvP is disabled here.");
+						          else
+						            pl->message ("§cPvP is disabled there.");
+						          pvp = false;
+						          break;
+						        }
+						      else
+						        pvp = true;
+						    }
+	          }
+	          if (!pvp)
+	            return 0;
+						
+	          if (target->get_type () == ET_PLAYER)
+	            {
+	              player *tpl = static_cast<player *> (target);
+	              if (tpl == pl)
+	                return 0; // is this possible?
+	              if (tpl->gamemode () == GT_CREATIVE)
+	                return 0;
+	            }
+	              
+            // limit attack speed
+            int elapsed = std::chrono::duration_cast<std::chrono::milliseconds> (
+			        std::chrono::steady_clock::now () - pl->last_hit).count ();
+		        if (elapsed < 333)
+			        return 0;
+		        pl->last_hit = std::chrono::steady_clock::now ();
+            
+            if (pl->pos.distance_from (target->pos) > 4.0)
+              return 0; // too far away
+            
+            target->set_hearts (target->get_hearts () - _calc_hit_damage (pl));
+            if (target->get_type () != ET_PLAYER)
+              {
+                // hurt animation
+                wr->get_players ().send_to_all_visible (
+					        packets::play::make_entity_status (target->get_eid (), 2), target);
+              }
+            wr->get_players ().send_to_all_visible (
+              packets::play::make_sound_effect ("damage.hit",
+			          target->pos.x, target->pos.y, target->pos.z, 1.0f, 63), target);
+            
+            // set player flying in the opposite direction
+            double ux = -std::cos (pl->pos.l * 0.017453293) * std::sin (pl->pos.r * 0.017453293);
+		        double uy = /*-std::sin (pl->pos.l * 0.017453293)*/ 0.75;
+		        double uz =  std::cos (pl->pos.l * 0.017453293) * std::cos (pl->pos.r * 0.017453293);
+		        int speed = 2500;
+		        if (target->get_type () == ET_PLAYER)
+		          {
+		            player *tpl = static_cast<player *> (target);
+		            tpl->send (packets::play::make_entity_velocity (tpl->eid,
+			            ux * speed, uy * speed, uz * speed));
+		          }
+		        else
+		          target->velocity = vector3 (ux * 0.3, uy, uz * 0.3);
+	        }
+	    }
+	  
+	  return 0;
+	}
+	
+	
 	int
 	player::handle_pl_packet_03 (player *pl, packet_reader reader)
 	{
@@ -3698,6 +3848,7 @@ namespace hCraft {
 								e_pickup *pick = new e_pickup (pl->srv,
 								slot_item (drop.id, drop.meta, 1));
 								pick->pos.set_pos (x + 0.5, y + 0.5, z + 0.5);
+								pick->velocity.y = 0.4;
 								w.spawn_entity (pick);
 							}
 					}
@@ -3878,7 +4029,7 @@ namespace hCraft {
 					}
 			}
 		
-		// some blocks must be placed differently.
+		// some blocks must be handled differently.
 		if (item.id () == IT_SIGN)
 			_place_sign (pl, nx, ny, nz, direction);
 		else if (item.id () == BT_SLAB || item.id () == BT_WOODEN_SLAB)
@@ -3887,6 +4038,8 @@ namespace hCraft {
 			_place_stairs (pl, nx, ny, nz, direction, item, cy);
 		else if (item.id () == BT_TRUNK)
 			_place_trunk (pl, nx, ny, nz, direction, item);
+	  else if (item.id () == BT_TORCH)
+	    _place_torch (pl, nx, ny, nz, direction);
 		else
 			{
 				w->queue_update (nx, ny, nz,
@@ -4626,7 +4779,7 @@ namespace hCraft {
 		
 		static int (*play_handlers[0x100]) (player *, packet_reader) =
 			{
-				handle_pl_packet_00, handle_pl_packet_01, handle_packet_xx, handle_pl_packet_03, // 0x03
+				handle_pl_packet_00, handle_pl_packet_01, handle_pl_packet_02, handle_pl_packet_03, // 0x03
 				handle_pl_packet_04, handle_pl_packet_05, handle_pl_packet_06, handle_pl_packet_07, // 0x07
 				handle_pl_packet_08, handle_pl_packet_09, handle_pl_packet_0a, handle_pl_packet_0b, // 0x0B
 				handle_packet_xx, handle_pl_packet_0d, handle_pl_packet_0e, handle_packet_xx, // 0x0F

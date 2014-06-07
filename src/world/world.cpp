@@ -89,6 +89,7 @@ namespace hCraft {
 		this->edge_chunk = nullptr;
 		this->last_chunk = {0, 0, nullptr};
 		
+		this->pvp = true;
 		this->players = new player_list ();
 		this->th_running = false;
 		this->auto_lighting = true;
@@ -195,6 +196,7 @@ namespace hCraft {
 		wr->use_def_inv = winf.use_def_inv;
 		wr->wtime = winf.time;
 		wr->wtime_frozen = winf.time_frozen;
+		wr->pvp = winf.pvp;
 		
 		wr->prov->open (*wr);
 		wr->prov->load_portals (*wr, wr->portals);
@@ -302,6 +304,7 @@ namespace hCraft {
 			this->use_def_inv = winf.use_def_inv;
 			this->wtime = winf.time;
 			this->wtime_frozen = winf.time_frozen;
+			this->pvp = winf.pvp;
 			
 			this->prov->open (*this);
 			this->prov->load_portals (*this, this->portals);
@@ -825,6 +828,7 @@ namespace hCraft {
 		inf.use_def_inv = this->use_def_inv;
 		inf.time = this->wtime;
 		inf.time_frozen = this->wtime_frozen;
+		inf.pvp = this->pvp;
 	}
 	
 	
@@ -1247,11 +1251,9 @@ namespace hCraft {
 		chunk *ch = this->load_chunk_at ((int)e->pos.x, (int)e->pos.z);
 		if (!ch) return; // shouldn't happen
 		
+		e->set_world (this);
 		ch->add_entity (e);
 		e->spawn_time = std::chrono::steady_clock::now ();
-		
-		// physics
-		this->srv.global_physics.queue_physics (this, e->get_eid ());
 		
 		// spawn entity to players
 		chunk_pos cpos = e->pos;
@@ -1276,6 +1278,9 @@ namespace hCraft {
 							});
 					}
 			}
+	  
+	  // physics
+		this->srv.global_physics.queue_physics (this, e->get_eid ());
 	}
 	
 	

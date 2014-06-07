@@ -104,6 +104,9 @@ namespace hCraft {
 			return *this;
 		}
 		
+		
+		double distance_from (const entity_pos& other);
+		
 	//----
 		
 		bool

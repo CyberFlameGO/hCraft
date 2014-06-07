@@ -560,6 +560,58 @@ namespace hCraft {
 		}
 		
 		
+		static void
+		_handle_pvp (player *pl, command_reader& reader)
+		{
+		  if (!reader.has_next ())
+				{
+					pl->message ("§c * §7Usage§f:");
+					pl->message ("§c * (1) §e/zone pvp §czone-name");
+					pl->message ("§c * (2) §e/zone pvp §czone-name §8on§7/§8off");
+					return;
+				}
+			
+			std::string zone_name = reader.next ();
+			if (zone_name.size () < 3 || zone_name[0] != 'z' || zone_name[1] != '@')
+				{
+					pl->message ("§c * §7Invalid zone name§f: §c" + zone_name);
+					return;
+				}
+			zone_name.erase (0, 2);
+			
+			world *w = pl->get_world ();
+			zone *zn = w->get_zones ().find (zone_name);
+			if (!zn)
+				{
+					pl->message ("§c * §7Unknown zone§f: §c" + zone_name);
+					return;
+				}
+		  
+		  if (!reader.has_next ())
+		    {
+		      pl->message ("§ePvP is " + std::string (zn->pvp_enabled () ? "§aON" : "§cOFF")
+		        + " §ein zone §3z@§b" + zn->get_name ());
+		      return;
+		    }
+		  
+		  std::string arg = reader.next ();
+		  if (sutils::iequals (arg, "on"))
+		    {
+		      zn->enable_pvp ();
+		      pl->message ("§ePvP has been turned §aON §ein zone §3z@§b" + zn->get_name ());
+		    }
+		  else if (sutils::iequals (arg, "off"))
+		    {
+		      zn->disable_pvp ();
+		      pl->message ("§ePvP has been turned §cOFF §ein zone §3z@§b" + zn->get_name ());
+		    }
+		  else
+		    {
+		      pl->message ("§c * §7Usage§f: §e/zone pvp §czone-name §8on§7/§8off");
+		    }
+		}
+		
+		
 		
 		/*
 		 * /zone
@@ -593,6 +645,7 @@ namespace hCraft {
 				{ "select", _handle_select },
 				{ "reset", _handle_reset },
 				{ "check", _handle_check },
+				{ "pvp", _handle_pvp },
 			};
 			
 			auto itr = _map.find (arg.c_str ());

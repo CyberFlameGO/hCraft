@@ -66,8 +66,8 @@ namespace hCraft {
 	 */
 	struct packet
 	{
-		static const int protocol_version = 4;
-		static constexpr const char* game_version = "1.7.2";
+		static const int protocol_version = 5;
+		static constexpr const char* game_version = "1.7.9";
 	//----
 		
 		unsigned char *data;

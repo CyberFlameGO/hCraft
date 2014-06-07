@@ -83,6 +83,7 @@ namespace hCraft {
 		std::time_t created_time;
 		
 		std::string enter_msg, leave_msg;
+		bool pvp;
 		
 	public:
 		inline const std::string& get_name () const { return this->name; }
@@ -94,6 +95,10 @@ namespace hCraft {
 		
 		void set_enter_msg (const std::string& msg) { this->enter_msg = msg; }
 		void set_leave_msg (const std::string& msg) { this->leave_msg = msg; }
+		
+	 	inline bool pvp_enabled () const { return this->pvp; }
+	 	inline void enable_pvp () { this->pvp = true; }
+	 	inline void disable_pvp () { this->pvp = false; }
 		
 	public:
 		/* 

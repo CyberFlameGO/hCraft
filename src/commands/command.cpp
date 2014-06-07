@@ -26,6 +26,7 @@
 #include "commands/aid.hpp"
 #include "commands/ban.hpp"
 #include "commands/bezier.hpp"
+#include "commands/bot.hpp"
 #include "commands/bp.hpp"
 #include "commands/bt.hpp"
 #include "commands/circle.hpp"
@@ -99,6 +100,7 @@ namespace hCraft {
 	static command* create_c_ping () { return new commands::c_ping (); }
 	static command* create_c_kill () { return new commands::c_kill (); }
 	static command* create_c_top () { return new commands::c_top (); }
+	static command* create_c_bot () { return new commands::c_bot (); }
 	
 	// world commands:
 	static command* create_c_wcreate () { return new commands::c_wcreate (); }
@@ -196,6 +198,7 @@ namespace hCraft {
 			{ "warnlog", create_c_warnlog },
 			{ "worlds", create_c_worlds },
 			{ "zone", create_c_zone },
+			{ "bot", create_c_bot },
 			};
 		
 		auto itr = creators.find (name);

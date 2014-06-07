@@ -17,6 +17,7 @@
  */
 
 #include "player/player_list.hpp"
+#include "entities/entity.hpp"
 #include "player/player.hpp"
 #include <cstring>
 #include <cctype>
@@ -335,7 +336,7 @@ namespace hCraft {
 	}
 	
 	void
-	player_list::send_to_all_visible (packet *pack, player *target)
+	player_list::send_to_all_visible (packet *pack, entity *target)
 	{
 		std::lock_guard<std::mutex> guard {this->lock};
 		

@@ -873,13 +873,18 @@ namespace hCraft {
 				int uuid_len = mc_str_len (uuid);
 				int meta_size = entity_metadata_size (meta);
 				int eid_size = varint_size (eid);
-				packet* pack = new packet (19 + name_len + meta_size + eid_size + uuid_len);
+				int datacount_size = varint_size (0);
+				packet* pack = new packet (19 + datacount_size + name_len + meta_size + eid_size + uuid_len);
 				
-				pack->put_varint (17 + eid_size + name_len + uuid_len + meta_size);
+				pack->put_varint (17 + datacount_size + eid_size + name_len + uuid_len + meta_size);
 				pack->put_varint (0x0C);
 				pack->put_varint (eid);
 				pack->put_string (uuid);
 				pack->put_string (username);
+				
+				// TODO: handle data
+				pack->put_varint (0); // data count
+				
 				pack->put_int ((int)(x * 32.0));
 				pack->put_int ((int)(y * 32.0));
 				pack->put_int ((int)(z * 32.0));
@@ -964,7 +969,7 @@ namespace hCraft {
 			packet*
 			make_destroy_entity (int eid)
 			{
-				std::vector<int> eids {1, eid};
+				std::vector<int> eids (1, eid);
 				return packets::play::make_destroy_entities (eids);
 			}
 			

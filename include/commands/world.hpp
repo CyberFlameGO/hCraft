@@ -53,6 +53,10 @@ namespace hCraft {
 		 *       Required to regenerate the world.
 		 *   - commands.world.world.save
 		 *       Required to save the world.
+		 *   - commands.world.world.time
+		 *       Required to change the time of the world.
+		 *   - commands.world.world.pvp
+		 *       Required to turn PvP on or off.
 		 */
 		class c_world : public command
 		{

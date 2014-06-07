@@ -33,6 +33,11 @@ namespace hCraft {
 		slot_item data;
 		bool valid;
 		
+  public:
+    virtual double get_width () const override { return 0.5; }
+		virtual double get_height () const override { return 0.5; }
+		virtual double get_depth () const override { return 0.5; }
+		
 	public:
 		/* 
 		 * Class constructor.

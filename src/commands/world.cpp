@@ -1072,6 +1072,34 @@ namespace hCraft {
     			pl->message ("§c * §7Unknown sub-command§f: §ctime." + arg);
     		}
     }
+    
+    
+    static void
+    _handle_pvp (player *pl, world *w, command_reader& reader)
+    {
+      if (!reader.has_next ())
+        {
+          pl->message ("§ePvP is currently " + std::string (w->pvp ? "§aON" : "§cOFF")
+            + " §ein world " + w->get_colored_name ());
+          return;
+        }
+      
+      std::string arg = reader.next ();
+      if (sutils::iequals (arg, "on"))
+        {
+          w->pvp = true;
+          pl->message ("§ePvP has been turned §aON §ein world " + w->get_colored_name ());
+        }
+      else if (sutils::iequals (arg, "off"))
+        {
+          w->pvp = false;
+          pl->message ("§ePvP has been turned §cOFF §ein world " + w->get_colored_name ());
+        }
+      else
+        {
+          pl->message ("§c * §7Usage§f: §e/world pvp §8on§7/§8off");
+        }
+    }
 		
 		
 		
@@ -1105,6 +1133,8 @@ namespace hCraft {
 		 *       Required to save the world.
 		 *   - commands.world.world.time
 		 *       Required to change the time of the world.
+		 *   - commands.world.world.pvp
+		 *       Required to turn PvP on or off.
 		 */
 		void
 		c_world::execute (player *pl, command_reader& reader)
@@ -1149,6 +1179,7 @@ namespace hCraft {
 						{ "restore", _handle_restore },
 						{ "save", _handle_save },
 						{ "time", _handle_time },
+						{ "pvp", _handle_pvp },
 					};
 					
 					auto itr = _map.find (arg1.c_str ());

@@ -140,9 +140,14 @@ namespace hCraft {
 		
 		
 		/* 
-		 * Inserts a new biome with the specified occurrence rate (percentage, %0-%100).
+		 * Inserts a new biome with the specified occurence range.
 		 */
-		void add (biome_generator *bgen, double occurrence);
+		void add (biome_generator *bgen, double min, double max);
+		
+		/* 
+		 * Inserts a new biome with the specified occurence rate (percentage).
+		 */
+		void add (biome_generator *bgen, double prob);
 		
 		
 		

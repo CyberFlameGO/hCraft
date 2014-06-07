@@ -34,6 +34,8 @@
 #include "world/generation/empty.hpp"
 #include "world/generation/sandbox.hpp"
 #include "world/generation/super_overhang.hpp"
+#include "world/generation/alpha.hpp"
+#include "world/generation/test.hpp"
 
 
 namespace hCraft {
@@ -94,6 +96,14 @@ namespace hCraft {
 	static world_generator*
 	create_super_overhang (long seed)
 		{ return new super_overhang_world_generator (seed); }
+  
+  static world_generator*
+	create_alpha (long seed)
+		{ return new alpha_world_generator (seed); }
+  
+  static world_generator*
+	create_test (long seed)
+		{ return new test_world_generator (seed); }
 	
 	
 	/* 
@@ -112,6 +122,8 @@ namespace hCraft {
 				{ "empty", create_empty },
 				{ "sandbox", create_sandbox },
 				{ "super-overhang", create_super_overhang },
+				{ "test", create_test },
+				{ "alpha", create_alpha },
 			};
 		
 		auto itr = generators.find (name);
@@ -133,7 +145,7 @@ namespace hCraft {
 //------------------------------------------------------------------------------
 
 // the smaller this number is, the bigger biomes will get.
-#define BIOME_SIZE 0.002
+#define BIOME_SIZE 0.005
 	
 	/* 
 	 * Constructs a new biome selector with the specified default water level.
@@ -163,15 +175,23 @@ namespace hCraft {
 	
 	
 	/* 
-	 * Inserts a new biome with the specified occurrence rate (percentage, %0-%100).
+	 * Inserts a new biome with the specified occurrence range.
 	 */
 	void
-	biome_selector::add (biome_generator *bgen, double occurrence)
+	biome_selector::add (biome_generator *bgen, double min, double max)
 	{
-		double start = this->next_start;
-		double end   = start + (occurrence / 100.0);
+		this->biomes.push_back ({bgen, min, max});
+	}
+	
+	/* 
+	 * Inserts a new biome with the specified occurence rate (percentage).
+	 */
+	void
+	biome_selector::add (biome_generator *bgen, double prob)
+	{
+	  double start = this->next_start;
+		double end   = start + (prob / 100.0);
 		this->next_start = end;
-		
 		this->biomes.push_back ({bgen, start, end});
 	}
 	
@@ -179,13 +199,17 @@ namespace hCraft {
 	
 	namespace {
 		
+#define RECORD_COUNT  6
 		struct seed_record { double dist, x, z, val; };
-		struct seed_record_pair { seed_record first, second; };
+		struct seed_record_list {
+		  seed_record recs[RECORD_COUNT];
+		  int count;
+		};
 		
 		/* 
-		 * Computes the two closest voronoi seed points.
+		 * Computes the four closest voronoi seed points.
 		 */
-		static seed_record_pair
+		static seed_record_list
 		_closest_voronoi_seeds (double x, double z, long seed, double freq)
 		{
 			x *= freq;
@@ -194,8 +218,11 @@ namespace hCraft {
 			int xi = (x > 0.0) ? (int)x : ((int)x - 1);
 			int zi = (z > 0.0) ? (int)z : ((int)z - 1);
 
-			seed_record m1 { 2147483648.0, 0.0, 0.0, 0.0 }, m2 { 2147483649.0, 0.0, 0.0, 0.0 };
-		
+			seed_record recs[RECORD_COUNT];
+			for (int i = 0; i < RECORD_COUNT; ++i)
+			  recs[i] = { 2147483648.0, 0.0, 0.0, 0.0 };
+		  int count = 0;
+		  
 			for (int zcur = zi - 2; zcur <= zi + 2; ++zcur)
 				for (int xcur = xi - 2; xcur <= xi + 2; ++xcur)
 					{
@@ -204,26 +231,29 @@ namespace hCraft {
 				    double xd = xp - x;
 				    double zd = zp - z;
 				    double dist = xd * xd + zd * zd;
-
-				    if (dist < m1.dist)
-				    	{
-				    		m2 = m1;
-				    		
-						    m1.dist = dist;
-						    m1.x = xp;
-						    m1.z = zp;
-				    	}
-				    else if (dist < m2.dist)
-				    	{
-				    		m2.dist = dist;
-						    m2.x = xp;
-						    m2.z = zp;
-				    	}
+				    
+				    for (int i = 0; i < RECORD_COUNT; ++i)
+				      if (dist < recs[i].dist)
+				        {
+				          for (int j = RECORD_COUNT - 1; j > i; --j)
+				            recs[j] = recs[j - 1];
+				          
+				          recs[i].dist = dist;
+				          recs[i].x    = xp;
+				          recs[i].z    = zp;
+				          
+				          if (count < RECORD_COUNT)
+				            ++ count;
+				          break;
+				        }
 					}
-		
-			return {
-				{ m1.dist, m1.x, m1.z, (h_noise::int_noise_2d (seed, utils::floor (m1.x), utils::floor (m1.z)) + 1.0) / 2.0 },
-				{ m2.dist, m2.x, m2.z, (h_noise::int_noise_2d (seed, utils::floor (m2.x), utils::floor (m2.z)) + 1.0) / 2.0 } };
+		  
+		  seed_record_list lst;
+		  lst.count = count;
+		  for (int i = 0; i < RECORD_COUNT; ++i)
+		    lst.recs[i] = { recs[i].dist, recs[i].x, recs[i].z,
+		      (h_noise::int_noise_2d (seed, utils::floor (recs[i].x), utils::floor (recs[i].z)) + 1.0) / 2.0 };
+		  return lst;
 		}
 	}
 	
@@ -241,6 +271,8 @@ namespace hCraft {
 	double
 	biome_selector::get_value_2d (double x, double z)
 	{
+	  return 0.0;
+	  /*
 		auto closest = _closest_voronoi_seeds (x, z, this->gen_seed, BIOME_SIZE);
 		double mdist = closest.first.dist - closest.second.dist;
 		if (std::abs (mdist) < this->edge_falloff)
@@ -265,6 +297,7 @@ namespace hCraft {
 		
 		biome_generator *b = this->find_biome (closest.first.val);
 		return b->generate (x, 0, z);
+		*/
 	}
 	
 	static int
@@ -273,9 +306,158 @@ namespace hCraft {
 		return ((unsigned int)(((2166136261 ^ (x & 0xFF) * 16777619) ^ (z & 0xFF)) * 16777619)) % 24;
 	}
 	
+	
+	double
+	_sample (biome_generator *bg, double x, double y, double z)
+	{
+	  /*
+	  double v = 0.0;
+	  
+	  static struct v3 { int x, y, z; }
+	  _offs[] = {
+	    { 0, 0, 0 },
+	    { 1, 0, 0 },
+	    { 0, 1, 0 },
+	    { 0, 0, 1 },
+	    { -1, 0, 0 },
+	    { 0, -1, 0 },
+	    { 0, 0, -1 },
+	    { 1, 1, 1 },
+	    { -1, 1, 1 },
+	    { 1, -1, 1 },
+	    { 1, 1, -1 },
+	  };
+    
+    const double m = 3.0;
+    for (auto vec : _offs)
+      {
+        v += bg->generate (x + vec.x*m, y + vec.y*m, z + vec.z*m);
+      }
+    
+    return v / 7.0;
+    */
+    
+    return bg->generate (x, y, z);
+	}
+	
 	double
 	biome_selector::get_value_3d (double x, double y, double z)
 	{
+	  auto closest = _closest_voronoi_seeds (x, z, this->gen_seed, BIOME_SIZE);
+	  
+	  biome_generator *b1 = this->find_biome (closest.recs[0].val);
+	  
+	  struct
+	    {
+	      double val;
+	      double dist;
+	    } irecs[RECORD_COUNT];
+	  
+	  double v = 0.0;
+	  int count = 0;
+	  for (int i = 1; i < closest.count; ++i)
+	    {
+	      seed_record rec = closest.recs[i];
+	      double mdist = closest.recs[0].dist - rec.dist;
+	      if (std::abs (mdist) < this->edge_falloff)
+	        {
+				    biome_generator *b2 = this->find_biome (rec.val);
+				    
+				    double b1_v = _sample (b1, x, y, z);
+				    double b2_v = _sample (b2, x, y, z);
+				    double t = 0.5 + mdist * (0.5 / this->edge_falloff);
+				    
+				    auto& irec = irecs[count++];
+				    irec.val = h_noise::lerp (b1_v, b2_v, t);
+				    irec.dist = std::abs (mdist);
+	        }
+	    }
+	  
+	  if (count == 0)
+	    {
+		    return b1->generate (x, y, z);
+	    }
+	  
+	  // plain average
+	  for (int i = 0; i < count; ++i)
+	    v += irecs[i].val;
+	  v /= (double)count;
+	  return v;
+	  
+	  /*
+	  // compute distance sum
+	  double ds = 0.0;
+	  for (int i = 0; i < count; ++i)
+	    ds += irecs[i].dist;
+	  
+	  // interpolate
+	  for (int i = 0; i < count; ++i)
+	    v += (irecs[i].dist / ds) * irecs[i].val;
+	  return v;
+	  */
+	  
+	  /*
+	  // TWO VERSION
+	  
+	  double mdist = closest.recs[0].dist - closest.recs[1].dist;
+	  if (std::abs (mdist) < this->edge_falloff)
+			{
+				biome_generator *b1 = this->find_biome (closest.recs[0].val);
+				biome_generator *b2 = this->find_biome (closest.recs[1].val);
+				if (b1 == b2)
+					return b1->generate (x, y, z); // no need to interpolate between identical biomes
+				
+				double b1_v = _sample (b1, x, y, z);
+				double b2_v = _sample (b2, x, y, z);
+				double t = 0.5 + mdist * (0.5 / this->edge_falloff);
+				
+				return h_noise::lerp (b1_v, b2_v, t);
+	    }
+	  
+	  biome_generator *b = this->find_biome (closest.recs[0].val);
+		return b->generate (x, y, z);
+		*/
+	  
+	  /*
+	  //GENERAL: BAD
+	  double v = 0.0;
+	  int count = 0;
+	  for (int i = 0; i < closest.count; ++i)
+	    {
+	      seed_record rec_a = closest.recs[i];
+	      for (int j = i + 1; j < closest.count; ++j)
+          {
+            seed_record rec_b = closest.recs[j];
+            double mdist = rec_a.dist - rec_b.dist;
+            if (std::abs (mdist) < this->edge_falloff)
+              {
+                biome_generator *b1 = this->find_biome (rec_a.val);
+			          biome_generator *b2 = this->find_biome (rec_b.val);
+			          if (b1 && b2)
+			            {
+			              double b1_v = _sample (b1, x, y, z);
+			              double b2_v = _sample (b2, x, y, z);
+			              double t = 0.5 + mdist * (0.5 / this->edge_falloff);
+			              
+			              v += h_noise::lerp (b1_v, b2_v, t);
+			              ++ count;
+			            }
+              }
+          }
+	    }
+	  
+	  if (count == 0)
+	    {
+	      biome_generator *b = this->find_biome (closest.recs[0].val);
+		    return b->generate (x, y, z);
+	    }
+	  
+	  // average
+	  v /= (double)count;
+	  return v;
+	  */
+	  
+	  /*
 		auto closest = _closest_voronoi_seeds (x, z, this->gen_seed, BIOME_SIZE);
 		double mdist = closest.first.dist - closest.second.dist;
 		if (std::abs (mdist) < this->edge_falloff)
@@ -285,11 +467,11 @@ namespace hCraft {
 				if (b1 == b2)
 					return b1->generate (x, y, z); // no need to interpolate between identical biomes
 				
-				double b1_v = b1->generate (x, y, z);
-				double b2_v = b2->generate (x, y, z);
+				double b1_v = _sample (b1, x, y, z);
+				double b2_v = _sample (b2, x, y, z);
 				double t = 0.5 + mdist * (0.5 / this->edge_falloff);
 				
-				// interpolating between 2d and 3d biomes is a little more involved...
+				// interpolating between 2d and 3d biomes is a bit more involved...
 				if (!b2->is_3d ())
 					{
 						double t2 = std::abs (mdist) * (1.0 / this->edge_falloff);
@@ -328,6 +510,7 @@ namespace hCraft {
 		
 		biome_generator *b = this->find_biome (closest.first.val);
 		return b->generate (x, y, z);
+		*/
 	}
 	
 	
@@ -373,7 +556,7 @@ namespace hCraft {
 					zz = (cz << 4) | z;
 					
 					b = this->find_biome (
-						_closest_voronoi_seeds (xx, zz, this->gen_seed, BIOME_SIZE).first.val);
+						_closest_voronoi_seeds (xx, zz, this->gen_seed, BIOME_SIZE).recs[0].val);
 					if (b->is_3d ())
 						{
 							ymin = b->min_y ();
@@ -422,6 +605,11 @@ namespace hCraft {
 	biome_selector::seed (long seed)
 	{
 		this->gen_seed = seed;
+		
+		for (biome_info bi : this->biomes)
+		  {
+		    bi.bgen->seed (seed);
+		  }
 	}
 }
 

@@ -42,7 +42,7 @@ namespace hCraft {
 	#define HW_LAYER_PAGE_SIZE						 1024
 	#define HW_LAYER_PAGE_DATA_SIZE  			 1020
 	
-	#define HW_CURR_REV												4
+	#define HW_CURR_REV												5
 	
 	
 	inline int
@@ -1095,6 +1095,7 @@ namespace hCraft {
 		writer.write_byte (info.use_def_inv ? 1 : 0);
 		writer.write_long (info.time);
 		writer.write_byte (info.time_frozen ? 1 : 0);
+		writer.write_byte (info.pvp ? 1 : 0);
 		
 		writer.flush ();
 		this->inf = info;
@@ -1384,6 +1385,7 @@ namespace hCraft {
 		inf.use_def_inv = (reader.read_byte () != 0);
 		inf.time = reader.read_long ();
 		inf.time_frozen = (reader.read_byte () != 0);
+		inf.pvp = (reader.read_byte () != 0);
 	}
 	
 	static void
@@ -1893,6 +1895,8 @@ namespace hCraft {
 				
 				data_size += 2 + zn->get_enter_msg ().length ();
 				data_size += 2 + zn->get_leave_msg ().length ();
+				
+				data_size += 1; // pvp
 			}
 		
 		unsigned int n = 0;
@@ -1928,6 +1932,8 @@ namespace hCraft {
 				
 				n += _write_string (data + n, zn->get_enter_msg ());
 				n += _write_string (data + n, zn->get_leave_msg ());
+				
+				data[n++] = zn->pvp_enabled () ? 1 : 0;
 			}
 		
 		this->write_layer ("zones", data, data_size);
@@ -1977,6 +1983,8 @@ namespace hCraft {
 				enter_msg = _read_string (data + n, n);
 				leave_msg = _read_string (data + n, n);
 				
+			  bool pvp = (data[n++] != 0);
+				
 				if (sel)
 					{
 						zone *zn = new zone (name, sel);
@@ -1990,6 +1998,11 @@ namespace hCraft {
 							zn->get_security ().add_owner (pid);
 						for (int pid : members)
 							zn->get_security ().add_member (pid);
+						
+						if (pvp)
+						  zn->enable_pvp ();
+						else
+						  zn->disable_pvp ();
 						
 						zones.push_back (zn);
 					}

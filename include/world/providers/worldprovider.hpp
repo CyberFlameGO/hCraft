@@ -44,6 +44,7 @@ namespace hCraft {
 		std::string def_gm;
 		std::string def_inv;
 		bool use_def_inv;
+		bool pvp;
 		
 		long long time;
 		bool time_frozen;

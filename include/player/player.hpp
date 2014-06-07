@@ -196,7 +196,6 @@ namespace hCraft {
 		int ping_time_ms;
 		int keep_alives_received;
 		
-		world *curr_world;
 		chunk_pos chcurr;
 		std::mutex world_lock;
 		bool joining_world;
@@ -216,6 +215,7 @@ namespace hCraft {
 		std::chrono::steady_clock::time_point last_tick;
 		std::chrono::steady_clock::time_point last_heart_regen;
 		std::chrono::steady_clock::time_point last_portal_use;
+		std::chrono::steady_clock::time_point last_hit;
 		std::chrono::milliseconds heal_delay;
 		long long tick_counter;
 		std::queue<std::chrono::steady_clock::time_point> chat_spam_log;
@@ -285,6 +285,7 @@ namespace hCraft {
 		// state: play
 		static int handle_pl_packet_00 (player *pl, packet_reader reader);
 		static int handle_pl_packet_01 (player *pl, packet_reader reader);
+		static int handle_pl_packet_02 (player *pl, packet_reader reader);
 		static int handle_pl_packet_03 (player *pl, packet_reader reader);
 		static int handle_pl_packet_04 (player *pl, packet_reader reader);
 		static int handle_pl_packet_05 (player *pl, packet_reader reader);
@@ -385,7 +386,6 @@ namespace hCraft {
 		inline std::chrono::time_point<std::chrono::system_clock> disconnection_time ()
 			{ return this->fail_time; }
 		
-		inline world* get_world () { return this->curr_world; }
 		inline std::mutex& get_world_lock () { return this->world_lock; }
 		static constexpr int chunk_radius () { return 5; }
 		
@@ -401,6 +401,9 @@ namespace hCraft {
 		inline bool has_logged_in () { return this->logged_in; }
 		
 		virtual entity_type get_type () { return ET_PLAYER; }
+		virtual double get_width () const override { return 1.0; }
+		virtual double get_height () const override { return 2.0; }
+		virtual double get_depth () const override { return 1.0; }
 		
 	public:
 		/* 
@@ -506,11 +509,6 @@ namespace hCraft {
 		 * Teleports the player to the given position.
 		 */
 		void teleport_to (entity_pos dest);
-		
-		/* 
-		 * Checks whether this player can be seen by player @{pl}.
-		 */
-		bool visible_to (player *pl);
 		
 		
 		

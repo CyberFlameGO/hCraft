@@ -101,13 +101,8 @@ namespace hCraft {
 	{
 		if (!valid)
 			return false;
-		
-		// fall if possible
-		if (w.get_id ((int)this->pos.x, (int)(this->pos.y - 0.1), (int)this->pos.z)
-			== BT_AIR) // TODO: fall through any transparent block
-			{
-				this->pos.y -= 0.1;
-			}
+		if (entity::tick (w))
+		  return true;
 		
 		if (!pickable ())
 			return false;
@@ -142,7 +137,9 @@ namespace hCraft {
 		int r = pl->inv.add (this->data);
 		if (r == 0)
 			{
-				pl->send (packets::play::make_collect_item (this->eid, pl->get_eid ()));
+			  w.get_players ().send_to_all_visible (
+			    packets::play::make_collect_item (this->eid, pl->get_eid ()),
+			    this);
 			}
 		
 		this->data.set_amount (r);
