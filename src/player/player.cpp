@@ -3062,7 +3062,7 @@ namespace hCraft {
 				return -1;
 			}
 		
-		///*
+		/*
 		// Used when testing
 		{
 			static const char *names[] =
