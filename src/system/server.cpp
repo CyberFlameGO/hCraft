@@ -172,7 +172,7 @@ namespace hCraft {
 		while (!event_base_got_break (w->evbase))
 			{
 				event_base_loop (w->evbase, EVLOOP_NONBLOCK);
-				std::this_thread::sleep_for (std::chrono::milliseconds (1));
+				std::this_thread::sleep_for (std::chrono::milliseconds (3));
 			}
 	}
 	
