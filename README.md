@@ -1,12 +1,14 @@
+![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
+
 hCraft
 ======
 
-![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
+NOTE
+====
 
-Public Test Server
-------------------
-
-A public test server is now live (devbox.hCraft.org:25565)!
+Development of hCraft has been stopped.
+In place of hCraft, development of a newer and (eventually) better custom
+server has begun - [hCraft 2](https://github.com/BizarreCake/hCraft-2)!
 
 What is hCraft?
 ---------------
