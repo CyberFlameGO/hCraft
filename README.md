@@ -1,7 +1,6 @@
-![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
-
 hCraft
 ======
+![hCraft](https://raw.github.com/BizarreCake/hCraft/master/etc/banner.png)
 
 NOTE
 ====
